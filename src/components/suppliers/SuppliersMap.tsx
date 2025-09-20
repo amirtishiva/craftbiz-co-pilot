@@ -21,8 +21,8 @@ import {
 
 const SuppliersMap: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedCity, setSelectedCity] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all-categories');
+  const [selectedCity, setSelectedCity] = useState('all-cities');
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
 
   const categories = [
@@ -117,8 +117,8 @@ const SuppliersMap: React.FC = () => {
   const filteredSuppliers = suppliers.filter(supplier => {
     const matchesSearch = supplier.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          supplier.specialties.some(spec => spec.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesCategory = !selectedCategory || supplier.category === selectedCategory;
-    const matchesCity = !selectedCity || supplier.city === selectedCity;
+    const matchesCategory = !selectedCategory || selectedCategory === 'all-categories' || supplier.category === selectedCategory;
+    const matchesCity = !selectedCity || selectedCity === 'all-cities' || supplier.city === selectedCity;
     
     return matchesSearch && matchesCategory && matchesCity;
   });
@@ -154,7 +154,7 @@ const SuppliersMap: React.FC = () => {
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Categories</SelectItem>
+                <SelectItem value="all-categories">All Categories</SelectItem>
                 {categories.map((category) => (
                   <SelectItem key={category} value={category}>
                     {category}
@@ -167,7 +167,7 @@ const SuppliersMap: React.FC = () => {
                 <SelectValue placeholder="City" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Cities</SelectItem>
+                <SelectItem value="all-cities">All Cities</SelectItem>
                 {cities.map((city) => (
                   <SelectItem key={city} value={city}>
                     {city}
