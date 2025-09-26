@@ -23,6 +23,13 @@ const DesignStudio: React.FC = () => {
   const [isGeneratingLogo, setIsGeneratingLogo] = useState(false);
   const [generatedLogos, setGeneratedLogos] = useState<any[]>([]);
   const [selectedLogo, setSelectedLogo] = useState<any>(null);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [activeTab, setActiveTab] = useState('logo');
+  const [customSceneDescription, setCustomSceneDescription] = useState('');
+  const [customSceneStyle, setCustomSceneStyle] = useState('Photographic');
+  const [customSceneRatio, setCustomSceneRatio] = useState('16:9 (Landscape)');
+  const [isGeneratingScene, setIsGeneratingScene] = useState(false);
+  const [generatedScenes, setGeneratedScenes] = useState<any[]>([]);
 
   const generateLogo = async () => {
     setIsGeneratingLogo(true);
@@ -60,6 +67,59 @@ const DesignStudio: React.FC = () => {
     }, 3000);
   };
 
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setUploadedFile(file);
+      // Set as selected logo for mockups
+      setSelectedLogo({
+        id: 'uploaded',
+        style: 'Uploaded Design',
+        description: 'Your uploaded logo',
+        file: file
+      });
+    }
+  };
+
+  const handleGoToLogoDesign = () => {
+    setActiveTab('logo');
+  };
+
+  const generateScene = async (templateId?: string) => {
+    setIsGeneratingScene(true);
+    
+    setTimeout(() => {
+      const sceneData = {
+        id: Date.now(),
+        type: templateId || 'custom',
+        description: templateId ? `${templateId} scene generated` : customSceneDescription,
+        style: customSceneStyle,
+        ratio: customSceneRatio,
+        url: '/api/placeholder/400/300'
+      };
+      
+      setGeneratedScenes(prev => [...prev, sceneData]);
+      setIsGeneratingScene(false);
+      
+      if (!templateId) {
+        setCustomSceneDescription('');
+      }
+    }, 2500);
+  };
+
+  const handleCustomSceneGenerate = () => {
+    if (customSceneDescription.trim()) {
+      generateScene();
+    }
+  };
+
+  const createMockup = (templateId: string) => {
+    if (selectedLogo) {
+      // Simulate mockup creation
+      alert(`Creating ${templateId} mockup with your selected logo!`);
+    }
+  };
+
   const mockupTemplates = [
     { id: 'tshirt', name: 'T-Shirt', icon: Shirt, category: 'Apparel' },
     { id: 'mug', name: 'Coffee Mug', icon: Coffee, category: 'Accessories' },
@@ -87,7 +147,7 @@ const DesignStudio: React.FC = () => {
         </p>
       </div>
 
-      <Tabs defaultValue="logo" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid grid-cols-3 w-full max-w-md mx-auto">
           <TabsTrigger value="logo">Logo Design</TabsTrigger>
           <TabsTrigger value="mockups">Mockups</TabsTrigger>
@@ -159,9 +219,21 @@ const DesignStudio: React.FC = () => {
                   <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                   <h3 className="text-lg font-semibold mb-2">Upload Your Logo</h3>
                   <p className="text-muted-foreground mb-4">
-                    Drag and drop your logo file here
+                    {uploadedFile ? `Uploaded: ${uploadedFile.name}` : 'Drag and drop your logo file here'}
                   </p>
-                  <Button variant="outline">Choose File</Button>
+                  <input
+                    type="file"
+                    id="logo-upload"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                  <Button 
+                    variant="outline" 
+                    onClick={() => document.getElementById('logo-upload')?.click()}
+                  >
+                    Choose File
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -229,10 +301,7 @@ const DesignStudio: React.FC = () => {
                   <p className="text-muted-foreground">
                     Generate or upload a logo first to create mockups
                   </p>
-                  <Button variant="warm" className="mt-4" onClick={() => {
-                    const logoTab = document.querySelector('[value="logo"]') as HTMLElement;
-                    logoTab?.click();
-                  }}>
+                  <Button variant="warm" className="mt-4" onClick={handleGoToLogoDesign}>
                     Go to Logo Design
                   </Button>
                 </div>
@@ -246,7 +315,12 @@ const DesignStudio: React.FC = () => {
                           <Icon className="h-12 w-12 mx-auto mb-3 text-accent-orange" />
                           <h4 className="font-semibold mb-1">{template.name}</h4>
                           <p className="text-xs text-muted-foreground mb-3">{template.category}</p>
-                          <Button size="sm" variant="warm" className="w-full">
+                          <Button 
+                            size="sm" 
+                            variant="warm" 
+                            className="w-full"
+                            onClick={() => createMockup(template.id)}
+                          >
                             Create Mockup
                           </Button>
                         </CardContent>
@@ -278,8 +352,14 @@ const DesignStudio: React.FC = () => {
                     <CardContent className="pt-6">
                       <h4 className="font-semibold mb-2">{scene.name}</h4>
                       <p className="text-sm text-muted-foreground mb-4">{scene.description}</p>
-                      <Button variant="warm" size="sm" className="w-full">
-                        Generate Scene
+                      <Button 
+                        variant="warm" 
+                        size="sm" 
+                        className="w-full"
+                        onClick={() => generateScene(scene.id)}
+                        disabled={isGeneratingScene}
+                      >
+                        {isGeneratingScene ? 'Generating...' : 'Generate Scene'}
                       </Button>
                     </CardContent>
                   </Card>
@@ -293,12 +373,18 @@ const DesignStudio: React.FC = () => {
                     <Textarea
                       placeholder="Describe the scene you want to create (e.g., 'A cozy coffee shop with customers using handmade ceramic mugs')"
                       className="mt-2"
+                      value={customSceneDescription}
+                      onChange={(e) => setCustomSceneDescription(e.target.value)}
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-medium">Style</label>
-                      <select className="w-full mt-1 px-3 py-2 border border-input rounded-md">
+                      <select 
+                        className="w-full mt-1 px-3 py-2 border border-input rounded-md"
+                        value={customSceneStyle}
+                        onChange={(e) => setCustomSceneStyle(e.target.value)}
+                      >
                         <option>Photographic</option>
                         <option>Artistic</option>
                         <option>Minimalist</option>
@@ -307,7 +393,11 @@ const DesignStudio: React.FC = () => {
                     </div>
                     <div>
                       <label className="text-sm font-medium">Aspect Ratio</label>
-                      <select className="w-full mt-1 px-3 py-2 border border-input rounded-md">
+                      <select 
+                        className="w-full mt-1 px-3 py-2 border border-input rounded-md"
+                        value={customSceneRatio}
+                        onChange={(e) => setCustomSceneRatio(e.target.value)}
+                      >
                         <option>16:9 (Landscape)</option>
                         <option>1:1 (Square)</option>
                         <option>9:16 (Portrait)</option>
@@ -315,10 +405,43 @@ const DesignStudio: React.FC = () => {
                       </select>
                     </div>
                   </div>
-                  <Button variant="craft" className="w-full">
+                  <Button 
+                    variant="craft" 
+                    className="w-full"
+                    onClick={handleCustomSceneGenerate}
+                    disabled={isGeneratingScene || !customSceneDescription.trim()}
+                  >
                     <Wand2 className="mr-2 h-4 w-4" />
-                    Generate Custom Scene
+                    {isGeneratingScene ? 'Generating Scene...' : 'Generate Custom Scene'}
                   </Button>
+                  
+                  {/* Generated Scenes Display */}
+                  {generatedScenes.length > 0 && (
+                    <div className="mt-6 pt-6 border-t">
+                      <h4 className="font-semibold mb-4">Generated Scenes</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {generatedScenes.map((scene) => (
+                          <div key={scene.id} className="border border-border rounded-lg p-4">
+                            <div className="aspect-video bg-gray-100 rounded-lg mb-3 flex items-center justify-center">
+                              <span className="text-gray-500">Scene Preview</span>
+                            </div>
+                            <h5 className="font-medium mb-1">{scene.type === 'custom' ? 'Custom Scene' : scene.type}</h5>
+                            <p className="text-xs text-muted-foreground mb-2">{scene.description}</p>
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="outline" className="flex-1">
+                                <Download className="h-3 w-3 mr-1" />
+                                Download
+                              </Button>
+                              <Button size="sm" variant="outline" className="flex-1">
+                                <Eye className="h-3 w-3 mr-1" />
+                                View
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>

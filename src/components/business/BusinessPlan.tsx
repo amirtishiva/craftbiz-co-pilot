@@ -23,6 +23,7 @@ interface BusinessPlanProps {
 const BusinessPlan: React.FC<BusinessPlanProps> = ({ ideaData }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [businessPlan, setBusinessPlan] = useState<any>(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [financialData, setFinancialData] = useState({
     startupCost: '',
     monthlyExpenses: '',
@@ -45,6 +46,52 @@ const BusinessPlan: React.FC<BusinessPlanProps> = ({ ideaData }) => {
       });
       setIsGenerating(false);
     }, 3000);
+  };
+
+  const handleEditPlan = () => {
+    setIsEditing(!isEditing);
+  };
+
+  const handleDownloadPDF = () => {
+    // Create a simple text version for download
+    const planText = `
+BUSINESS PLAN
+=============
+
+Executive Summary:
+${businessPlan.executiveSummary}
+
+Market Analysis:
+${businessPlan.marketAnalysis}
+
+Business Model:
+${businessPlan.businessModel}
+
+Marketing Strategy:
+${businessPlan.marketingStrategy}
+
+Operations Planning:
+${businessPlan.operationsPlanning}
+
+Financial Projections:
+${businessPlan.financialProjections}
+
+Financial Calculator Results:
+- Monthly Revenue: ₹${projections.monthlyRevenue.toLocaleString()}
+- Monthly Profit: ₹${projections.monthlyProfit.toLocaleString()}
+- Break-even Period: ${projections.breakEvenMonths} months
+- Yearly Revenue: ₹${projections.yearlyRevenue.toLocaleString()}
+    `;
+
+    const blob = new Blob([planText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'business-plan.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const calculateProjections = () => {
@@ -142,11 +189,11 @@ const BusinessPlan: React.FC<BusinessPlanProps> = ({ ideaData }) => {
               <p className="text-muted-foreground">Generated for: {ideaData?.type || 'Your Business'}</p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline">
+              <Button variant="outline" onClick={handleEditPlan}>
                 <Edit className="mr-2 h-4 w-4" />
-                Edit Plan
+                {isEditing ? 'Save Changes' : 'Edit Plan'}
               </Button>
-              <Button variant="craft">
+              <Button variant="craft" onClick={handleDownloadPDF}>
                 <Download className="mr-2 h-4 w-4" />
                 Download PDF
               </Button>

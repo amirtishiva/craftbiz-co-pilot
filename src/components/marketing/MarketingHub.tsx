@@ -25,6 +25,8 @@ const MarketingHub: React.FC = () => {
   const [contentPrompt, setContentPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedContent, setGeneratedContent] = useState<any[]>([]);
+  const [previewContent, setPreviewContent] = useState<any>(null);
+  const [showPreview, setShowPreview] = useState(false);
 
   const generateContent = async () => {
     setIsGenerating(true);
@@ -86,6 +88,32 @@ When technology meets tradition, everyone wins. Artisans earn fair wages, custom
       setGeneratedContent(content);
       setIsGenerating(false);
     }, 2500);
+  };
+
+  const handlePreviewContent = (content: any) => {
+    setPreviewContent(content);
+    setShowPreview(true);
+  };
+
+  const handleCopyContent = (content: string) => {
+    navigator.clipboard.writeText(content);
+    alert('Content copied to clipboard!');
+  };
+
+  const handleEditContent = (content: any) => {
+    setContentPrompt(content.content);
+    setShowPreview(false);
+  };
+
+  const handleShareContent = (content: any) => {
+    if (navigator.share) {
+      navigator.share({
+        title: `${content.type} Content`,
+        text: content.content,
+      });
+    } else {
+      handleCopyContent(content.content);
+    }
   };
 
   const marketingTools = [
@@ -288,13 +316,25 @@ When technology meets tradition, everyone wins. Artisans earn fair wages, custom
                           </span>
                         </div>
                         <div className="flex gap-2">
-                          <Button size="sm" variant="ghost">
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            onClick={() => handleEditContent(content)}
+                          >
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button size="sm" variant="ghost">
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            onClick={() => handleCopyContent(content.content)}
+                          >
                             <Copy className="h-4 w-4" />
                           </Button>
-                          <Button size="sm" variant="ghost">
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            onClick={() => handleShareContent(content)}
+                          >
                             <Share2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -404,10 +444,66 @@ When technology meets tradition, everyone wins. Artisans earn fair wages, custom
               <p className="text-muted-foreground mb-4">
                 Generate marketing posters, social media graphics, and promotional materials
               </p>
-              <Button variant="warm">
+              <Button 
+                variant="warm"
+                onClick={() => {
+                  if (generatedContent.length > 0) {
+                    handlePreviewContent(generatedContent[0]);
+                  } else {
+                    alert('Generate some content first to see the preview feature!');
+                  }
+                }}
+              >
                 <Eye className="mr-2 h-4 w-4" />
                 Preview Feature
               </Button>
+              
+              {/* Preview Modal */}
+              {showPreview && previewContent && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                  <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-semibold">Content Preview</h3>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => setShowPreview(false)}
+                      >
+                        ×
+                      </Button>
+                    </div>
+                    <div className="mb-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-medium">{previewContent.type}</span>
+                        <span className="text-sm bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                          {previewContent.platform}
+                        </span>
+                      </div>
+                      <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                        <div className="whitespace-pre-line text-sm">
+                          {previewContent.content}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <Button 
+                        variant="outline"
+                        onClick={() => handleCopyContent(previewContent.content)}
+                      >
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy
+                      </Button>
+                      <Button 
+                        variant="craft"
+                        onClick={() => handleShareContent(previewContent)}
+                      >
+                        <Share2 className="h-4 w-4 mr-2" />
+                        Share
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
