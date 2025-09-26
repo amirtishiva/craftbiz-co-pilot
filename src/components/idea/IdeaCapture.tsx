@@ -14,6 +14,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import DocumentUpload from './DocumentUpload';
 
 interface IdeaCaptureProps {
   onIdeaSubmit: (idea: any) => void;
@@ -26,6 +27,11 @@ const IdeaCapture: React.FC<IdeaCaptureProps> = ({ onIdeaSubmit }) => {
   const [businessType, setBusinessType] = useState('');
   const [language, setLanguage] = useState('en');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [documentData, setDocumentData] = useState<{
+    originalContent: string;
+    originalLanguage: string;
+    englishContent: string;
+  } | null>(null);
   const { toast } = useToast();
 
   const businessTypes = [
@@ -74,8 +80,21 @@ const IdeaCapture: React.FC<IdeaCaptureProps> = ({ onIdeaSubmit }) => {
     }
   };
 
+  const handleDocumentContent = (originalContent: string, originalLanguage: string, englishContent: string) => {
+    setDocumentData({ originalContent, originalLanguage, englishContent });
+    setBusinessIdea(englishContent);
+    setLanguage(originalLanguage);
+    
+    toast({
+      title: "Document Processed Successfully!",
+      description: "Content has been refined and is ready for business plan generation.",
+    });
+  };
+
   const handleSubmit = async () => {
-    if (!businessIdea.trim() || !businessType) {
+    const contentToSubmit = documentData?.englishContent || businessIdea;
+    
+    if (!contentToSubmit.trim() || !businessType) {
       toast({
         title: "Missing Information",
         description: "Please provide your business idea and select a business type.",
@@ -86,13 +105,17 @@ const IdeaCapture: React.FC<IdeaCaptureProps> = ({ onIdeaSubmit }) => {
 
     setIsProcessing(true);
     
-    // Simulate AI processing
+    // Simulate AI processing with enhanced data
     setTimeout(() => {
       const ideaData = {
-        idea: businessIdea,
+        idea: contentToSubmit,
+        originalContent: documentData?.originalContent || businessIdea,
+        originalLanguage: documentData?.originalLanguage || language,
+        englishContent: documentData?.englishContent || businessIdea,
         type: businessType,
-        language: language,
+        language: documentData?.originalLanguage || language,
         timestamp: new Date().toISOString(),
+        isFromDocument: !!documentData,
       };
       
       onIdeaSubmit(ideaData);
@@ -100,7 +123,7 @@ const IdeaCapture: React.FC<IdeaCaptureProps> = ({ onIdeaSubmit }) => {
       
       toast({
         title: "Idea Captured Successfully!",
-        description: "Your business idea has been analyzed and saved.",
+        description: "Your business idea has been analyzed and a comprehensive business plan will be generated.",
       });
     }, 2000);
   };
@@ -250,14 +273,7 @@ const IdeaCapture: React.FC<IdeaCaptureProps> = ({ onIdeaSubmit }) => {
 
           {/* Upload Option */}
           {inputMethod === 'upload' && (
-            <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
-              <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-semibold mb-2">Upload Business Document</h3>
-              <p className="text-muted-foreground mb-4">
-                Drag and drop your business plan or idea document here
-              </p>
-              <Button variant="outline">Choose File</Button>
-            </div>
+            <DocumentUpload onContentExtracted={handleDocumentContent} />
           )}
 
           {/* Business Type Selection */}
@@ -281,13 +297,13 @@ const IdeaCapture: React.FC<IdeaCaptureProps> = ({ onIdeaSubmit }) => {
 
       {/* Submit Button */}
       <div className="text-center">
-        <Button 
-          variant="craft" 
-          size="xl" 
-          onClick={handleSubmit}
-          disabled={isProcessing || !businessIdea.trim() || !businessType}
-          className="group min-w-[200px]"
-        >
+          <Button 
+            variant="craft" 
+            size="xl" 
+            onClick={handleSubmit}
+            disabled={isProcessing || !(documentData?.englishContent || businessIdea.trim()) || !businessType}
+            className="group min-w-[200px]"
+          >
           {isProcessing ? (
             <>
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
