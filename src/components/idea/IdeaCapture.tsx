@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import DocumentUpload from './DocumentUpload';
-import VoiceWaveform from './VoiceWaveform';
 
 interface IdeaCaptureProps {
   onIdeaSubmit: (idea: any) => void;
@@ -228,7 +227,7 @@ const IdeaCapture: React.FC<IdeaCaptureProps> = ({ onIdeaSubmit }) => {
 
           {/* Voice Input */}
           {inputMethod === 'voice' && (
-            <div className="space-y-6">
+            <div className="space-y-4">
               <div className="text-center">
                 <Button
                   variant={isRecording ? "destructive" : "accent"}
@@ -250,18 +249,14 @@ const IdeaCapture: React.FC<IdeaCaptureProps> = ({ onIdeaSubmit }) => {
                 </Button>
               </div>
               
-              {/* Animated Waveform */}
-              <div className="relative">
-                <VoiceWaveform isRecording={isRecording} />
-                {isRecording && (
-                  <div className="absolute top-4 left-1/2 -translate-x-1/2">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-red-500/20 backdrop-blur-sm text-red-100 rounded-full border border-red-500/30">
-                      <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                      Listening...
-                    </div>
+              {isRecording && (
+                <div className="text-center">
+                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-red-50 text-red-700 rounded-full">
+                    <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                    Recording in progress...
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               {businessIdea && (
                 <div className="space-y-2">
