@@ -32,11 +32,12 @@ CraftBiz is a comprehensive AI-powered platform designed to help entrepreneurs t
 └─────────────────────────────────────────────────────────────┘
                             ↓↑
 ┌─────────────────────────────────────────────────────────────┐
-│                  AI Services Layer                           │
-│  - Lovable AI Gateway (Gemini 2.5 Flash)                   │
-│  - Document Processing (NLP)                                 │
-│  - Image Generation                                          │
-│  - Language Translation                                      │
+│                  AI & External Services Layer                │
+│  - OpenAI API (GPT-5 series, DALL-E)                        │
+│  - Google Maps APIs (Maps, Geocoding, Places, etc.)        │
+│  - Meta Graph API (Facebook, Instagram)                     │
+│  - Twitter/X API                                             │
+│  - LinkedIn API                                              │
 └─────────────────────────────────────────────────────────────┘
                             ↓↑
 ┌─────────────────────────────────────────────────────────────┐
@@ -71,15 +72,30 @@ CraftBiz is a comprehensive AI-powered platform designed to help entrepreneurs t
 - **API Gateway**: Supabase REST API
 
 #### AI & ML Services
-- **Primary AI**: Lovable AI Gateway
-  - google/gemini-2.5-flash (default model)
-  - google/gemini-2.5-pro (complex reasoning)
-  - google/gemini-2.5-flash-lite (simple tasks)
+- **Primary AI**: OpenAI API
+  - gpt-5-mini-2025-08-07 (default model - balanced performance)
+  - gpt-5-2025-08-07 (complex reasoning and business plans)
+  - gpt-5-nano-2025-08-07 (simple tasks like language detection)
+  - gpt-image-1 (DALL-E - image generation for logos, scenes, mockups)
 - **Document Processing**: 
   - mammoth (DOCX parsing)
   - pdfjs-dist (PDF parsing)
-- **Language Detection**: Built-in AI model capabilities
-- **Translation**: AI model translation capabilities
+- **Language Detection**: OpenAI GPT models
+- **Translation**: OpenAI GPT models
+
+#### Mapping & Location Services (Suppliers Module)
+- **Google Maps JavaScript API**: Interactive maps with supplier pins and routes
+- **Google Maps Geocoding API**: Address to coordinates conversion
+- **Google Maps Distance Matrix API**: Calculate distance and travel time
+- **Google Maps Directions API**: Turn-by-turn route navigation
+- **Google Places API**: Supplier business details, reviews, and ratings
+- **Google Maps Static API**: Static map image generation (optional)
+- **Google Maps URL Scheme**: Deep linking to Google Maps app
+
+#### Social Media Analytics (Marketing Hub)
+- **Meta Graph API**: Facebook and Instagram insights, engagement, and audience analytics
+- **Twitter/X API**: Tweet analytics, engagement metrics, and impressions
+- **LinkedIn API**: Company page analytics, post performance, and engagement data
 
 #### DevOps & Infrastructure
 - **Hosting**: Lovable Platform
@@ -842,6 +858,7 @@ try {
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: 2025-10-03  
-**Author**: CraftBiz Development Team
+**Document Version**: 2.0  
+**Last Updated**: 2025-10-14  
+**Author**: CraftBiz Development Team  
+**Changes**: Updated technical stack - OpenAI APIs for AI/Image Generation, Google Maps APIs for Suppliers, Social Media Analytics APIs for Marketing

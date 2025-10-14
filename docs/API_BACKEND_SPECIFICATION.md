@@ -384,9 +384,9 @@ serve(async (req) => {
   try {
     const { business_idea, business_type, language } = await req.json();
     
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    if (!OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY not configured');
     }
 
     const systemPrompt = `You are a business consultant creating comprehensive business plans.`;
@@ -406,18 +406,19 @@ Create a complete business plan with:
 
 Return the response as a JSON object with these fields.`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gpt-5-2025-08-07',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
+        max_completion_tokens: 4000,
         tools: [{
           type: "function",
           function: {
@@ -475,7 +476,13 @@ Return the response as a JSON object with these fields.`;
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      throw new Error(`AI API error: ${response.status}`);
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ error: "Payment required. Please add funds to your OpenAI account." }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      throw new Error(`OpenAI API error: ${response.status}`);
     }
 
     const data = await response.json();
@@ -589,7 +596,7 @@ Content-Type: application/json
 ```json
 {
   "business_plan_id": "uuid",
-  "prompt": "Modern, minimalist logo for handicraft marketplace",
+  "prompt": "Modern, minimalist logo for handicraft marketplace with vibrant colors",
   "style": "modern",
   "colors": ["#FF6B35", "#004E89"]
 }
@@ -604,12 +611,80 @@ Content-Type: application/json
     "asset_type": "logo",
     "file_url": "https://...",
     "file_path": "user-id/logos/logo-uuid.png",
+    "image_base64": "data:image/png;base64,...",
     "created_at": "2025-10-03T10:00:00Z"
   }
 }
 ```
 
-**Note**: Currently returns mock data. Future implementation will use image generation API.
+**Edge Function Implementation (OpenAI DALL-E)**:
+```typescript
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { business_plan_id, prompt, style } = await req.json();
+    
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    if (!OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY not configured');
+    }
+
+    const enhancedPrompt = `Create a professional ${style || 'modern'} logo: ${prompt}. High quality, vector style, transparent background, suitable for business branding.`;
+
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-image-1',
+        prompt: enhancedPrompt,
+        n: 1,
+        size: '1024x1024',
+        background: 'transparent',
+        output_format: 'png',
+        quality: 'high'
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const imageBase64 = data.data[0].b64_json;
+
+    // Upload to Supabase Storage
+    const fileName = `${crypto.randomUUID()}.png`;
+    const filePath = `${userId}/logos/${fileName}`;
+    
+    // Store in design_assets table
+    // Return response with file URL and base64
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        data: { 
+          image_base64: `data:image/png;base64,${imageBase64}`,
+          file_path: filePath 
+        } 
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  } catch (error) {
+    console.error('Error generating logo:', error);
+    return new Response(
+      JSON.stringify({ success: false, error: { message: error.message } }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});
+```
 
 ### 5.2 Generate Scene/Background
 
@@ -626,7 +701,9 @@ Content-Type: application/json
 {
   "business_plan_id": "uuid",
   "template": "office-workspace",
-  "custom_prompt": "Cozy artisan workshop with natural lighting"
+  "custom_prompt": "Cozy artisan workshop with natural lighting and handmade products",
+  "aspect_ratio": "16:9",
+  "style": "realistic"
 }
 ```
 
@@ -634,6 +711,7 @@ Content-Type: application/json
 - `office-workspace`
 - `retail-store`
 - `restaurant-interior`
+- `workshop-studio`
 - `custom` (requires custom_prompt)
 
 **Response**: `201 Created`
@@ -644,9 +722,69 @@ Content-Type: application/json
     "id": "uuid",
     "asset_type": "scene",
     "file_url": "https://...",
+    "image_base64": "data:image/png;base64,...",
     "template": "office-workspace"
   }
 }
+```
+
+**Edge Function Implementation (OpenAI DALL-E)**:
+```typescript
+serve(async (req) => {
+  try {
+    const { template, custom_prompt, aspect_ratio, style } = await req.json();
+    
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    
+    const templatePrompts = {
+      'office-workspace': 'Modern professional office workspace with natural lighting',
+      'retail-store': 'Attractive retail store interior with product displays',
+      'restaurant-interior': 'Elegant restaurant interior with ambient lighting',
+      'workshop-studio': 'Creative workshop studio with artisan tools and materials'
+    };
+    
+    const basePrompt = custom_prompt || templatePrompts[template];
+    const finalPrompt = `${basePrompt}. ${style || 'Photorealistic'} style, high quality, professional photography.`;
+    
+    const sizeMap = {
+      '16:9': '1792x1024',
+      '1:1': '1024x1024',
+      '9:16': '1024x1792'
+    };
+
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-image-1',
+        prompt: finalPrompt,
+        n: 1,
+        size: sizeMap[aspect_ratio] || '1024x1024',
+        output_format: 'png',
+        quality: 'high'
+      }),
+    });
+
+    const data = await response.json();
+    const imageBase64 = data.data[0].b64_json;
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        data: { image_base64: `data:image/png;base64,${imageBase64}` } 
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ success: false, error: { message: error.message } }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});
 ```
 
 ### 5.3 Generate Product Mockup
@@ -665,9 +803,19 @@ Content-Type: application/json
   "business_plan_id": "uuid",
   "product_type": "packaging",
   "brand_name": "CraftMarket",
-  "description": "Eco-friendly packaging for handmade products"
+  "description": "Eco-friendly packaging for handmade products",
+  "mockup_style": "t-shirt" 
 }
 ```
+
+**Product Types / Mockup Styles**:
+- `t-shirt`
+- `mug`
+- `phone-case`
+- `tote-bag`
+- `packaging`
+- `business-card`
+- `poster`
 
 **Response**: `201 Created`
 ```json
@@ -676,9 +824,56 @@ Content-Type: application/json
   "data": {
     "id": "uuid",
     "asset_type": "mockup",
-    "file_url": "https://..."
+    "file_url": "https://...",
+    "image_base64": "data:image/png;base64,...",
+    "mockup_style": "t-shirt"
   }
 }
+```
+
+**Edge Function Implementation (OpenAI DALL-E)**:
+```typescript
+serve(async (req) => {
+  try {
+    const { product_type, brand_name, description, mockup_style } = await req.json();
+    
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    
+    const prompt = `Professional product mockup of a ${mockup_style || product_type} featuring "${brand_name}" branding. ${description}. High quality, realistic product photography, clean background, professional lighting.`;
+
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-image-1',
+        prompt: prompt,
+        n: 1,
+        size: '1024x1024',
+        output_format: 'png',
+        quality: 'high'
+      }),
+    });
+
+    const data = await response.json();
+    const imageBase64 = data.data[0].b64_json;
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        data: { image_base64: `data:image/png;base64,${imageBase64}` } 
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ success: false, error: { message: error.message } }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});
 ```
 
 ### 5.4 Get Design Assets
@@ -783,7 +978,7 @@ Content-Type: application/json
 }
 ```
 
-**Edge Function Implementation**:
+**Edge Function Implementation (OpenAI GPT)**:
 ```typescript
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -793,7 +988,10 @@ serve(async (req) => {
   try {
     const { platform, content_type, business_name, business_description, tone, target_audience } = await req.json();
     
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    if (!OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY not configured');
+    }
     
     const platformLimits = {
       instagram: 2200,
@@ -818,18 +1016,19 @@ Generate:
 
 Return as JSON with fields: content, hashtags (array)`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gpt-5-mini-2025-08-07',
         messages: [
-          { role: 'system', content: 'You are a social media marketing expert.' },
+          { role: 'system', content: 'You are a social media marketing expert creating engaging content.' },
           { role: 'user', content: prompt }
         ],
+        max_completion_tokens: 1000,
         tools: [{
           type: "function",
           function: {
@@ -848,7 +1047,15 @@ Return as JSON with fields: content, hashtags (array)`;
       }),
     });
 
-    if (!response.ok) throw new Error('AI request failed');
+    if (!response.ok) {
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ error: "Rate limit exceeded" }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
 
     const data = await response.json();
     const result = JSON.parse(data.choices[0].message.tool_calls[0].function.arguments);
@@ -859,6 +1066,7 @@ Return as JSON with fields: content, hashtags (array)`;
     );
 
   } catch (error) {
+    console.error('Error generating marketing content:', error);
     return new Response(
       JSON.stringify({ success: false, error: { message: error.message } }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -1049,6 +1257,646 @@ create policy "Admins can insert suppliers"
 ```
 
 **Response**: `201 Created`
+
+### 7.5 Google Maps Integration APIs
+
+#### 7.5.1 Initialize Interactive Map (Google Maps JavaScript API)
+
+**Purpose**: Embed interactive maps displaying suppliers, user location, routes, and custom markers.
+
+**Frontend Implementation**:
+```typescript
+// Load Google Maps JavaScript API
+const initMap = (containerId: string, center: { lat: number; lng: number }) => {
+  const map = new google.maps.Map(document.getElementById(containerId), {
+    center: center,
+    zoom: 12,
+    mapId: 'YOUR_MAP_ID'
+  });
+  
+  return map;
+};
+
+// Add supplier markers
+const addSupplierMarker = (map: google.maps.Map, supplier: Supplier) => {
+  const marker = new google.maps.Marker({
+    position: { lat: supplier.lat, lng: supplier.lng },
+    map: map,
+    title: supplier.name,
+    icon: {
+      url: '/supplier-pin.png',
+      scaledSize: new google.maps.Size(40, 40)
+    }
+  });
+  
+  const infoWindow = new google.maps.InfoWindow({
+    content: `
+      <div>
+        <h3>${supplier.name}</h3>
+        <p>${supplier.category}</p>
+        <p>Rating: ${supplier.rating} ⭐</p>
+      </div>
+    `
+  });
+  
+  marker.addListener('click', () => {
+    infoWindow.open(map, marker);
+  });
+};
+```
+
+**Environment Variable Required**: `VITE_GOOGLE_MAPS_API_KEY`
+
+---
+
+#### 7.5.2 Geocode Supplier Address (Geocoding API)
+
+**Endpoint**: `POST /functions/v1/geocode-address`
+
+**Purpose**: Convert supplier addresses to latitude/longitude coordinates.
+
+**Headers**:
+```
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Request Body**:
+```json
+{
+  "address": "123 Main Street, Mumbai, Maharashtra, India"
+}
+```
+
+**Response**: `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "latitude": 19.0760,
+    "longitude": 72.8777,
+    "formatted_address": "123 Main St, Mumbai, Maharashtra 400001, India",
+    "place_id": "ChIJ..."
+  }
+}
+```
+
+**Edge Function Implementation**:
+```typescript
+serve(async (req) => {
+  try {
+    const { address } = await req.json();
+    const GOOGLE_MAPS_API_KEY = Deno.env.get('GOOGLE_MAPS_API_KEY');
+    
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.status === 'OK' && data.results.length > 0) {
+      const result = data.results[0];
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            latitude: result.geometry.location.lat,
+            longitude: result.geometry.location.lng,
+            formatted_address: result.formatted_address,
+            place_id: result.place_id
+          }
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    throw new Error('Geocoding failed');
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ success: false, error: { message: error.message } }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});
+```
+
+---
+
+#### 7.5.3 Calculate Distance & Travel Time (Distance Matrix API)
+
+**Endpoint**: `POST /functions/v1/calculate-distance`
+
+**Purpose**: Calculate travel distance and estimated time between user and supplier.
+
+**Request Body**:
+```json
+{
+  "origins": "19.0760,72.8777",
+  "destinations": "18.5204,73.8567",
+  "mode": "driving"
+}
+```
+
+**Modes**: `driving`, `walking`, `bicycling`, `transit`
+
+**Response**: `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "distance": {
+      "text": "150 km",
+      "value": 150000
+    },
+    "duration": {
+      "text": "2 hours 30 mins",
+      "value": 9000
+    },
+    "status": "OK"
+  }
+}
+```
+
+**Edge Function Implementation**:
+```typescript
+serve(async (req) => {
+  try {
+    const { origins, destinations, mode } = await req.json();
+    const GOOGLE_MAPS_API_KEY = Deno.env.get('GOOGLE_MAPS_API_KEY');
+    
+    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${origins}&destinations=${destinations}&mode=${mode || 'driving'}&key=${GOOGLE_MAPS_API_KEY}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.status === 'OK' && data.rows[0].elements[0].status === 'OK') {
+      const element = data.rows[0].elements[0];
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            distance: element.distance,
+            duration: element.duration,
+            status: 'OK'
+          }
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    throw new Error('Distance calculation failed');
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ success: false, error: { message: error.message } }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});
+```
+
+---
+
+#### 7.5.4 Get Turn-by-Turn Directions (Directions API)
+
+**Endpoint**: `POST /functions/v1/get-directions`
+
+**Purpose**: Retrieve detailed route with step-by-step navigation instructions.
+
+**Request Body**:
+```json
+{
+  "origin": "19.0760,72.8777",
+  "destination": "18.5204,73.8567",
+  "mode": "driving",
+  "alternatives": true
+}
+```
+
+**Response**: `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "routes": [
+      {
+        "summary": "NH 48",
+        "distance": "150 km",
+        "duration": "2 hours 30 mins",
+        "steps": [
+          {
+            "instruction": "Head north on Main St",
+            "distance": "500 m",
+            "duration": "2 mins"
+          }
+        ],
+        "polyline": "encoded_polyline_string"
+      }
+    ]
+  }
+}
+```
+
+**Edge Function Implementation**:
+```typescript
+serve(async (req) => {
+  try {
+    const { origin, destination, mode, alternatives } = await req.json();
+    const GOOGLE_MAPS_API_KEY = Deno.env.get('GOOGLE_MAPS_API_KEY');
+    
+    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&mode=${mode || 'driving'}&alternatives=${alternatives || false}&key=${GOOGLE_MAPS_API_KEY}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.status === 'OK' && data.routes.length > 0) {
+      const routes = data.routes.map(route => ({
+        summary: route.summary,
+        distance: route.legs[0].distance.text,
+        duration: route.legs[0].duration.text,
+        steps: route.legs[0].steps.map(step => ({
+          instruction: step.html_instructions.replace(/<[^>]*>/g, ''),
+          distance: step.distance.text,
+          duration: step.duration.text
+        })),
+        polyline: route.overview_polyline.points
+      }));
+      
+      return new Response(
+        JSON.stringify({ success: true, data: { routes } }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    throw new Error('Directions not found');
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ success: false, error: { message: error.message } }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});
+```
+
+---
+
+#### 7.5.5 Get Supplier Business Details (Places API)
+
+**Endpoint**: `POST /functions/v1/get-place-details`
+
+**Purpose**: Fetch supplier info, reviews, ratings, and photos from Google Places.
+
+**Request Body**:
+```json
+{
+  "place_id": "ChIJ...",
+  "fields": ["name", "rating", "reviews", "formatted_phone_number", "website", "photos"]
+}
+```
+
+**Response**: `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "name": "EcoPack India",
+    "rating": 4.5,
+    "user_ratings_total": 127,
+    "formatted_phone_number": "+91-22-12345678",
+    "website": "https://ecopack.in",
+    "reviews": [
+      {
+        "author_name": "John Doe",
+        "rating": 5,
+        "text": "Excellent service and quality!",
+        "time": 1234567890
+      }
+    ],
+    "photos": [
+      {
+        "photo_reference": "photo_ref_string",
+        "width": 4032,
+        "height": 3024
+      }
+    ]
+  }
+}
+```
+
+**Edge Function Implementation**:
+```typescript
+serve(async (req) => {
+  try {
+    const { place_id, fields } = await req.json();
+    const GOOGLE_MAPS_API_KEY = Deno.env.get('GOOGLE_MAPS_API_KEY');
+    
+    const fieldsParam = fields.join(',');
+    const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place_id}&fields=${fieldsParam}&key=${GOOGLE_MAPS_API_KEY}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.status === 'OK') {
+      return new Response(
+        JSON.stringify({ success: true, data: data.result }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    throw new Error('Place details not found');
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ success: false, error: { message: error.message } }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});
+```
+
+---
+
+#### 7.5.6 Generate Static Map Image (Static Maps API)
+
+**Endpoint**: `GET /functions/v1/static-map`
+
+**Purpose**: Generate static map images for previews.
+
+**Query Parameters**:
+- `center`: Center coordinates (e.g., `19.0760,72.8777`)
+- `zoom`: Zoom level (1-20)
+- `size`: Image size (e.g., `600x400`)
+- `markers`: Marker positions
+
+**Example**:
+```
+GET /functions/v1/static-map?center=19.0760,72.8777&zoom=12&size=600x400&markers=19.0760,72.8777
+```
+
+**Response**: Returns PNG image
+
+**Implementation**:
+```typescript
+serve(async (req) => {
+  const url = new URL(req.url);
+  const center = url.searchParams.get('center');
+  const zoom = url.searchParams.get('zoom') || '12';
+  const size = url.searchParams.get('size') || '600x400';
+  const markers = url.searchParams.get('markers');
+  
+  const GOOGLE_MAPS_API_KEY = Deno.env.get('GOOGLE_MAPS_API_KEY');
+  
+  const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${center}&zoom=${zoom}&size=${size}&markers=${markers}&key=${GOOGLE_MAPS_API_KEY}`;
+  
+  const response = await fetch(mapUrl);
+  const imageBuffer = await response.arrayBuffer();
+  
+  return new Response(imageBuffer, {
+    headers: { 'Content-Type': 'image/png' }
+  });
+});
+```
+
+---
+
+#### 7.5.7 Open Google Maps with Directions (URL Scheme)
+
+**Frontend Implementation**:
+```typescript
+const openGoogleMaps = (destination: string) => {
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  
+  if (isMobile) {
+    // Open Google Maps app
+    window.location.href = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}`;
+  } else {
+    // Open in new tab
+    window.open(
+      `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}`,
+      '_blank'
+    );
+  }
+};
+
+// Usage
+<Button onClick={() => openGoogleMaps('EcoPack India, Mumbai')}>
+  Get Directions
+</Button>
+```
+
+---
+
+### 7.6 Social Media Analytics APIs (Marketing Hub)
+
+#### 7.6.1 Get Facebook Page Insights (Meta Graph API)
+
+**Endpoint**: `POST /functions/v1/facebook-insights`
+
+**Purpose**: Fetch Facebook page analytics for optimal posting schedule.
+
+**Request Body**:
+```json
+{
+  "page_id": "123456789",
+  "metrics": ["page_impressions", "page_engaged_users", "page_fans_online_per_day"],
+  "period": "day",
+  "date_range": {
+    "since": "2025-10-01",
+    "until": "2025-10-31"
+  }
+}
+```
+
+**Response**: `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "optimal_posting_times": [
+      { "day": "Monday", "hour": 10, "engagement_rate": 8.5 },
+      { "day": "Wednesday", "hour": 14, "engagement_rate": 9.2 },
+      { "day": "Friday", "hour": 18, "engagement_rate": 10.1 }
+    ],
+    "best_days": ["Wednesday", "Friday", "Sunday"],
+    "peak_hours": [10, 14, 18, 20]
+  }
+}
+```
+
+**Edge Function Implementation**:
+```typescript
+serve(async (req) => {
+  try {
+    const { page_id, metrics, period, date_range } = await req.json();
+    const META_ACCESS_TOKEN = Deno.env.get('META_ACCESS_TOKEN');
+    
+    const metricsParam = metrics.join(',');
+    const url = `https://graph.facebook.com/v18.0/${page_id}/insights?metric=${metricsParam}&period=${period}&since=${date_range.since}&until=${date_range.until}&access_token=${META_ACCESS_TOKEN}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    // Process data to find optimal posting times
+    const optimalTimes = analyzeEngagementData(data);
+    
+    return new Response(
+      JSON.stringify({ success: true, data: optimalTimes }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ success: false, error: { message: error.message } }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});
+```
+
+---
+
+#### 7.6.2 Get Instagram Insights (Meta Graph API)
+
+**Endpoint**: `POST /functions/v1/instagram-insights`
+
+**Request Body**:
+```json
+{
+  "instagram_business_account_id": "123456789",
+  "metrics": ["reach", "impressions", "engagement"],
+  "period": "day"
+}
+```
+
+**Response**: Similar to Facebook insights with Instagram-specific metrics.
+
+---
+
+#### 7.6.3 Get Twitter/X Analytics (Twitter API)
+
+**Endpoint**: `POST /functions/v1/twitter-analytics`
+
+**Purpose**: Fetch Tweet engagement and audience activity for optimal posting.
+
+**Request Body**:
+```json
+{
+  "user_id": "12345",
+  "metrics": ["impressions", "engagements", "engagement_rate"],
+  "start_date": "2025-10-01",
+  "end_date": "2025-10-31"
+}
+```
+
+**Response**: `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "optimal_posting_times": [
+      { "day": "Tuesday", "hour": 9, "engagement_rate": 7.8 },
+      { "day": "Thursday", "hour": 12, "engagement_rate": 8.5 }
+    ],
+    "best_days": ["Tuesday", "Thursday", "Saturday"],
+    "peak_hours": [9, 12, 17]
+  }
+}
+```
+
+**Edge Function Implementation**:
+```typescript
+serve(async (req) => {
+  try {
+    const { user_id, metrics, start_date, end_date } = await req.json();
+    const TWITTER_BEARER_TOKEN = Deno.env.get('TWITTER_BEARER_TOKEN');
+    
+    const url = `https://api.twitter.com/2/users/${user_id}/tweets?tweet.fields=public_metrics&start_time=${start_date}&end_time=${end_date}`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${TWITTER_BEARER_TOKEN}`
+      }
+    });
+    
+    const data = await response.json();
+    
+    // Analyze tweet performance by day and hour
+    const optimalTimes = analyzeTweetEngagement(data);
+    
+    return new Response(
+      JSON.stringify({ success: true, data: optimalTimes }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ success: false, error: { message: error.message } }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});
+```
+
+---
+
+#### 7.6.4 Get LinkedIn Analytics (LinkedIn API)
+
+**Endpoint**: `POST /functions/v1/linkedin-analytics`
+
+**Request Body**:
+```json
+{
+  "organization_id": "12345678",
+  "time_range": {
+    "start": 1633046400000,
+    "end": 1635724800000
+  }
+}
+```
+
+**Response**: `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "optimal_posting_times": [
+      { "day": "Tuesday", "hour": 8, "engagement_rate": 9.5 },
+      { "day": "Wednesday", "hour": 11, "engagement_rate": 10.2 }
+    ],
+    "best_days": ["Tuesday", "Wednesday", "Thursday"],
+    "peak_hours": [8, 11, 15]
+  }
+}
+```
+
+**Edge Function Implementation**:
+```typescript
+serve(async (req) => {
+  try {
+    const { organization_id, time_range } = await req.json();
+    const LINKEDIN_ACCESS_TOKEN = Deno.env.get('LINKEDIN_ACCESS_TOKEN');
+    
+    const url = `https://api.linkedin.com/v2/organizationalEntityShareStatistics?q=organizationalEntity&organizationalEntity=urn:li:organization:${organization_id}&timeIntervals.timeRange.start=${time_range.start}&timeIntervals.timeRange.end=${time_range.end}`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${LINKEDIN_ACCESS_TOKEN}`,
+        'X-Restli-Protocol-Version': '2.0.0'
+      }
+    });
+    
+    const data = await response.json();
+    
+    // Analyze post performance
+    const optimalTimes = analyzeLinkedInEngagement(data);
+    
+    return new Response(
+      JSON.stringify({ success: true, data: optimalTimes }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ success: false, error: { message: error.message } }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});
+```
 
 ---
 
@@ -1768,16 +2616,62 @@ $$;
 
 ### 14.1 Environment Variables
 
-**Required Secrets** (Supabase Secrets):
+**Required Backend Secrets** (Supabase Edge Function Secrets):
 ```bash
-LOVABLE_API_KEY=<auto-generated-by-lovable>
+# AI Services
+OPENAI_API_KEY=<your-openai-api-key>
+
+# Google Maps APIs (Suppliers Module)
+GOOGLE_MAPS_API_KEY=<your-google-maps-api-key>
+
+# Social Media Analytics (Marketing Hub)
+META_ACCESS_TOKEN=<your-meta-access-token>           # Facebook & Instagram
+TWITTER_BEARER_TOKEN=<your-twitter-bearer-token>     # Twitter/X
+LINKEDIN_ACCESS_TOKEN=<your-linkedin-access-token>   # LinkedIn
 ```
 
 **Client-Side Variables** (Available in frontend):
 ```bash
 VITE_SUPABASE_URL=https://[project-ref].supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=<your-anon-key>
+VITE_GOOGLE_MAPS_API_KEY=<your-google-maps-api-key>  # For frontend map rendering
 ```
+
+**API Keys Setup Instructions**:
+
+1. **OpenAI API Key**: 
+   - Sign up at https://platform.openai.com/
+   - Navigate to API Keys section
+   - Create new secret key
+   - Add to Supabase Secrets as `OPENAI_API_KEY`
+
+2. **Google Maps API Key**:
+   - Go to Google Cloud Console: https://console.cloud.google.com/
+   - Create new project or select existing
+   - Enable APIs: Maps JavaScript API, Geocoding API, Distance Matrix API, Directions API, Places API, Static Maps API
+   - Create credentials (API Key)
+   - Add to Supabase Secrets as `GOOGLE_MAPS_API_KEY`
+   - Also add to `.env` as `VITE_GOOGLE_MAPS_API_KEY` for frontend
+
+3. **Meta Access Token** (Facebook & Instagram):
+   - Go to Meta for Developers: https://developers.facebook.com/
+   - Create app and configure Facebook/Instagram Graph API
+   - Generate long-lived Page Access Token
+   - Add to Supabase Secrets as `META_ACCESS_TOKEN`
+
+4. **Twitter Bearer Token**:
+   - Go to Twitter Developer Portal: https://developer.twitter.com/
+   - Create project and app
+   - Navigate to Keys and Tokens
+   - Generate Bearer Token
+   - Add to Supabase Secrets as `TWITTER_BEARER_TOKEN`
+
+5. **LinkedIn Access Token**:
+   - Go to LinkedIn Developers: https://www.linkedin.com/developers/
+   - Create app
+   - Request access to Marketing Developer Platform
+   - Generate OAuth 2.0 Access Token
+   - Add to Supabase Secrets as `LINKEDIN_ACCESS_TOKEN`
 
 ### 14.2 API Testing with cURL
 
@@ -1852,6 +2746,7 @@ Import this JSON into Postman:
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: 2025-10-03  
-**Author**: CraftBiz Development Team
+**Document Version**: 2.0  
+**Last Updated**: 2025-10-14  
+**Author**: CraftBiz Development Team  
+**Changes**: Migrated from Google Gemini to OpenAI APIs, Added Google Maps integration, Added Social Media Analytics APIs
