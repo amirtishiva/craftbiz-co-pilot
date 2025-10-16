@@ -150,6 +150,12 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onProductAnalyzed }) => {
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        // Explicitly play the video stream
+        try {
+          await videoRef.current.play();
+        } catch (playError) {
+          console.error('Video play error:', playError);
+        }
       }
       
       toast({
