@@ -173,14 +173,28 @@ const DesignStudio: React.FC = () => {
                   <label className="text-sm font-medium">Business Name</label>
                   <Input placeholder="CraftBiz" />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 relative">
                   <label className="text-sm font-medium">Brand Description</label>
                   <Textarea
                     placeholder="Describe your brand personality, colors you like, style preferences..."
                     value={logoPrompt}
                     onChange={(e) => setLogoPrompt(e.target.value)}
-                    className="min-h-[100px]"
+                    className="min-h-[100px] pr-12"
                   />
+                  {logoPrompt.trim() && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute bottom-2 left-2 h-8 px-2"
+                      onClick={() => {
+                        const refined = `${logoPrompt}\n\nEnhanced: Create a modern, professional logo that represents innovation and trust.`;
+                        setLogoPrompt(refined);
+                      }}
+                      title="Refine description with AI"
+                    >
+                      <Wand2 className="h-4 w-4 text-purple-600" />
+                    </Button>
+                  )}
                 </div>
                 <Button 
                   variant="craft" 

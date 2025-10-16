@@ -140,8 +140,16 @@ Authorization: Bearer <JWT_TOKEN>
 ```json
 {
   "content": "I want to start a handmade crafts marketplace...",
-  "original_language": "en",
-  "business_type": "E-commerce"
+  "business_type": "E-commerce",
+  "input_method": "text | voice | image",
+  "product_analysis": {
+    "product_type": "Handwoven Textile",
+    "materials": ["Natural Cotton", "Traditional Dyes"],
+    "style": "Traditional Indian Handloom",
+    "colors": ["Natural Beige", "Indigo Blue"],
+    "target_audience": "Urban eco-conscious customers",
+    "business_context": "Sustainable Fashion"
+  }
 }
 ```
 
@@ -151,8 +159,9 @@ Authorization: Bearer <JWT_TOKEN>
   "id": "uuid",
   "user_id": "uuid",
   "content": "...",
-  "original_language": "en",
   "business_type": "E-commerce",
+  "input_method": "image",
+  "product_analysis": {},
   "created_at": "2025-01-15T10:00:00Z"
 }
 ```
@@ -686,75 +695,199 @@ const details = data.result;
 
 ---
 
-## 8. Edge Functions
+## 8. AI Refinement & Analysis (Edge Functions)
 
-### 8.1 Document Processing (Edge Function)
-**Endpoint**: `POST /functions/v1/process-document`
+### 8.1 Refine Business Idea
+**Endpoint**: `POST /functions/v1/refine-idea`
 
-**Request**: Multipart form-data with file
+**Description**: Expand raw business idea into structured sections using AI.
 
-**Edge Function Flow**:
-```typescript
-// 1. Extract text
-let text = "";
-if (file.type === 'application/pdf') {
-  text = await extractPdfText(file);
-} else if (file.type.includes('wordprocessing')) {
-  text = await extractDocxText(file);
-} else {
-  text = await file.text();
+**Request**:
+```json
+{
+  "raw_idea": "I want to start an online marketplace for handmade crafts..."
 }
+```
 
-// 2. Detect language
-const detectResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+**Edge Function Implementation**:
+```typescript
+const response = await fetch("https://api.openai.com/v1/chat/completions", {
   method: "POST",
   headers: {
-    "Authorization": `Bearer ${OPENAI_API_KEY}`,
+    "Authorization": `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
     "Content-Type": "application/json"
   },
   body: JSON.stringify({
-    model: "gpt-5-nano-2025-08-07",
+    model: "gpt-5-2025-08-07",
+    messages: [
+      {
+        role: "system",
+        content: "Expand business ideas into structured plans with: Executive Summary, Business Goals, Market Overview, Operations Plan, and Financial Insights."
+      },
+      {
+        role: "user",
+        content: rawIdea
+      }
+    ],
+    max_completion_tokens: 1500
+  })
+});
+```
+
+**Response**: `200 OK`
+```json
+{
+  "refined_idea": "Full expanded text...",
+  "sections": {
+    "executive_summary": "...",
+    "business_goals": "...",
+    "market_overview": "...",
+    "operations_plan": "...",
+    "financial_insights": "..."
+  }
+}
+```
+
+### 8.2 Analyze Product Image
+**Endpoint**: `POST /functions/v1/analyze-product-image`
+
+**Description**: Use AI Vision (GPT-4o) to analyze product images and generate business context.
+
+**Request**: Multipart form-data with image file
+
+**Edge Function Implementation**:
+```typescript
+// Convert image to base64
+const arrayBuffer = await imageFile.arrayBuffer();
+const base64Image = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+
+const response = await fetch("https://api.openai.com/v1/chat/completions", {
+  method: "POST",
+  headers: {
+    "Authorization": `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    model: "gpt-4o",
     messages: [
       {
         role: "user",
-        content: `Detect language and return ISO 639-1 code only: ${text.substring(0, 500)}`
+        content: [
+          {
+            type: "text",
+            text: "Analyze this handcrafted product. Identify: product type, materials, style, colors, craftsmanship details, regional art style. Suggest business context and target audience for selling this product."
+          },
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:image/jpeg;base64,${base64Image}`
+            }
+          }
+        ]
       }
     ],
-    max_completion_tokens: 10
+    max_tokens: 1000
   })
 });
+```
 
-const detectedLanguage = (await detectResponse.json()).choices[0].message.content.trim();
+**Response**: `200 OK`
+```json
+{
+  "product_type": "Handwoven Textile / Fabric",
+  "materials": ["Natural Cotton", "Traditional Dyes", "Hand-spun Thread"],
+  "style": "Traditional Indian Handloom",
+  "colors": ["Natural Beige", "Indigo Blue", "Earth Tones"],
+  "target_audience": "Urban customers who prefer sustainable and eco-friendly products",
+  "business_context": "Sustainable Fashion / Ethnic Wear",
+  "suggested_business_idea": "A business selling eco-friendly handcrafted traditional textiles..."
+}
+```
 
-// 3. Translate if not English
-let englishText = text;
+### 8.3 Voice Transcription & Translation
+**Endpoint**: `POST /functions/v1/transcribe-voice`
+
+**Description**: Transcribe voice recording, detect language, and translate to English.
+
+**Request**: Multipart form-data with audio file
+
+**Edge Function Implementation**:
+```typescript
+// Step 1: Transcribe with Whisper
+const formData = new FormData();
+formData.append('file', audioFile);
+formData.append('model', 'whisper-1');
+
+const transcribeResponse = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+  method: "POST",
+  headers: {
+    "Authorization": `Bearer ${Deno.env.get('OPENAI_API_KEY')}`
+  },
+  body: formData
+});
+
+const { text: transcribedText } = await transcribeResponse.json();
+
+// Step 2: Detect language (simple pattern matching or AI)
+const detectedLanguage = detectLanguageFromText(transcribedText);
+
+// Step 3: Translate if not English
+let englishTranslation = transcribedText;
 if (detectedLanguage !== 'en') {
   const translateResponse = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${OPENAI_API_KEY}`,
+      "Authorization": `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
       model: "gpt-5-mini-2025-08-07",
       messages: [
         {
+          role: "system",
+          content: "Translate the following text to English. Preserve business context."
+        },
+        {
           role: "user",
-          content: `Translate to English, preserve business context:\n\n${text}`
+          content: transcribedText
         }
       ],
-      max_completion_tokens: 2000
+      max_completion_tokens: 1000
     })
   });
 
-  englishText = (await translateResponse.json()).choices[0].message.content;
+  const data = await translateResponse.json();
+  englishTranslation = data.choices[0].message.content;
 }
+```
 
-// 4. Refine for business use
-const refineResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+**Response**: `200 OK`
+```json
+{
+  "transcribed_text": "मैं हस्तनिर्मित शिल्प बेचना चाहता हूँ...",
+  "detected_language": "hi",
+  "english_translation": "I want to sell handmade crafts..."
+}
+```
+
+### 8.4 Refine Logo Description
+**Endpoint**: `POST /functions/v1/refine-logo-description`
+
+**Description**: Enhance brand description before logo generation.
+
+**Request**:
+```json
+{
+  "description": "Modern logo for crafts business"
+}
+```
+
+**Edge Function Implementation**:
+```typescript
+const response = await fetch("https://api.openai.com/v1/chat/completions", {
   method: "POST",
   headers: {
-    "Authorization": `Bearer ${OPENAI_API_KEY}`,
+    "Authorization": `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
     "Content-Type": "application/json"
   },
   body: JSON.stringify({
@@ -762,27 +895,23 @@ const refineResponse = await fetch("https://api.openai.com/v1/chat/completions",
     messages: [
       {
         role: "system",
-        content: "Refine business idea: remove redundancy, fix grammar, simplify complex sentences."
+        content: "Enhance logo descriptions by adding creative details, style suggestions, and color recommendations."
       },
       {
         role: "user",
-        content: englishText
+        content: description
       }
     ],
-    max_completion_tokens: 1500
+    max_completion_tokens: 200
   })
 });
-
-const refinedText = (await refineResponse.json()).choices[0].message.content;
 ```
 
 **Response**: `200 OK`
 ```json
 {
-  "original_content": "मैं हस्तनिर्मित शिल्प के लिए एक ऑनलाइन बाज़ार शुरू करना चाहता हूँ...",
-  "original_language": "hi",
-  "english_content": "I want to start an online marketplace for handmade crafts...",
-  "refined_content": "An online marketplace connecting local artisans with customers..."
+  "original_description": "Modern logo for crafts business",
+  "refined_description": "Modern, minimalist logo for handmade crafts business. Incorporate warm earth tones (terracotta, ochre, natural beige). Clean sans-serif typography paired with handcrafted icon element. Professional yet artisanal feel."
 }
 ```
 

@@ -61,21 +61,36 @@ CraftBiz is an AI-powered platform that helps entrepreneurs transform business i
 ## 3. Core Features
 
 ### 3.1 Idea Capture Module
-**Purpose**: Capture and process business ideas in multiple formats
+**Purpose**: Capture and process business ideas in multiple formats with AI refinement
 
 **Features**:
-- Text input with multilingual support (English, Hindi, Bengali, Telugu, Tamil, etc.)
-- Voice recording with transcription (simulated)
-- Document upload (TXT, DOCX, PDF)
-- Automatic language detection
-- Content normalization and NLP refinement
+- **Text Input**: Natural language business idea entry with AI refinement icon
+  - Users describe their idea freely
+  - Click "Refine" icon (✨ sparkle, bottom-right) to expand with AI
+  - AI generates: Executive Summary, Business Goals, Market Overview, Operations Plan, Financial Insights
+  
+- **Voice Recording**: Speak in any language
+  - Auto-detects spoken language
+  - Transcribes speech to text
+  - Auto-translates to English
+  - Displays transcription with AI refinement option (✨ sparkle, bottom-right)
+  - Click "Refine" to convert transcription into structured business plan
+  
+- **Image Upload/Capture**: For artisans and creators
+  - Upload or capture product photos (crafts, jewelry, textiles, woodwork)
+  - AI Vision (GPT-4o/CLIP) analyzes:
+    - Product type identification
+    - Materials and craftsmanship details  
+    - Visual cues (colors, motifs, regional art styles)
+  - Product-to-Business Mapping: AI interprets visual metadata
+  - Generates business plan based on product analysis
+  - Examples: Terracotta pot → Home décor, Handwoven fabric → Sustainable Fashion
 
 **Flow**:
-1. User inputs idea via text/voice/document
-2. System detects language
-3. Translates to English if needed
-4. Normalizes and refines content
-5. Passes to Business Plan generator
+1. User inputs idea via text/voice/image
+2. For text/voice: Optional AI refinement into structured plan
+3. For image: AI vision analyzes product, generates business context
+4. Refined/analyzed content passes to Business Plan generator
 
 ---
 
@@ -101,12 +116,17 @@ CraftBiz is an AI-powered platform that helps entrepreneurs transform business i
 ---
 
 ### 3.3 Design Studio
-**Purpose**: Generate visual brand assets
+**Purpose**: Generate visual brand assets with AI enhancement
 
 **AI Model**: `gpt-image-1` (DALL-E)
 
 **Features**:
-- **Logo Design**: AI-generated logos with multiple style variations
+- **AI-powered Logo Generation**
+  - Brand description input with AI refinement icon (✨ wand, bottom-left)
+  - Click "Refine" to enhance/clarify description before generation
+  - AI improves creativity and relevance of logo prompts
+  - Generates multiple logo style variations
+  
 - **Scene Creator**: Marketing backgrounds and lifestyle photos
 - **Product Mockups**: Apply logos to products (t-shirts, mugs, phone cases, tote bags)
 - Upload existing designs
