@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -11,9 +11,11 @@ import {
   Eye,
   Sparkles,
   CheckCircle,
-  Video
+  Video,
+  Loader2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useCamera } from '@/hooks/useCamera';
 
 interface ImageUploadProps {
   onProductAnalyzed: (productData: any) => void;
@@ -36,10 +38,17 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onProductAnalyzed }) => {
   const [analysisStep, setAnalysisStep] = useState('');
   const [progress, setProgress] = useState(0);
   const [productAnalysis, setProductAnalysis] = useState<ProductAnalysis | null>(null);
-  const [isCameraActive, setIsCameraActive] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
   const { toast } = useToast();
+
+  const { videoRef, isActive: isCameraActive, isLoading: isCameraLoading, startCamera, stopCamera, captureImage } = useCamera({
+    onError: (error) => {
+      toast({
+        title: "Camera Access Denied",
+        description: "Please allow camera access to capture photos.",
+        variant: "destructive",
+      });
+    }
+  });
 
   const simulateImageAnalysis = async (): Promise<ProductAnalysis> => {
     // Step 1: Image Understanding
@@ -140,95 +149,71 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onProductAnalyzed }) => {
 
   const handleCameraCapture = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' },
-        audio: false 
-      });
-      
-      streamRef.current = stream;
-      setIsCameraActive(true);
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        // Explicitly play the video stream
-        try {
-          await videoRef.current.play();
-        } catch (playError) {
-          console.error('Video play error:', playError);
-        }
-      }
-      
+      await startCamera();
       toast({
         title: "Camera Ready",
         description: "Position your product and click Capture to take a photo.",
       });
     } catch (error) {
-      console.error('Camera access error:', error);
+      // Error is already handled by useCamera hook
+    }
+  };
+
+  const handleCapturePhoto = async () => {
+    const file = await captureImage();
+    
+    if (!file) {
       toast({
-        title: "Camera Access Denied",
-        description: "Please allow camera access to capture photos.",
+        title: "Capture Failed",
+        description: "Failed to capture photo. Please try again.",
         variant: "destructive",
       });
+      return;
     }
-  };
 
-  const capturePhoto = () => {
-    if (!videoRef.current) return;
-
-    const canvas = document.createElement('canvas');
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
-    const ctx = canvas.getContext('2d');
+    setUploadedImage(file);
     
-    if (ctx) {
-      ctx.drawImage(videoRef.current, 0, 0);
-      canvas.toBlob(async (blob) => {
-        if (blob) {
-          const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
-          setUploadedImage(file);
-          setImagePreview(canvas.toDataURL('image/jpeg'));
-          
-          stopCamera();
-          
-          // Start analysis
-          setIsAnalyzing(true);
-          setProgress(0);
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+    
+    stopCamera();
+    
+    // Start analysis
+    setIsAnalyzing(true);
+    setProgress(0);
 
-          try {
-            const analysis = await simulateImageAnalysis();
-            setProductAnalysis(analysis);
-            
-            toast({
-              title: "Product Analysis Complete!",
-              description: `Identified as ${analysis.productType}. Ready to generate business plan.`,
-            });
-          } catch (error) {
-            toast({
-              title: "Analysis Failed",
-              description: "Failed to analyze the product image. Please try again.",
-              variant: "destructive",
-            });
-            console.error('Analysis error:', error);
-          } finally {
-            setIsAnalyzing(false);
-            setProgress(0);
-            setAnalysisStep('');
-          }
-        }
-      }, 'image/jpeg', 0.95);
+    try {
+      const analysis = await simulateImageAnalysis();
+      setProductAnalysis(analysis);
+      
+      toast({
+        title: "Product Analysis Complete!",
+        description: `Identified as ${analysis.productType}. Ready to generate business plan.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Analysis Failed",
+        description: "Failed to analyze the product image. Please try again.",
+        variant: "destructive",
+      });
+      console.error('Analysis error:', error);
+    } finally {
+      setIsAnalyzing(false);
+      setProgress(0);
+      setAnalysisStep('');
     }
   };
 
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    setIsCameraActive(false);
+  const handleStopCamera = () => {
+    stopCamera();
   };
 
   const resetUpload = () => {
-    stopCamera();
+    handleStopCamera();
     setUploadedImage(null);
     setImagePreview('');
     setProductAnalysis(null);
@@ -309,7 +294,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onProductAnalyzed }) => {
                 <Video className="h-5 w-5 text-primary" />
                 <CardTitle>Camera Capture</CardTitle>
               </div>
-              <Button variant="outline" size="sm" onClick={stopCamera}>
+              <Button variant="outline" size="sm" onClick={handleStopCamera}>
                 <X className="h-4 w-4 mr-1" />
                 Cancel
               </Button>
@@ -319,19 +304,29 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onProductAnalyzed }) => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover"
-              />
-            </div>
+            {isCameraLoading ? (
+              <div className="relative aspect-video bg-black rounded-lg overflow-hidden flex items-center justify-center">
+                <div className="text-center text-white">
+                  <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                  <p>Initializing camera...</p>
+                </div>
+              </div>
+            ) : (
+              <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
             <Button
-              onClick={capturePhoto}
+              onClick={handleCapturePhoto}
               variant="craft"
               className="w-full"
+              disabled={isCameraLoading || !isCameraActive}
             >
               <Camera className="h-4 w-4 mr-2" />
               Capture Photo
