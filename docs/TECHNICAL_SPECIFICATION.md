@@ -79,12 +79,8 @@ CraftBiz is an AI-powered platform that helps entrepreneurs transform business i
   - Click "Refine" to convert transcription into structured business plan
   - No language selector required
   
-- **Image Upload/Capture**: For artisans and creators
-  - **Upload Mode**: Select existing product photos from device
-  - **Camera Mode**: Direct camera access via `navigator.mediaDevices.getUserMedia()`
-    - Works on both mobile and desktop browsers
-    - Live camera preview with capture button
-    - Captured photos processed through GPT-4o Vision pipeline
+- **Image Upload**: For artisans and creators
+  - Select existing product photos from device
   - AI Vision (GPT-4o) analyzes:
     - Product type identification
     - Materials and craftsmanship details  
@@ -97,12 +93,7 @@ CraftBiz is an AI-powered platform that helps entrepreneurs transform business i
 **Input Pipeline Flow**:
 1. **Text Pipeline**: Input → AI Refinement (optional) → Business Plan Generator
 2. **Voice Pipeline**: Record → Transcribe (Whisper) → Translate → AI Refinement (optional) → Business Plan Generator
-3. **Image Pipeline**: Upload/Capture → Vision Analysis (GPT-4o) → Product-to-Business Mapping → Business Plan Generator
-
-**Technical Implementation**:
-- Camera capture uses browser's native media APIs
-- All image sources (upload/camera) processed identically through Vision API
-- Consistent analysis output regardless of input source
+3. **Image Pipeline**: Upload → Vision Analysis (GPT-4o) → Product-to-Business Mapping → Business Plan Generator
 
 ---
 
@@ -357,7 +348,6 @@ LINKEDIN_ACCESS_TOKEN=AQV...
 - All user inputs validated with Zod schemas
 - Image upload limits (10MB max)
 - Allowed image types: PNG, JPG, JPEG, WEBP
-- Camera capture directly processed through browser MediaDevices API
 
 ---
 

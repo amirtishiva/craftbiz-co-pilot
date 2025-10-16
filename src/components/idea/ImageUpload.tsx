@@ -6,16 +6,12 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Upload, 
   Image as ImageIcon, 
-  Camera, 
   X, 
   Eye,
   Sparkles,
-  CheckCircle,
-  Video,
-  Loader2
+  CheckCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useCamera } from '@/hooks/useCamera';
 
 interface ImageUploadProps {
   onProductAnalyzed: (productData: any) => void;
@@ -39,16 +35,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onProductAnalyzed }) => {
   const [progress, setProgress] = useState(0);
   const [productAnalysis, setProductAnalysis] = useState<ProductAnalysis | null>(null);
   const { toast } = useToast();
-
-  const { videoRef, isActive: isCameraActive, isLoading: isCameraLoading, startCamera, stopCamera, captureImage } = useCamera({
-    onError: (error) => {
-      toast({
-        title: "Camera Access Denied",
-        description: "Please allow camera access to capture photos.",
-        variant: "destructive",
-      });
-    }
-  });
 
   const simulateImageAnalysis = async (): Promise<ProductAnalysis> => {
     // Step 1: Image Understanding
@@ -147,73 +133,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onProductAnalyzed }) => {
     }
   }, [toast]);
 
-  const handleCameraCapture = async () => {
-    try {
-      await startCamera();
-      toast({
-        title: "Camera Ready",
-        description: "Position your product and click Capture to take a photo.",
-      });
-    } catch (error) {
-      // Error is already handled by useCamera hook
-    }
-  };
-
-  const handleCapturePhoto = async () => {
-    const file = await captureImage();
-    
-    if (!file) {
-      toast({
-        title: "Capture Failed",
-        description: "Failed to capture photo. Please try again.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setUploadedImage(file);
-    
-    // Create preview
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setImagePreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-    
-    stopCamera();
-    
-    // Start analysis
-    setIsAnalyzing(true);
-    setProgress(0);
-
-    try {
-      const analysis = await simulateImageAnalysis();
-      setProductAnalysis(analysis);
-      
-      toast({
-        title: "Product Analysis Complete!",
-        description: `Identified as ${analysis.productType}. Ready to generate business plan.`,
-      });
-    } catch (error) {
-      toast({
-        title: "Analysis Failed",
-        description: "Failed to analyze the product image. Please try again.",
-        variant: "destructive",
-      });
-      console.error('Analysis error:', error);
-    } finally {
-      setIsAnalyzing(false);
-      setProgress(0);
-      setAnalysisStep('');
-    }
-  };
-
-  const handleStopCamera = () => {
-    stopCamera();
-  };
-
   const resetUpload = () => {
-    handleStopCamera();
     setUploadedImage(null);
     setImagePreview('');
     setProductAnalysis(null);
@@ -235,41 +155,31 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onProductAnalyzed }) => {
 
   return (
     <div className="space-y-6">
-      {!uploadedImage && !isCameraActive ? (
+      {!uploadedImage ? (
         <Card>
           <CardContent className="pt-6">
             <div className="space-y-4">
               {/* Upload Area */}
               <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
                 <ImageIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-semibold mb-2">Upload or Capture Product Image</h3>
+                <h3 className="text-lg font-semibold mb-2">Upload Product Image</h3>
                 <p className="text-muted-foreground mb-4">
-                  Upload an existing photo or use your camera to capture a new one
+                  Upload a photo of your product from your device
                 </p>
-                <div className="flex gap-3 justify-center flex-wrap">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                    id="image-upload"
-                  />
-                  <Button 
-                    variant="outline" 
-                    onClick={() => document.getElementById('image-upload')?.click()}
-                  >
-                    <Upload className="mr-2 h-4 w-4" />
-                    Upload Image
-                  </Button>
-                  
-                  <Button 
-                    variant="outline"
-                    onClick={handleCameraCapture}
-                  >
-                    <Camera className="mr-2 h-4 w-4" />
-                    Take Photo
-                  </Button>
-                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                  id="image-upload"
+                />
+                <Button 
+                  variant="outline" 
+                  onClick={() => document.getElementById('image-upload')?.click()}
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  Upload Image
+                </Button>
               </div>
 
               {/* Info Box */}
@@ -286,55 +196,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onProductAnalyzed }) => {
             </div>
           </CardContent>
         </Card>
-      ) : isCameraActive ? (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Video className="h-5 w-5 text-primary" />
-                <CardTitle>Camera Capture</CardTitle>
-              </div>
-              <Button variant="outline" size="sm" onClick={handleStopCamera}>
-                <X className="h-4 w-4 mr-1" />
-                Cancel
-              </Button>
-            </div>
-            <CardDescription>
-              Position your product in the frame and click Capture
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {isCameraLoading ? (
-              <div className="relative aspect-video bg-black rounded-lg overflow-hidden flex items-center justify-center">
-                <div className="text-center text-white">
-                  <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-                  <p>Initializing camera...</p>
-                </div>
-              </div>
-            ) : (
-              <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            )}
-            <Button
-              onClick={handleCapturePhoto}
-              variant="craft"
-              className="w-full"
-              disabled={isCameraLoading || !isCameraActive}
-            >
-              <Camera className="h-4 w-4 mr-2" />
-              Capture Photo
-            </Button>
-          </CardContent>
-        </Card>
       ) : (
-        uploadedImage && (
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -448,7 +310,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onProductAnalyzed }) => {
             )}
           </CardContent>
         </Card>
-        )
       )}
     </div>
   );

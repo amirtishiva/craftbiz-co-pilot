@@ -156,11 +156,10 @@ const handleVoiceRecording = async () => {
 
 ---
 
-## 3. Image Upload/Capture Pipeline
+## 3. Image Upload Pipeline
 
 ### User Flow
 
-#### Option A: Upload Existing Image
 1. User clicks "Upload Image" button
 2. File picker opens
 3. User selects product image (JPG, PNG, WEBP)
@@ -168,55 +167,6 @@ const handleVoiceRecording = async () => {
 5. AI Vision analyzes product
 6. Results displayed with suggested business idea
 7. Submit to generate full business plan
-
-#### Option B: Camera Capture
-1. User clicks "Take Photo" button
-2. **Browser requests camera permission**
-3. **Live camera preview displayed**
-4. User positions product in frame
-5. User clicks "Capture Photo" button
-6. **Frame captured to canvas → JPEG blob**
-7. **Camera stream stopped**
-8. AI Vision analyzes captured image
-9. Results displayed with suggested business idea
-10. Submit to generate full business plan
-
-### Camera Implementation Details
-
-#### Browser API
-```typescript
-// Request camera access
-const stream = await navigator.mediaDevices.getUserMedia({ 
-  video: { facingMode: 'environment' }, // Use back camera on mobile
-  audio: false 
-});
-
-// Attach stream to video element
-videoRef.current.srcObject = stream;
-
-// Capture frame
-const canvas = document.createElement('canvas');
-canvas.width = videoRef.current.videoWidth;
-canvas.height = videoRef.current.videoHeight;
-const ctx = canvas.getContext('2d');
-ctx.drawImage(videoRef.current, 0, 0);
-
-// Convert to blob
-canvas.toBlob((blob) => {
-  const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
-  // Process file...
-}, 'image/jpeg', 0.95);
-
-// Stop camera
-stream.getTracks().forEach(track => track.stop());
-```
-
-#### Component State
-```typescript
-const [isCameraActive, setIsCameraActive] = useState(false);
-const videoRef = useRef<HTMLVideoElement>(null);
-const streamRef = useRef<MediaStream | null>(null);
-```
 
 ### API Endpoint
 **Endpoint**: `POST /functions/v1/analyze-product-image`  
@@ -226,7 +176,7 @@ const streamRef = useRef<MediaStream | null>(null);
 ```json
 {
   "imageBase64": "data:image/jpeg;base64,/9j/4AAQSkZJRg...",
-  "source": "camera" // or "upload"
+  "source": "upload"
 }
 ```
 
@@ -247,71 +197,49 @@ const streamRef = useRef<MediaStream | null>(null);
 
 ### Frontend Implementation
 ```typescript
-const handleCameraCapture = async () => {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ 
-      video: { facingMode: 'environment' },
-      audio: false 
-    });
-    
-    streamRef.current = stream;
-    setIsCameraActive(true);
-    
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream;
-    }
-    
+const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  // Validate file type
+  if (!file.type.startsWith('image/')) {
     toast({
-      title: "Camera Ready",
-      description: "Position your product and click Capture.",
-    });
-  } catch (error) {
-    toast({
-      title: "Camera Access Denied",
-      description: "Please allow camera access to capture photos.",
+      title: "Invalid File Type",
+      description: "Please upload an image file (JPG, PNG, WEBP).",
       variant: "destructive",
     });
+    return;
   }
-};
 
-const capturePhoto = () => {
-  const canvas = document.createElement('canvas');
-  canvas.width = videoRef.current.videoWidth;
-  canvas.height = videoRef.current.videoHeight;
-  const ctx = canvas.getContext('2d');
+  // Validate file size (max 10MB)
+  if (file.size > 10 * 1024 * 1024) {
+    toast({
+      title: "File Too Large",
+      description: "Please upload an image smaller than 10MB.",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  // Convert to base64
+  const reader = new FileReader();
+  reader.onloadend = async () => {
+    const imageBase64 = reader.result as string;
+    
+    const { data, error } = await supabase.functions.invoke('analyze-product-image', {
+      body: { imageBase64, source: 'upload' }
+    });
+    
+    if (data) {
+      setProductAnalysis(data.analysis);
+      toast({
+        title: "Product Analysis Complete!",
+        description: `Identified as ${data.analysis.productType}.`,
+      });
+    }
+  };
   
-  if (ctx) {
-    ctx.drawImage(videoRef.current, 0, 0);
-    canvas.toBlob(async (blob) => {
-      if (blob) {
-        const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
-        const reader = new FileReader();
-        
-        reader.onloadend = async () => {
-          const imageBase64 = reader.result as string;
-          
-          const { data, error } = await supabase.functions.invoke('analyze-product-image', {
-            body: { imageBase64, source: 'camera' }
-          });
-          
-          if (data) {
-            setProductAnalysis(data.analysis);
-          }
-        };
-        
-        reader.readAsDataURL(file);
-        stopCamera();
-      }
-    }, 'image/jpeg', 0.95);
-  }
-};
-
-const stopCamera = () => {
-  if (streamRef.current) {
-    streamRef.current.getTracks().forEach(track => track.stop());
-    streamRef.current = null;
-  }
-  setIsCameraActive(false);
+  reader.readAsDataURL(file);
 };
 ```
 
@@ -378,33 +306,11 @@ const handleSubmit = async () => {
 - Minimum dimensions: 512x512px
 - Maximum dimensions: 4096x4096px
 
-### Camera Capture
-- Browser support check for `navigator.mediaDevices.getUserMedia()`
-- Permission handling with error messages
-- Auto-stop camera on component unmount
-- JPEG quality: 0.95 (95%)
-
 ---
 
 ## 6. Error Handling
 
 ### Common Errors
-
-#### Camera Access Denied
-```typescript
-{
-  type: "CAMERA_ACCESS_DENIED",
-  message: "Please allow camera access in your browser settings."
-}
-```
-
-#### Unsupported Browser
-```typescript
-{
-  type: "CAMERA_NOT_SUPPORTED",
-  message: "Your browser doesn't support camera capture. Please use upload instead."
-}
-```
 
 #### File Too Large
 ```typescript
@@ -426,13 +332,7 @@ const handleSubmit = async () => {
 
 ## 7. Performance Considerations
 
-### Camera Stream
-- Use `facingMode: 'environment'` for back camera on mobile
-- Always stop camera stream when done to free resources
-- Handle component unmount to prevent memory leaks
-
 ### Image Compression
-- Capture at 95% JPEG quality for balance
 - Consider client-side resize for very large images
 - Base64 encoding increases size by ~33%
 
@@ -445,27 +345,10 @@ const handleSubmit = async () => {
 
 ## 8. Browser Compatibility
 
-### Camera Capture Support
-- Chrome/Edge: ✅ Full support
-- Firefox: ✅ Full support
-- Safari (iOS/macOS): ✅ Full support
-- Opera: ✅ Full support
-- IE11: ❌ Not supported (use upload fallback)
-
-### Fallback Strategy
-```typescript
-const isCameraSupported = () => {
-  return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-};
-
-// Hide "Take Photo" button if not supported
-{isCameraSupported() && (
-  <Button onClick={handleCameraCapture}>
-    <Camera className="mr-2 h-4 w-4" />
-    Take Photo
-  </Button>
-)}
-```
+### Image Upload Support
+- All modern browsers support file input and FileReader API
+- Mobile devices can access photo library through file input
+- No additional permissions required
 
 ---
 
