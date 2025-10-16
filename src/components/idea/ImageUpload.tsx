@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -10,7 +10,8 @@ import {
   X, 
   Eye,
   Sparkles,
-  CheckCircle
+  CheckCircle,
+  Video
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -35,6 +36,9 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onProductAnalyzed }) => {
   const [analysisStep, setAnalysisStep] = useState('');
   const [progress, setProgress] = useState(0);
   const [productAnalysis, setProductAnalysis] = useState<ProductAnalysis | null>(null);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const { toast } = useToast();
 
   const simulateImageAnalysis = async (): Promise<ProductAnalysis> => {
@@ -134,13 +138,91 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onProductAnalyzed }) => {
     }
   }, [toast]);
 
-  const handleCameraCapture = () => {
-    // Trigger file input for camera capture on mobile
-    const input = document.getElementById('camera-capture') as HTMLInputElement;
-    input?.click();
+  const handleCameraCapture = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' },
+        audio: false 
+      });
+      
+      streamRef.current = stream;
+      setIsCameraActive(true);
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      
+      toast({
+        title: "Camera Ready",
+        description: "Position your product and click Capture to take a photo.",
+      });
+    } catch (error) {
+      console.error('Camera access error:', error);
+      toast({
+        title: "Camera Access Denied",
+        description: "Please allow camera access to capture photos.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const capturePhoto = () => {
+    if (!videoRef.current) return;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    const ctx = canvas.getContext('2d');
+    
+    if (ctx) {
+      ctx.drawImage(videoRef.current, 0, 0);
+      canvas.toBlob(async (blob) => {
+        if (blob) {
+          const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
+          setUploadedImage(file);
+          setImagePreview(canvas.toDataURL('image/jpeg'));
+          
+          stopCamera();
+          
+          // Start analysis
+          setIsAnalyzing(true);
+          setProgress(0);
+
+          try {
+            const analysis = await simulateImageAnalysis();
+            setProductAnalysis(analysis);
+            
+            toast({
+              title: "Product Analysis Complete!",
+              description: `Identified as ${analysis.productType}. Ready to generate business plan.`,
+            });
+          } catch (error) {
+            toast({
+              title: "Analysis Failed",
+              description: "Failed to analyze the product image. Please try again.",
+              variant: "destructive",
+            });
+            console.error('Analysis error:', error);
+          } finally {
+            setIsAnalyzing(false);
+            setProgress(0);
+            setAnalysisStep('');
+          }
+        }
+      }, 'image/jpeg', 0.95);
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setIsCameraActive(false);
   };
 
   const resetUpload = () => {
+    stopCamera();
     setUploadedImage(null);
     setImagePreview('');
     setProductAnalysis(null);
@@ -162,18 +244,18 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onProductAnalyzed }) => {
 
   return (
     <div className="space-y-6">
-      {!uploadedImage ? (
+      {!uploadedImage && !isCameraActive ? (
         <Card>
           <CardContent className="pt-6">
             <div className="space-y-4">
               {/* Upload Area */}
               <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
                 <ImageIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-semibold mb-2">Upload Product Image</h3>
+                <h3 className="text-lg font-semibold mb-2">Upload or Capture Product Image</h3>
                 <p className="text-muted-foreground mb-4">
-                  Upload or capture a photo of your handcrafted product
+                  Upload an existing photo or use your camera to capture a new one
                 </p>
-                <div className="flex gap-3 justify-center">
+                <div className="flex gap-3 justify-center flex-wrap">
                   <input
                     type="file"
                     accept="image/*"
@@ -189,14 +271,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onProductAnalyzed }) => {
                     Upload Image
                   </Button>
                   
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                    id="camera-capture"
-                  />
                   <Button 
                     variant="outline"
                     onClick={handleCameraCapture}
@@ -221,23 +295,60 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onProductAnalyzed }) => {
             </div>
           </CardContent>
         </Card>
-      ) : (
+      ) : isCameraActive ? (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-                <CardTitle>Product Image Analysis</CardTitle>
+                <Video className="h-5 w-5 text-primary" />
+                <CardTitle>Camera Capture</CardTitle>
               </div>
-              <Button variant="outline" size="sm" onClick={resetUpload}>
+              <Button variant="outline" size="sm" onClick={stopCamera}>
                 <X className="h-4 w-4 mr-1" />
-                Remove
+                Cancel
               </Button>
             </div>
             <CardDescription>
-              AI analysis of your product image
+              Position your product in the frame and click Capture
             </CardDescription>
           </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <Button
+              onClick={capturePhoto}
+              variant="craft"
+              className="w-full"
+            >
+              <Camera className="h-4 w-4 mr-2" />
+              Capture Photo
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        uploadedImage && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <CardTitle>Product Image Analysis</CardTitle>
+                </div>
+                <Button variant="outline" size="sm" onClick={resetUpload}>
+                  <X className="h-4 w-4 mr-1" />
+                  Remove
+                </Button>
+              </div>
+              <CardDescription>
+                AI analysis of your product image
+              </CardDescription>
+            </CardHeader>
           <CardContent className="space-y-6">
             {/* Image Preview */}
             <div className="flex items-start gap-4 p-3 bg-secondary rounded-lg">
@@ -335,6 +446,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onProductAnalyzed }) => {
             )}
           </CardContent>
         </Card>
+        )
       )}
     </div>
   );

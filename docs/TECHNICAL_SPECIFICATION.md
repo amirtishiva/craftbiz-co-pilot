@@ -26,7 +26,7 @@ CraftBiz is an AI-powered platform that helps entrepreneurs transform business i
 - **Forms**: React Hook Form + Zod
 - **Icons**: Lucide React
 - **Notifications**: Sonner
-- **Document Processing**: mammoth (DOCX), pdfjs-dist (PDF)
+
 
 #### Backend
 - **Runtime**: Deno (Supabase Edge Functions)
@@ -64,33 +64,45 @@ CraftBiz is an AI-powered platform that helps entrepreneurs transform business i
 **Purpose**: Capture and process business ideas in multiple formats with AI refinement
 
 **Features**:
-- **Text Input**: Natural language business idea entry with AI refinement icon
-  - Users describe their idea freely
+- **Text Input**: Natural language business idea entry with AI refinement
+  - Users describe their idea freely in natural language
   - Click "Refine" icon (✨ sparkle, bottom-right) to expand with AI
   - AI generates: Executive Summary, Business Goals, Market Overview, Operations Plan, Financial Insights
+  - No language selector - AI handles any input language
   
 - **Voice Recording**: Speak in any language
-  - Auto-detects spoken language
-  - Transcribes speech to text
-  - Auto-translates to English
+  - Click Record/Stop to capture voice input
+  - Auto-detects spoken language using `gpt-5-nano-2025-08-07`
+  - Transcribes speech to text using OpenAI Whisper
+  - Auto-translates to English using `gpt-5-mini-2025-08-07`
   - Displays transcription with AI refinement option (✨ sparkle, bottom-right)
   - Click "Refine" to convert transcription into structured business plan
+  - No language selector required
   
 - **Image Upload/Capture**: For artisans and creators
-  - Upload or capture product photos (crafts, jewelry, textiles, woodwork)
-  - AI Vision (GPT-4o/CLIP) analyzes:
+  - **Upload Mode**: Select existing product photos from device
+  - **Camera Mode**: Direct camera access via `navigator.mediaDevices.getUserMedia()`
+    - Works on both mobile and desktop browsers
+    - Live camera preview with capture button
+    - Captured photos processed through GPT-4o Vision pipeline
+  - AI Vision (GPT-4o) analyzes:
     - Product type identification
     - Materials and craftsmanship details  
     - Visual cues (colors, motifs, regional art styles)
+    - Style and target audience
   - Product-to-Business Mapping: AI interprets visual metadata
-  - Generates business plan based on product analysis
+  - Generates structured business plan based on product analysis
   - Examples: Terracotta pot → Home décor, Handwoven fabric → Sustainable Fashion
 
-**Flow**:
-1. User inputs idea via text/voice/image
-2. For text/voice: Optional AI refinement into structured plan
-3. For image: AI vision analyzes product, generates business context
-4. Refined/analyzed content passes to Business Plan generator
+**Input Pipeline Flow**:
+1. **Text Pipeline**: Input → AI Refinement (optional) → Business Plan Generator
+2. **Voice Pipeline**: Record → Transcribe (Whisper) → Translate → AI Refinement (optional) → Business Plan Generator
+3. **Image Pipeline**: Upload/Capture → Vision Analysis (GPT-4o) → Product-to-Business Mapping → Business Plan Generator
+
+**Technical Implementation**:
+- Camera capture uses browser's native media APIs
+- All image sources (upload/camera) processed identically through Vision API
+- Consistent analysis output regardless of input source
 
 ---
 
@@ -111,7 +123,6 @@ CraftBiz is an AI-powered platform that helps entrepreneurs transform business i
 - Financial calculator (startup costs, revenue, break-even)
 - Editable plan sections
 - PDF export
-- Multilingual input support
 
 ---
 
@@ -263,54 +274,44 @@ CraftBiz is an AI-powered platform that helps entrepreneurs transform business i
 **Input**: Logo file, product template type  
 **Output**: Composite mockup image
 
-### 5.6 process-document
-**Path**: `/functions/v1/process-document`  
-**Model**: `gpt-5-mini-2025-08-07` (translation), `gpt-5-nano-2025-08-07` (detection)  
-**Input**: Document file (TXT/DOCX/PDF)  
-**Processing**:
-1. Text extraction (mammoth/pdfjs)
-2. Language detection
-3. Translation to English
-4. NLP refinement
-**Output**: Original and refined English content
 
-### 5.7 detect-language
+### 5.6 detect-language
 **Path**: `/functions/v1/detect-language`  
 **Model**: `gpt-5-nano-2025-08-07`  
 **Input**: Text content  
 **Output**: ISO 639-1 language code
 
-### 5.8 translate-text
+### 5.7 translate-text
 **Path**: `/functions/v1/translate-text`  
 **Model**: `gpt-5-mini-2025-08-07`  
 **Input**: Text, source language, target language  
 **Output**: Translated text
 
-### 5.9 geocode-address
+### 5.8 geocode-address
 **Path**: `/functions/v1/geocode-address`  
 **API**: Google Maps Geocoding API  
 **Input**: Supplier address  
 **Output**: Latitude, longitude coordinates
 
-### 5.10 get-supplier-distance
+### 5.9 get-supplier-distance
 **Path**: `/functions/v1/get-supplier-distance`  
 **API**: Google Maps Distance Matrix API  
 **Input**: User location, supplier location  
 **Output**: Distance, travel time
 
-### 5.11 get-directions
+### 5.10 get-directions
 **Path**: `/functions/v1/get-directions`  
 **API**: Google Maps Directions API  
 **Input**: Origin, destination  
 **Output**: Turn-by-turn route
 
-### 5.12 get-supplier-details
+### 5.11 get-supplier-details
 **Path**: `/functions/v1/get-supplier-details`  
 **API**: Google Places API  
 **Input**: Place ID or business name  
 **Output**: Business details, reviews, ratings
 
-### 5.13 get-social-analytics
+### 5.12 get-social-analytics
 **Path**: `/functions/v1/get-social-analytics`  
 **APIs**: Meta Graph, Twitter, LinkedIn  
 **Input**: Platform, access token  
@@ -354,8 +355,9 @@ LINKEDIN_ACCESS_TOKEN=AQV...
 
 ### 7.3 Input Validation
 - All user inputs validated with Zod schemas
-- File upload limits (10MB max)
-- Allowed file types: TXT, DOCX, PDF, PNG, JPG
+- Image upload limits (10MB max)
+- Allowed image types: PNG, JPG, JPEG, WEBP
+- Camera capture directly processed through browser MediaDevices API
 
 ---
 
