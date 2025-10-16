@@ -324,6 +324,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onProductAnalyzed }) => {
                 ref={videoRef}
                 autoPlay
                 playsInline
+                muted
                 className="w-full h-full object-cover"
               />
             </div>
