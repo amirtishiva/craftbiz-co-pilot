@@ -58,8 +58,12 @@ const Auth = () => {
           createdAt: new Date().toISOString(),
         };
         localStorage.setItem('craftbiz_user', JSON.stringify(userData));
-        toast.success('Account created successfully!');
-        navigate('/dashboard');
+        toast.success('Account created successfully! Please log in.');
+        // Navigate to login page after signup
+        setMode('login');
+        setEmail('');
+        setPassword('');
+        setConfirmPassword('');
       } else {
         // Mock login - check if user exists
         const existingUser = localStorage.getItem('craftbiz_user');

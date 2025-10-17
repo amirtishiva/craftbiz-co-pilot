@@ -39,10 +39,15 @@ const Landing = () => {
   }, [navigate]);
 
   useEffect(() => {
-    // Auto-scroll animation for carousel
+    // Auto-scroll animation for carousel - smooth continuous scrolling
     const interval = setInterval(() => {
-      setScrollPosition((prev) => (prev + 1) % (artisanImages.length * 320));
-    }, 3000);
+      setScrollPosition((prev) => {
+        const cardWidth = 326; // 320px width + 6px gap
+        const maxScroll = artisanImages.length * cardWidth;
+        const newPosition = prev + 1;
+        return newPosition >= maxScroll ? 0 : newPosition;
+      });
+    }, 30);
 
     return () => clearInterval(interval);
   }, []);
@@ -72,10 +77,10 @@ const Landing = () => {
 
           {/* Auth Buttons */}
           <div className="flex items-center gap-3">
-            <Button variant="outline" onClick={handleLogin}>
+            <Button variant="outline" onClick={handleLogin} className="border-input">
               Log In
             </Button>
-            <Button variant="default" onClick={handleSignUp}>
+            <Button onClick={handleSignUp}>
               Sign Up
             </Button>
           </div>
@@ -84,77 +89,79 @@ const Landing = () => {
 
       {/* Hero Section */}
       <main className="container px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col items-center justify-center py-12 sm:py-16 lg:py-24">
+        <div className="flex flex-col items-center justify-center py-16 sm:py-20 lg:py-28">
           {/* Hero Headline */}
-          <h1 className="text-center text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground mb-6 max-w-4xl">
+          <h1 className="text-center text-5xl sm:text-6xl lg:text-7xl font-bold text-foreground mb-6 max-w-4xl tracking-tight leading-tight">
             Start any small business today.
           </h1>
 
           {/* Subheadline */}
-          <p className="text-center text-lg sm:text-xl text-muted-foreground mb-12 max-w-3xl leading-relaxed">
+          <p className="text-center text-base sm:text-lg lg:text-xl text-muted-foreground mb-16 max-w-2xl leading-relaxed font-normal">
             Transform your business idea into a launch-ready business kit with AI-powered tools designed for Indian entrepreneurs.
           </p>
 
           {/* Artisan Image Carousel */}
-          <div className="w-full max-w-6xl mb-12 overflow-hidden">
+          <div className="w-full max-w-7xl mb-16 overflow-hidden relative">
             <div 
-              className="flex gap-4 transition-transform duration-1000 ease-in-out"
+              className="flex gap-6 transition-transform duration-1000 ease-in-out"
               style={{ transform: `translateX(-${scrollPosition}px)` }}
             >
               {[...artisanImages, ...artisanImages].map((image, index) => (
                 <div
                   key={index}
-                  className="flex-shrink-0 w-[300px] h-[200px] rounded-lg overflow-hidden shadow-medium hover-scale"
+                  className="flex-shrink-0 w-[240px] sm:w-[280px] lg:w-[320px] h-[320px] sm:h-[360px] lg:h-[400px] rounded-3xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300"
                   style={{
-                    transform: index % 2 === 0 ? 'rotate(-2deg)' : 'rotate(2deg)',
+                    transform: `perspective(1000px) rotateY(${index % 3 === 0 ? '2deg' : index % 3 === 1 ? '-2deg' : '0deg'})`,
                   }}
                 >
                   <img
                     src={image}
                     alt={`Artisan craftsmanship ${index + 1}`}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
                   />
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Playful Annotations */}
+          {/* Playful Annotations & CTA */}
           <div className="relative mb-8">
+            {/* Annotation: Elevate your brand */}
             <svg
-              className="absolute -top-12 -left-24 hidden lg:block text-primary/60"
-              width="120"
-              height="60"
-              viewBox="0 0 120 60"
+              className="absolute -top-24 -left-32 hidden xl:block text-foreground/70"
+              width="140"
+              height="80"
+              viewBox="0 0 140 80"
               fill="none"
             >
               <path
-                d="M10 30 Q 30 10, 60 30 T 110 30"
+                d="M10 40 Q 40 20, 80 35"
                 stroke="currentColor"
                 strokeWidth="2"
                 fill="none"
-                strokeDasharray="4 4"
+                strokeDasharray="3 3"
               />
-              <text x="20" y="15" className="text-sm fill-current font-handwriting">
+              <text x="10" y="20" className="text-sm fill-current" style={{ fontFamily: 'cursive' }}>
                 Elevate your brand
               </text>
             </svg>
 
+            {/* Annotation: It's Free */}
             <svg
-              className="absolute -bottom-16 -right-20 hidden lg:block text-primary/60"
-              width="100"
-              height="80"
-              viewBox="0 0 100 80"
+              className="absolute -bottom-20 -right-24 hidden xl:block text-foreground/70"
+              width="120"
+              height="90"
+              viewBox="0 0 120 90"
               fill="none"
             >
               <path
-                d="M10 50 Q 30 30, 50 50"
+                d="M60 20 Q 40 40, 50 60"
                 stroke="currentColor"
                 strokeWidth="2"
                 fill="none"
-                strokeDasharray="4 4"
+                strokeDasharray="3 3"
               />
-              <text x="15" y="30" className="text-sm fill-current font-handwriting">
+              <text x="30" y="25" className="text-sm fill-current" style={{ fontFamily: 'cursive' }}>
                 It's Free
               </text>
             </svg>
@@ -162,7 +169,7 @@ const Landing = () => {
             {/* CTA Button */}
             <Button
               size="lg"
-              className="text-lg px-8 py-6 shadow-strong hover:scale-105 transition-smooth"
+              className="text-base sm:text-lg px-10 py-6 sm:px-12 sm:py-7 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 font-semibold"
               onClick={handleGetStarted}
             >
               Get Started
@@ -170,11 +177,11 @@ const Landing = () => {
           </div>
 
           {/* Additional Info */}
-          <p className="text-sm text-muted-foreground mt-4">
+          <p className="text-sm text-muted-foreground mt-6">
             Already have an account?{' '}
             <button
               onClick={handleLogin}
-              className="text-primary hover:underline font-medium"
+              className="text-primary hover:underline font-medium transition-all"
             >
               Log in
             </button>
