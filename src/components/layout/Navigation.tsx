@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { 
   Menu, 
@@ -7,8 +8,10 @@ import {
   PlusCircle, 
   User,
   Settings,
-  Download
+  Download,
+  LogOut
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface NavigationProps {
   activeTab: string;
@@ -16,7 +19,14 @@ interface NavigationProps {
 }
 
 const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }) => {
+  const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const handleLogout = () => {
+    localStorage.removeItem('craftbiz_user');
+    toast.success('Logged out successfully');
+    navigate('/');
+  };
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Lightbulb },
@@ -56,6 +66,15 @@ const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }) => {
                 </button>
               );
             })}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLogout}
+              className="flex items-center gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              Log Out
+            </Button>
           </div>
 
           {/* Mobile menu button */}
@@ -95,6 +114,16 @@ const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }) => {
                 </button>
               );
             })}
+            <button
+              onClick={() => {
+                handleLogout();
+                setIsMobileMenuOpen(false);
+              }}
+              className="flex items-center gap-3 w-full px-3 py-3 rounded-md text-base font-medium text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-smooth"
+            >
+              <LogOut className="h-5 w-5" />
+              Log Out
+            </button>
           </div>
         </div>
       )}

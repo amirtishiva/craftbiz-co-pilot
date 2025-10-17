@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navigation from '@/components/layout/Navigation';
 import Dashboard from '@/components/dashboard/Dashboard';
 import IdeaCapture from '@/components/idea/IdeaCapture';
@@ -8,8 +9,17 @@ import MarketingHub from '@/components/marketing/MarketingHub';
 import SuppliersMap from '@/components/suppliers/SuppliersMap';
 
 const Index = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [ideaData, setIdeaData] = useState<any>(null);
+
+  useEffect(() => {
+    // Check if user is logged in
+    const isLoggedIn = localStorage.getItem('craftbiz_user');
+    if (!isLoggedIn) {
+      navigate('/');
+    }
+  }, [navigate]);
 
   const handleIdeaSubmit = (data: any) => {
     setIdeaData(data);
