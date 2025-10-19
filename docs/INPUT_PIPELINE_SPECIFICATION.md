@@ -21,31 +21,25 @@ All three pipelines lead to structured business plan generation.
 ### User Flow
 1. User types business idea in textarea
 2. Optional: Click "Refine" icon (✨ bottom-right corner)
-3. AI expands idea into structured sections
+3. AI refines idea into a professional, descriptive business context
 4. User selects business type
 5. Submit to generate full business plan
 
 ### API Endpoint
 **Endpoint**: `POST /functions/v1/refine-idea`  
-**Model**: `gpt-5-2025-08-07`
+**Model**: `gpt-5-mini-2025-08-07`
 
 ### Request
 ```json
 {
-  "rawIdea": "I want to sell handmade crafts online to urban customers"
+  "rawIdea": "pottery"
 }
 ```
 
 ### Response
 ```json
 {
-  "refinedIdea": {
-    "executiveSummary": "A comprehensive online marketplace...",
-    "businessGoals": "Create sustainable income for artisans...",
-    "marketOverview": "Growing demand for sustainable products...",
-    "operationsPlan": "Digital marketplace with integrated payments...",
-    "financialInsights": "Revenue-sharing model with 15% platform fee..."
-  }
+  "refinedIdea": "A creative artisan-led business specializing in handcrafted pottery, ceramic decor, and functional homeware. The venture focuses on combining traditional craftsmanship with modern aesthetics to produce unique, sustainable, and customizable products for homes, cafes, and gifting markets."
 }
 ```
 
@@ -62,7 +56,7 @@ const handleRefineIdea = async () => {
     setBusinessIdea(data.refinedIdea);
     toast({
       title: "Idea Refined!",
-      description: "Your business idea has been expanded with AI insights.",
+      description: "Your business idea has been polished into a professional description.",
     });
   }
   
@@ -83,7 +77,7 @@ const handleRefineIdea = async () => {
 6. Transcribes speech using Whisper API
 7. Translates to English if needed
 8. Displays transcription with "Refine" icon
-9. Optional: Click "Refine" to expand into structured plan
+9. Optional: Click "Refine" to polish into professional description
 10. Submit to generate full business plan
 
 ### API Endpoints
@@ -105,11 +99,12 @@ const handleRefineIdea = async () => {
 ### Response
 ```json
 {
-  "transcribedText": "मैं हस्तनिर्मित शिल्प बेचना चाहता हूँ",
-  "detectedLanguage": "hi",
-  "englishTranslation": "I want to sell handmade crafts"
+  "transcribedText": "I want to start an online marketplace for handmade crafts by local artisans",
+  "englishTranslation": "I want to start an online marketplace for handmade crafts by local artisans"
 }
 ```
+
+**Note**: The `language` field has been removed from the response as it's not needed for business plan generation.
 
 ### Frontend Implementation
 ```typescript

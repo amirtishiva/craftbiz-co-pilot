@@ -66,8 +66,9 @@ CraftBiz is an AI-powered platform that helps entrepreneurs transform business i
 **Features**:
 - **Text Input**: Natural language business idea entry with AI refinement
   - Users describe their idea freely in natural language
-  - Click "Refine" icon (✨ sparkle, bottom-right) to expand with AI
-  - AI generates: Executive Summary, Business Goals, Market Overview, Operations Plan, Financial Insights
+  - Click "Refine" icon (✨ sparkle, bottom-right) to polish into professional description
+  - AI refines the input into a clear, concise, and professional business context
+  - Output is a descriptive paragraph suitable for submission, NOT structured sections
   - No language selector - AI handles any input language
   
 - **Voice Recording**: Speak in any language
@@ -76,7 +77,7 @@ CraftBiz is an AI-powered platform that helps entrepreneurs transform business i
   - Transcribes speech to text using OpenAI Whisper
   - Auto-translates to English using `gpt-5-mini-2025-08-07`
   - Displays transcription with AI refinement option (✨ sparkle, bottom-right)
-  - Click "Refine" to convert transcription into structured business plan
+  - Click "Refine" to polish transcription into clear business description
   - No language selector required
   
 - **Image Upload**: For artisans and creators
@@ -144,14 +145,9 @@ CraftBiz is an AI-powered platform that helps entrepreneurs transform business i
 **Features**:
 - **Content Generator**: Platform-specific posts (Facebook, Instagram, LinkedIn, Twitter)
 - **Hashtag Research**: Trending and niche-specific hashtags
-- **Posting Schedule**: Optimal times based on social media analytics
 - **Visual Assets**: Marketing graphics creation
 - Platform-specific character limits and formatting
 
-**Social Media Analytics**:
-- Facebook/Instagram: Page insights, post reach, engagement via Meta Graph API
-- Twitter/X: Tweet analytics, impressions via Twitter API
-- LinkedIn: Company page analytics, post performance via LinkedIn API
 
 ---
 

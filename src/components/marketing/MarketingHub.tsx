@@ -7,16 +7,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Megaphone, 
   Copy, 
-  Hash, 
-  Calendar,
+  Hash,
   Image,
   Share2,
   Download,
   Eye,
-  Edit,
-  Clock,
-  Target,
-  TrendingUp
+  Edit
 } from 'lucide-react';
 
 const MarketingHub: React.FC = () => {
@@ -134,14 +130,6 @@ When technology meets tradition, everyone wins. Artisans earn fair wages, custom
       bgColor: 'bg-green-50'
     },
     {
-      id: 'scheduling',
-      title: 'Best Times to Post',
-      description: 'Optimal posting schedule analysis',
-      icon: Calendar,
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-50'
-    },
-    {
       id: 'visuals',
       title: 'Visual Assets',
       description: 'Marketing graphics and posters',
@@ -151,12 +139,6 @@ When technology meets tradition, everyone wins. Artisans earn fair wages, custom
     }
   ];
 
-  const schedulingData = {
-    facebook: { bestTime: '1:00 PM - 3:00 PM', bestDays: ['Tuesday', 'Wednesday', 'Thursday'] },
-    instagram: { bestTime: '11:00 AM - 1:00 PM', bestDays: ['Monday', 'Tuesday', 'Friday'] },
-    linkedin: { bestTime: '8:00 AM - 10:00 AM', bestDays: ['Tuesday', 'Wednesday', 'Thursday'] },
-    twitter: { bestTime: '9:00 AM - 10:00 AM', bestDays: ['Wednesday', 'Friday'] }
-  };
 
   const hashtagSuggestions = [
     { tag: '#HandmadeCrafts', popularity: 'High', posts: '2.1M' },
@@ -183,10 +165,9 @@ When technology meets tradition, everyone wins. Artisans earn fair wages, custom
       </div>
 
       <Tabs defaultValue="content" className="space-y-6">
-        <TabsList className="grid grid-cols-4 w-full max-w-2xl mx-auto">
+        <TabsList className="grid grid-cols-3 w-full max-w-2xl mx-auto">
           <TabsTrigger value="content">Content</TabsTrigger>
           <TabsTrigger value="hashtags">Hashtags</TabsTrigger>
-          <TabsTrigger value="schedule">Schedule</TabsTrigger>
           <TabsTrigger value="visuals">Visuals</TabsTrigger>
         </TabsList>
 
@@ -389,42 +370,6 @@ When technology meets tradition, everyone wins. Artisans earn fair wages, custom
           </Card>
         </TabsContent>
 
-        {/* Scheduling Tab */}
-        <TabsContent value="schedule" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Optimal Posting Schedule
-              </CardTitle>
-              <CardDescription>
-                Best times to post for maximum engagement
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {Object.entries(schedulingData).map(([platform, data]) => (
-                  <div key={platform} className="p-4 border border-border rounded-lg">
-                    <h4 className="font-semibold capitalize mb-3 flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-accent-orange" />
-                      {platform}
-                    </h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Best Time:</span>
-                        <span className="font-medium">{data.bestTime}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Best Days:</span>
-                        <span className="font-medium">{data.bestDays.join(', ')}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         {/* Visuals Tab */}
         <TabsContent value="visuals" className="space-y-6">

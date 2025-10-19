@@ -193,8 +193,7 @@ Authorization: Bearer <JWT_TOKEN>
 {
   "idea_id": "uuid",
   "business_idea": "Handmade crafts marketplace...",
-  "business_type": "E-commerce",
-  "language": "en"
+  "business_type": "E-commerce"
 }
 ```
 
@@ -700,12 +699,12 @@ const details = data.result;
 ### 8.1 Refine Business Idea
 **Endpoint**: `POST /functions/v1/refine-idea`
 
-**Description**: Expand raw business idea into structured sections using AI.
+**Description**: Refine raw business idea into a professional, descriptive business context suitable for submission.
 
 **Request**:
 ```json
 {
-  "raw_idea": "I want to start an online marketplace for handmade crafts..."
+  "raw_idea": "pottery"
 }
 ```
 
@@ -718,18 +717,18 @@ const response = await fetch("https://api.openai.com/v1/chat/completions", {
     "Content-Type": "application/json"
   },
   body: JSON.stringify({
-    model: "gpt-5-2025-08-07",
+    model: "gpt-5-mini-2025-08-07",
     messages: [
       {
         role: "system",
-        content: "Expand business ideas into structured plans with: Executive Summary, Business Goals, Market Overview, Operations Plan, and Financial Insights."
+        content: "You are a business description expert. Refine raw business ideas into clear, professional, and descriptive business contexts. Output ONLY the refined description as plain text, without any structured sections like Executive Summary, Business Goals, etc. Keep it as a single cohesive paragraph describing the business opportunity."
       },
       {
         role: "user",
-        content: rawIdea
+        content: `Refine this business idea: ${rawIdea}`
       }
     ],
-    max_completion_tokens: 1500
+    max_completion_tokens: 300
   })
 });
 ```
@@ -737,14 +736,7 @@ const response = await fetch("https://api.openai.com/v1/chat/completions", {
 **Response**: `200 OK`
 ```json
 {
-  "refined_idea": "Full expanded text...",
-  "sections": {
-    "executive_summary": "...",
-    "business_goals": "...",
-    "market_overview": "...",
-    "operations_plan": "...",
-    "financial_insights": "..."
-  }
+  "refined_idea": "A creative artisan-led business specializing in handcrafted pottery, ceramic decor, and functional homeware. The venture focuses on combining traditional craftsmanship with modern aesthetics to produce unique, sustainable, and customizable products for homes, cafes, and gifting markets."
 }
 ```
 

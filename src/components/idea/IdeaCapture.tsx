@@ -47,16 +47,25 @@ const IdeaCapture: React.FC<IdeaCaptureProps> = ({ onIdeaSubmit }) => {
   const handleRefineIdea = async () => {
     setIsRefining(true);
     
-    // Simulate AI refinement
+    // Simulate AI refinement - only refines into professional description
     setTimeout(() => {
-      const refinedIdea = `${businessIdea}\n\nExecutive Summary: A comprehensive platform connecting artisans with customers.\n\nBusiness Goals: Create sustainable income for local artisans while providing authentic handmade products to customers.\n\nMarket Overview: Growing demand for authentic, sustainable, and locally-made products.\n\nOperations Plan: Digital marketplace with integrated payment and shipping solutions.\n\nFinancial Insights: Revenue sharing model with 15% platform fee.`;
+      // Examples of refined outputs based on input
+      const refinements: Record<string, string> = {
+        'pottery': 'A creative artisan-led business specializing in handcrafted pottery, ceramic decor, and functional homeware. The venture focuses on combining traditional craftsmanship with modern aesthetics to produce unique, sustainable, and customizable products for homes, cafes, and gifting markets.',
+        't-shirt branding': 'A custom apparel branding business offering personalized t-shirt printing and design services. The venture combines creative graphic design with quality printing techniques to help individuals, businesses, and organizations create distinctive branded merchandise that reflects their identity and values.',
+      };
+      
+      // Get refined text or create a generic refined version
+      const lowerIdea = businessIdea.toLowerCase().trim();
+      const refinedIdea = refinements[lowerIdea] || 
+        `A professional business venture focused on ${businessIdea.trim()}. This initiative aims to deliver high-quality products/services to target customers through innovative approaches, combining expertise with market understanding to create sustainable value and growth opportunities.`;
       
       setBusinessIdea(refinedIdea);
       setIsRefining(false);
       
       toast({
         title: "Idea Refined!",
-        description: "Your business idea has been expanded with AI insights.",
+        description: "Your business idea has been polished into a professional description.",
       });
     }, 2000);
   };
@@ -88,9 +97,9 @@ const IdeaCapture: React.FC<IdeaCaptureProps> = ({ onIdeaSubmit }) => {
   const handleRefineTranscription = async () => {
     setIsRefining(true);
     
-    // Simulate AI refinement of transcription
+    // Simulate AI refinement of transcription - only refines into professional description
     setTimeout(() => {
-      const refinedTranscription = `${transcribedText}\n\nExecutive Summary: A digital platform connecting local artisans with customers seeking authentic handmade products.\n\nBusiness Goals: Empower artisans with fair pricing and direct customer access.\n\nMarket Overview: Rising consumer interest in sustainable and locally-made products.\n\nOperations Plan: Online marketplace with secure payments and logistics support.\n\nFinancial Insights: Commission-based revenue model with value-added services.`;
+      const refinedTranscription = `An online marketplace dedicated to promoting and selling handmade crafts created by local artisans. The platform will bridge the gap between artisans and customers, allowing creators to showcase their products, tell their stories, and sell directly to buyers without intermediaries.`;
       
       setBusinessIdea(refinedTranscription);
       setTranscribedText(refinedTranscription);
@@ -98,7 +107,7 @@ const IdeaCapture: React.FC<IdeaCaptureProps> = ({ onIdeaSubmit }) => {
       
       toast({
         title: "Transcription Refined!",
-        description: "Your idea has been converted into a structured business plan.",
+        description: "Your idea has been polished into a clear business description.",
       });
     }, 2000);
   };
