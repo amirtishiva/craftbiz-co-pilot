@@ -51,11 +51,6 @@ CraftBiz is an AI-powered platform that helps entrepreneurs transform business i
   - Static Maps API - Static images
   - URL Scheme - Deep linking
 
-- **Social Media APIs**:
-  - Meta Graph API - Facebook/Instagram analytics
-  - Twitter/X API - Tweet engagement
-  - LinkedIn API - Company page analytics
-
 ---
 
 ## 3. Core Features
@@ -298,12 +293,6 @@ CraftBiz is an AI-powered platform that helps entrepreneurs transform business i
 **Input**: Place ID or business name  
 **Output**: Business details, reviews, ratings
 
-### 5.12 get-social-analytics
-**Path**: `/functions/v1/get-social-analytics`  
-**APIs**: Meta Graph, Twitter, LinkedIn  
-**Input**: Platform, access token  
-**Output**: Optimal posting times, engagement metrics
-
 ---
 
 ## 6. Environment Variables
@@ -319,11 +308,6 @@ OPENAI_API_KEY=sk-proj-...
 # Google Maps (Frontend: VITE_, Backend: Secrets)
 VITE_GOOGLE_MAPS_API_KEY=AIzaSy...
 GOOGLE_MAPS_API_KEY=AIzaSy...
-
-# Social Media (Server-side only - Supabase Secrets)
-META_ACCESS_TOKEN=EAABsb...
-TWITTER_BEARER_TOKEN=AAAAAAAAAAAAA...
-LINKEDIN_ACCESS_TOKEN=AQV...
 ```
 
 ---
@@ -338,7 +322,7 @@ LINKEDIN_ACCESS_TOKEN=AQV...
 ### 7.2 API Key Management
 - **Public keys**: Stored in `VITE_` environment variables (frontend)
 - **Secret keys**: Stored in Supabase Secrets (backend)
-- Never expose OpenAI, social media API keys in frontend
+- Never expose OpenAI API keys in frontend
 
 ### 7.3 Input Validation
 - All user inputs validated with Zod schemas

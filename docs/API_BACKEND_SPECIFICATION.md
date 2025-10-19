@@ -497,40 +497,6 @@ const content = data.choices[0].message.content;
 }
 ```
 
-### 6.2 Get Social Media Analytics (Edge Function)
-**Endpoint**: `POST /functions/v1/get-social-analytics`
-
-**Request**:
-```json
-{
-  "platform": "facebook",
-  "page_id": "123456789"
-}
-```
-
-**Edge Function Implementation (Meta Graph API)**:
-```typescript
-// Facebook/Instagram Insights
-const response = await fetch(
-  `https://graph.facebook.com/v18.0/${page_id}/insights?metric=page_impressions,page_engaged_users&period=day&access_token=${META_ACCESS_TOKEN}`
-);
-
-const data = await response.json();
-
-// Calculate optimal posting times based on engagement patterns
-const optimalTimes = analyzeEngagementPatterns(data.data);
-```
-
-**Response**: `200 OK`
-```json
-{
-  "platform": "facebook",
-  "best_time": "1:00 PM - 3:00 PM",
-  "best_days": ["Tuesday", "Wednesday", "Thursday"],
-  "avg_engagement": 4.5,
-  "reach": 12500
-}
-```
 
 ---
 
@@ -960,7 +926,6 @@ const response = await fetch("https://api.openai.com/v1/chat/completions", {
 - **Supabase**: 500 requests/minute per user
 - **OpenAI**: Varies by plan
 - **Google Maps**: 25,000 requests/day (free tier)
-- **Social Media APIs**: Platform-specific limits
 
 ---
 
@@ -971,9 +936,6 @@ Store in Supabase Dashboard → Settings → Edge Functions → Secrets:
 ```bash
 OPENAI_API_KEY=sk-proj-...
 GOOGLE_MAPS_API_KEY=AIzaSy...
-META_ACCESS_TOKEN=EAABsb...
-TWITTER_BEARER_TOKEN=AAAAAAAAAAAAA...
-LINKEDIN_ACCESS_TOKEN=AQV...
 ```
 
 For frontend (public keys only):
