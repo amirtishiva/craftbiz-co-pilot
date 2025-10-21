@@ -28,6 +28,24 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
     setDashboardData(data);
   };
 
+  const handleViewIdea = (id: string) => {
+    const idea = dashboardData?.ideas.find(i => i.id === id);
+    if (idea) {
+      toast({
+        title: idea.title,
+        description: idea.content,
+      });
+    }
+  };
+
+  const handleEditIdea = (id: string) => {
+    onTabChange('idea');
+    toast({
+      title: "Opening Idea Capture",
+      description: "You can create a new idea or modify existing ones.",
+    });
+  };
+
   const handleDeleteIdea = (id: string) => {
     if (!dashboardData) return;
     
@@ -44,19 +62,109 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
     });
   };
 
-  const handleDeleteContent = (id: string) => {
-    if (!dashboardData) return;
-    
-    const updatedData = {
-      ...dashboardData,
-      marketing: dashboardData.marketing.filter(m => m.id !== id),
-    };
-    saveDashboardData(updatedData);
-    setDashboardData(updatedData);
-    
+  const handleGeneratePlan = (id: string) => {
+    const idea = dashboardData?.ideas.find(i => i.id === id);
+    if (idea) {
+      onTabChange('business-plan');
+      toast({
+        title: "Generating business plan",
+        description: `Creating a comprehensive plan for "${idea.title}"`,
+      });
+    }
+  };
+
+  const handleViewPlan = (id: string) => {
+    onTabChange('business-plan');
     toast({
-      title: "Content deleted",
-      description: "Marketing content has been removed.",
+      title: "Opening Business Plan",
+      description: "Loading your business plan details.",
+    });
+  };
+
+  const handleEditPlan = (id: string) => {
+    onTabChange('business-plan');
+    toast({
+      title: "Edit Mode",
+      description: "You can now modify your business plan.",
+    });
+  };
+
+  const handleDownloadPlan = (id: string) => {
+    const plan = dashboardData?.businessPlans.find(p => p.id === id);
+    if (plan) {
+      const planText = `
+BUSINESS PLAN - ${plan.businessName}
+=====================================
+
+Business Type: ${plan.businessType}
+Status: ${plan.status}
+Completion: ${plan.completionPercentage}%
+
+EXECUTIVE SUMMARY
+${plan.sections.executiveSummary}
+
+MARKET ANALYSIS
+${plan.sections.marketAnalysis}
+
+BUSINESS MODEL
+${plan.sections.businessModel}
+
+MARKETING STRATEGY
+${plan.sections.marketingStrategy}
+
+OPERATIONS PLANNING
+${plan.sections.operationsPlanning}
+
+FINANCIAL PROJECTIONS
+${plan.sections.financialProjections}
+
+Monthly Revenue: ₹${plan.financialData.monthlyRevenue.toLocaleString()}
+Monthly Profit: ₹${plan.financialData.monthlyProfit.toLocaleString()}
+Break-even: ${plan.financialData.breakEvenMonths} months
+      `;
+
+      const blob = new Blob([planText], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${plan.businessName}-business-plan.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Download started",
+        description: "Your business plan is being downloaded.",
+      });
+    }
+  };
+
+  const handleViewDesign = (id: string) => {
+    const design = dashboardData?.designs.find(d => d.id === id);
+    if (design) {
+      toast({
+        title: design.name,
+        description: `${design.type} - ${design.style || 'Design'}`,
+      });
+    }
+  };
+
+  const handleDownloadDesign = (id: string) => {
+    const design = dashboardData?.designs.find(d => d.id === id);
+    if (design) {
+      toast({
+        title: "Download started",
+        description: `Downloading ${design.name}`,
+      });
+    }
+  };
+
+  const handleCreateMockup = (id: string) => {
+    onTabChange('design-studio');
+    toast({
+      title: "Opening Design Studio",
+      description: "Create mockups with your selected design.",
     });
   };
 
@@ -71,10 +179,68 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
     };
     saveDashboardData(updatedData);
     setDashboardData(updatedData);
+
+    const design = updatedData.designs.find(d => d.id === id);
+    toast({
+      title: design?.favorited ? "Added to favorites" : "Removed from favorites",
+      description: design?.name,
+    });
+  };
+
+  const handleViewContent = (id: string) => {
+    const content = dashboardData?.marketing.find(m => m.id === id);
+    if (content) {
+      toast({
+        title: content.platform,
+        description: content.content.substring(0, 100) + '...',
+      });
+    }
+  };
+
+  const handleEditContent = (id: string) => {
+    onTabChange('marketing');
+    toast({
+      title: "Opening Marketing Hub",
+      description: "You can generate new content or edit existing ones.",
+    });
   };
 
   const handleCopyContent = (content: string) => {
     navigator.clipboard.writeText(content);
+    toast({
+      title: "Copied to clipboard",
+      description: "Marketing content has been copied.",
+    });
+  };
+
+  const handleShareContent = (id: string) => {
+    const content = dashboardData?.marketing.find(m => m.id === id);
+    if (content && navigator.share) {
+      navigator.share({
+        title: `${content.platform} Content`,
+        text: content.content,
+      }).catch(() => {
+        handleCopyContent(content.content);
+      });
+    } else if (content) {
+      handleCopyContent(content.content);
+    }
+  };
+
+  const handleDeleteContent = (id: string) => {
+    if (!dashboardData) return;
+    
+    const updatedData = {
+      ...dashboardData,
+      marketing: dashboardData.marketing.filter(m => m.id !== id),
+    };
+    saveDashboardData(updatedData);
+    setDashboardData(updatedData);
+    
+    toast({
+      title: "Content deleted",
+      description: "Marketing content has been removed.",
+    });
   };
 
   if (loading) {
@@ -156,16 +322,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
           <div id="ideas-section">
             <IdeasGallery
               ideas={dashboardData?.ideas || []}
-              onViewIdea={(id) => console.log('View idea:', id)}
-              onEditIdea={(id) => console.log('Edit idea:', id)}
+              onViewIdea={handleViewIdea}
+              onEditIdea={handleEditIdea}
               onDeleteIdea={handleDeleteIdea}
-              onGeneratePlan={(id) => {
-                onTabChange('business-plan');
-                toast({
-                  title: "Generating plan...",
-                  description: "Please wait while we create your business plan.",
-                });
-              }}
+              onGeneratePlan={handleGeneratePlan}
               onNewIdea={() => onTabChange('idea')}
             />
           </div>
@@ -174,14 +334,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
           <div id="plans-section">
             <BusinessPlansGallery
               plans={dashboardData?.businessPlans || []}
-              onViewPlan={(id) => onTabChange('business-plan')}
-              onEditPlan={(id) => onTabChange('business-plan')}
-              onDownloadPlan={(id) => {
-                toast({
-                  title: "Download started",
-                  description: "Your business plan is being prepared.",
-                });
-              }}
+              onViewPlan={handleViewPlan}
+              onEditPlan={handleEditPlan}
+              onDownloadPlan={handleDownloadPlan}
             />
           </div>
 
@@ -189,20 +344,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
           <div id="designs-section">
             <DesignsGallery
               designs={dashboardData?.designs || []}
-              onViewDesign={(id) => console.log('View design:', id)}
-              onDownloadDesign={(id) => {
-                toast({
-                  title: "Download started",
-                  description: "Your design is being downloaded.",
-                });
-              }}
-              onCreateMockup={(id) => {
-                onTabChange('design-studio');
-                toast({
-                  title: "Opening Design Studio",
-                  description: "Create mockups with your logo.",
-                });
-              }}
+              onViewDesign={handleViewDesign}
+              onDownloadDesign={handleDownloadDesign}
+              onCreateMockup={handleCreateMockup}
               onToggleFavorite={handleToggleFavorite}
               onNewDesign={() => onTabChange('design-studio')}
             />
@@ -212,15 +356,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
           <div id="marketing-section">
             <MarketingGallery
               content={dashboardData?.marketing || []}
-              onViewContent={(id) => console.log('View content:', id)}
-              onEditContent={(id) => onTabChange('marketing')}
+              onViewContent={handleViewContent}
+              onEditContent={handleEditContent}
               onCopyContent={handleCopyContent}
-              onShareContent={(id) => {
-                toast({
-                  title: "Share",
-                  description: "Sharing functionality coming soon!",
-                });
-              }}
+              onShareContent={handleShareContent}
               onDeleteContent={handleDeleteContent}
               onNewContent={() => onTabChange('marketing')}
             />
