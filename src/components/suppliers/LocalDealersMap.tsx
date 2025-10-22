@@ -47,125 +47,177 @@ const LocalDealersMap: React.FC = () => {
   const [selectedDealer, setSelectedDealer] = useState<Dealer | null>(null);
   const [isSearching, setIsSearching] = useState(false);
 
-  // Mock dealers data based on search
-  const mockDealers: Record<string, Dealer[]> = {
-    'clothing': [
-      {
-        id: '1',
-        name: 'Fashion Hub',
-        category: 'Clothing Store',
-        address: 'Shop 12, Market Street, Mumbai',
-        coordinates: { lat: 19.0760, lng: 72.8777 },
-        distance: '1.2',
-        rating: 4.5,
-        reviews: 234,
-        phone: '+91 98765 43210',
-        open_now: true
-      },
-      {
-        id: '2',
-        name: 'Style Studio',
-        category: 'Clothing Store',
-        address: '45 Fashion Plaza, Mumbai',
-        coordinates: { lat: 19.0800, lng: 72.8800 },
-        distance: '2.1',
-        rating: 4.7,
-        reviews: 189,
-        phone: '+91 98765 43211',
-        open_now: true
-      },
-      {
-        id: '3',
-        name: 'Trendy Wear',
-        category: 'Clothing Store',
-        address: '78 Shopping Complex, Mumbai',
-        coordinates: { lat: 19.0720, lng: 72.8750 },
-        distance: '3.5',
-        rating: 4.3,
-        reviews: 156,
-        phone: '+91 98765 43212',
-        open_now: false
-      }
-    ],
-    'fabrics': [
-      {
-        id: '4',
-        name: 'Silk & Cotton House',
-        category: 'Fabric Store',
-        address: '23 Textile Market, Mumbai',
-        coordinates: { lat: 19.0780, lng: 72.8790 },
-        distance: '1.8',
-        rating: 4.6,
-        reviews: 312,
-        phone: '+91 98765 43213',
-        open_now: true
-      },
-      {
-        id: '5',
-        name: 'Premium Fabrics',
-        category: 'Fabric Store',
-        address: '67 Fabric Lane, Mumbai',
-        coordinates: { lat: 19.0750, lng: 72.8765 },
-        distance: '2.3',
-        rating: 4.8,
-        reviews: 278,
-        phone: '+91 98765 43214',
-        open_now: true
-      }
-    ],
-    'toy': [
-      {
-        id: '6',
-        name: 'Kids World Toys',
-        category: 'Toy Store',
-        address: '89 Children Plaza, Mumbai',
-        coordinates: { lat: 19.0790, lng: 72.8785 },
-        distance: '1.5',
-        rating: 4.9,
-        reviews: 421,
-        phone: '+91 98765 43215',
-        open_now: true
-      },
-      {
-        id: '7',
-        name: 'Happy Toys',
-        category: 'Toy Store',
-        address: '34 Play Street, Mumbai',
-        coordinates: { lat: 19.0770, lng: 72.8760 },
-        distance: '2.7',
-        rating: 4.4,
-        reviews: 198,
-        phone: '+91 98765 43216',
-        open_now: true
-      }
-    ],
-    'restaurant': [
-      {
-        id: '8',
-        name: 'Spice Garden',
-        category: 'Restaurant',
-        address: '12 Food Street, Mumbai',
-        coordinates: { lat: 19.0755, lng: 72.8780 },
-        distance: '0.8',
-        rating: 4.6,
-        reviews: 567,
-        phone: '+91 98765 43217',
-        open_now: true
-      },
-      {
-        id: '9',
-        name: 'The Dining Room',
-        category: 'Restaurant',
-        address: '56 Culinary Lane, Mumbai',
-        coordinates: { lat: 19.0800, lng: 72.8795 },
-        distance: '2.0',
-        rating: 4.7,
-        reviews: 489,
-        phone: '+91 98765 43218',
-        open_now: true
-      }
-    ]
-  };
+  // Mock dealers data - flat array for dynamic search
+  const allMockDealers: Dealer[] = [
+    {
+      id: '1',
+      name: 'Fashion Hub',
+      category: 'Clothing Store',
+      address: 'Shop 12, Market Street, Mumbai',
+      coordinates: { lat: 19.0760, lng: 72.8777 },
+      distance: '1.2',
+      rating: 4.5,
+      reviews: 234,
+      phone: '+91 98765 43210',
+      open_now: true
+    },
+    {
+      id: '2',
+      name: 'Style Studio',
+      category: 'Clothing Store',
+      address: '45 Fashion Plaza, Mumbai',
+      coordinates: { lat: 19.0800, lng: 72.8800 },
+      distance: '2.1',
+      rating: 4.7,
+      reviews: 189,
+      phone: '+91 98765 43211',
+      open_now: true
+    },
+    {
+      id: '3',
+      name: 'Trendy Wear',
+      category: 'Clothing Store',
+      address: '78 Shopping Complex, Mumbai',
+      coordinates: { lat: 19.0720, lng: 72.8750 },
+      distance: '3.5',
+      rating: 4.3,
+      reviews: 156,
+      phone: '+91 98765 43212',
+      open_now: false
+    },
+    {
+      id: '4',
+      name: 'Silk & Cotton House',
+      category: 'Fabric Store',
+      address: '23 Textile Market, Mumbai',
+      coordinates: { lat: 19.0780, lng: 72.8790 },
+      distance: '1.8',
+      rating: 4.6,
+      reviews: 312,
+      phone: '+91 98765 43213',
+      open_now: true
+    },
+    {
+      id: '5',
+      name: 'Premium Fabrics',
+      category: 'Fabric Store',
+      address: '67 Fabric Lane, Mumbai',
+      coordinates: { lat: 19.0750, lng: 72.8765 },
+      distance: '2.3',
+      rating: 4.8,
+      reviews: 278,
+      phone: '+91 98765 43214',
+      open_now: true
+    },
+    {
+      id: '6',
+      name: 'Kids World Toys',
+      category: 'Toy Store',
+      address: '89 Children Plaza, Mumbai',
+      coordinates: { lat: 19.0790, lng: 72.8785 },
+      distance: '1.5',
+      rating: 4.9,
+      reviews: 421,
+      phone: '+91 98765 43215',
+      open_now: true
+    },
+    {
+      id: '7',
+      name: 'Happy Toys',
+      category: 'Toy Store',
+      address: '34 Play Street, Mumbai',
+      coordinates: { lat: 19.0770, lng: 72.8760 },
+      distance: '2.7',
+      rating: 4.4,
+      reviews: 198,
+      phone: '+91 98765 43216',
+      open_now: true
+    },
+    {
+      id: '8',
+      name: 'Spice Garden',
+      category: 'Restaurant',
+      address: '12 Food Street, Mumbai',
+      coordinates: { lat: 19.0755, lng: 72.8780 },
+      distance: '0.8',
+      rating: 4.6,
+      reviews: 567,
+      phone: '+91 98765 43217',
+      open_now: true
+    },
+    {
+      id: '9',
+      name: 'The Dining Room',
+      category: 'Restaurant',
+      address: '56 Culinary Lane, Mumbai',
+      coordinates: { lat: 19.0800, lng: 72.8795 },
+      distance: '2.0',
+      rating: 4.7,
+      reviews: 489,
+      phone: '+91 98765 43218',
+      open_now: true
+    },
+    {
+      id: '10',
+      name: 'Tech Electronics',
+      category: 'Electronics Store',
+      address: '91 Tech Plaza, Mumbai',
+      coordinates: { lat: 19.0765, lng: 72.8770 },
+      distance: '1.4',
+      rating: 4.5,
+      reviews: 345,
+      phone: '+91 98765 43219',
+      open_now: true
+    },
+    {
+      id: '11',
+      name: 'City Hardware',
+      category: 'Hardware Store',
+      address: '15 Builder Street, Mumbai',
+      coordinates: { lat: 19.0775, lng: 72.8755 },
+      distance: '1.9',
+      rating: 4.3,
+      reviews: 167,
+      phone: '+91 98765 43220',
+      open_now: true
+    },
+    {
+      id: '12',
+      name: 'Book Haven',
+      category: 'Book Store',
+      address: '42 Reader Lane, Mumbai',
+      coordinates: { lat: 19.0785, lng: 72.8772 },
+      distance: '1.6',
+      rating: 4.8,
+      reviews: 412,
+      phone: '+91 98765 43221',
+      open_now: true
+    },
+    {
+      id: '13',
+      name: 'Health Plus Pharmacy',
+      category: 'Pharmacy',
+      address: '28 Medical Street, Mumbai',
+      coordinates: { lat: 19.0768, lng: 72.8788 },
+      distance: '1.3',
+      rating: 4.6,
+      reviews: 289,
+      phone: '+91 98765 43222',
+      open_now: true
+    },
+    {
+      id: '14',
+      name: 'Cozy Cafe',
+      category: 'Cafe',
+      address: '33 Coffee Plaza, Mumbai',
+      coordinates: { lat: 19.0758, lng: 72.8768 },
+      distance: '1.1',
+      rating: 4.7,
+      reviews: 523,
+      phone: '+91 98765 43223',
+      open_now: true
+    }
+  ];
 
   // Detect user location on mount
   useEffect(() => {
@@ -202,6 +254,12 @@ const LocalDealersMap: React.FC = () => {
   }, []);
 
   const handleSearch = (query: string) => {
+    if (!query.trim()) {
+      setDealers([]);
+      setSearchQuery('');
+      return;
+    }
+
     if (!userLocation) {
       toast({
         title: "Location required",
@@ -214,10 +272,16 @@ const LocalDealersMap: React.FC = () => {
     setIsSearching(true);
     setSearchQuery(query);
 
-    // Simulate API call with mock data
+    // Simulate API call with dynamic search
     setTimeout(() => {
-      const searchKey = query.toLowerCase();
-      const results = mockDealers[searchKey] || [];
+      const searchLower = query.toLowerCase();
+      
+      // Search across name, category, and address
+      const results = allMockDealers.filter(dealer => 
+        dealer.name.toLowerCase().includes(searchLower) ||
+        dealer.category.toLowerCase().includes(searchLower) ||
+        dealer.address.toLowerCase().includes(searchLower)
+      );
       
       // Filter by radius
       const filteredResults = results.filter(dealer => 
@@ -233,7 +297,7 @@ const LocalDealersMap: React.FC = () => {
           description: "Try expanding your search radius or different keywords.",
         });
       }
-    }, 1000);
+    }, 800);
   };
 
   const handleQuickSearch = (category: string) => {
@@ -313,7 +377,7 @@ const LocalDealersMap: React.FC = () => {
           <div className="relative">
             <Search className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
             <Input
-              placeholder="Search for clothing, fabrics, restaurants, etc..."
+              placeholder="Search for anything: pharmacy, bookstore, cafe, hardware..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch(searchQuery)}
@@ -322,50 +386,53 @@ const LocalDealersMap: React.FC = () => {
             <Button
               className="absolute right-2 top-2"
               onClick={() => handleSearch(searchQuery)}
-              disabled={isSearching || !searchQuery}
+              disabled={isSearching || !searchQuery.trim()}
             >
               {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Search'}
             </Button>
           </div>
 
-          {/* Quick Search Buttons */}
-          <div className="flex flex-wrap gap-2">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => handleQuickSearch('clothing')}
-              disabled={isSearching}
-            >
-              <Shirt className="mr-2 h-4 w-4" />
-              Clothing
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => handleQuickSearch('fabrics')}
-              disabled={isSearching}
-            >
-              <Package className="mr-2 h-4 w-4" />
-              Fabrics
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => handleQuickSearch('toy')}
-              disabled={isSearching}
-            >
-              <ShoppingBag className="mr-2 h-4 w-4" />
-              Toy Stores
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => handleQuickSearch('restaurant')}
-              disabled={isSearching}
-            >
-              <Utensils className="mr-2 h-4 w-4" />
-              Restaurants
-            </Button>
+          {/* Quick Search Buttons - Optional Filters */}
+          <div>
+            <p className="text-sm text-muted-foreground mb-2">Quick search suggestions:</p>
+            <div className="flex flex-wrap gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => handleQuickSearch('clothing')}
+                disabled={isSearching}
+              >
+                <Shirt className="mr-2 h-4 w-4" />
+                Clothing
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => handleQuickSearch('fabrics')}
+                disabled={isSearching}
+              >
+                <Package className="mr-2 h-4 w-4" />
+                Fabrics
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => handleQuickSearch('toy')}
+                disabled={isSearching}
+              >
+                <ShoppingBag className="mr-2 h-4 w-4" />
+                Toy Stores
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => handleQuickSearch('restaurant')}
+                disabled={isSearching}
+              >
+                <Utensils className="mr-2 h-4 w-4" />
+                Restaurants
+              </Button>
+            </div>
           </div>
 
           {/* Radius Filter */}
