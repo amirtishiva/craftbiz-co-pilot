@@ -7,15 +7,10 @@ import {
   Truck, 
   MapPin, 
   Search, 
-  Filter,
   Star,
   Phone,
   Mail,
-  ExternalLink,
-  Heart,
   Building,
-  Package,
-  Clock,
   Route
 } from 'lucide-react';
 
@@ -215,68 +210,25 @@ const SuppliersMap: React.FC = () => {
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Supplier Info */}
                     <div className="lg:col-span-2">
-                      <div className="flex items-start justify-between mb-4">
-                        <div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <h3 className="text-xl font-bold text-foreground">{supplier.name}</h3>
-                            {supplier.verified && (
-                              <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-semibold">
-                                Verified
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-muted-foreground mb-2">{supplier.category}</p>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              <MapPin className="h-4 w-4" />
-                              {supplier.city} • {supplier.distance}
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                              {supplier.rating} ({supplier.reviews} reviews)
-                            </div>
-                          </div>
-                        </div>
-                        <Button size="sm" variant="ghost">
-                          <Heart className="h-4 w-4" />
-                        </Button>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                        <div className="flex items-center gap-2">
-                          <Package className="h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <div className="text-xs text-muted-foreground">Min Order</div>
-                            <div className="text-sm font-medium">{supplier.minOrder}</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <div className="text-xs text-muted-foreground">Delivery</div>
-                            <div className="text-sm font-medium">{supplier.deliveryTime}</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Building className="h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <div className="text-xs text-muted-foreground">Location</div>
-                            <div className="text-sm font-medium">{supplier.city}</div>
-                          </div>
-                        </div>
-                      </div>
-
                       <div className="mb-4">
-                        <h4 className="font-semibold mb-2">Specialties</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {supplier.specialties.map((specialty, index) => (
-                            <span
-                              key={index}
-                              className="bg-accent text-accent-foreground px-2 py-1 rounded-md text-xs"
-                            >
-                              {specialty}
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="text-xl font-bold text-foreground">{supplier.name}</h3>
+                          {supplier.verified && (
+                            <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-semibold">
+                              Verified
                             </span>
-                          ))}
+                          )}
+                        </div>
+                        <p className="text-muted-foreground mb-2">{supplier.category}</p>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-4 w-4" />
+                            {supplier.city}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                            {supplier.rating} ({supplier.reviews} reviews)
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -284,35 +236,50 @@ const SuppliersMap: React.FC = () => {
                     {/* Contact & Actions */}
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Button variant="craft" className="w-full">
-                          <Phone className="mr-2 h-4 w-4" />
-                          Contact Supplier
+                        <Button 
+                          variant="craft" 
+                          className="w-full"
+                          asChild
+                        >
+                          <a href={`tel:${supplier.phone}`}>
+                            <Phone className="mr-2 h-4 w-4" />
+                            Contact Supplier
+                          </a>
                         </Button>
-                        <Button variant="outline" className="w-full">
-                          <Route className="mr-2 h-4 w-4" />
-                          Get Directions
+                        <Button 
+                          variant="outline" 
+                          className="w-full"
+                          asChild
+                        >
+                          <a 
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(supplier.address)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <Route className="mr-2 h-4 w-4" />
+                            Get Directions
+                          </a>
                         </Button>
                       </div>
 
                       <div className="p-3 bg-muted rounded-lg space-y-2">
                         <div className="flex items-center gap-2 text-sm">
                           <Phone className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">{supplier.phone}</span>
+                          <a href={`tel:${supplier.phone}`} className="text-muted-foreground hover:text-foreground transition-colors">
+                            {supplier.phone}
+                          </a>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                           <Mail className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">{supplier.email}</span>
+                          <a href={`mailto:${supplier.email}`} className="text-muted-foreground hover:text-foreground transition-colors">
+                            {supplier.email}
+                          </a>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                           <MapPin className="h-4 w-4 text-muted-foreground" />
                           <span className="text-muted-foreground text-xs">{supplier.address}</span>
                         </div>
                       </div>
-
-                      <Button variant="ghost" className="w-full">
-                        <ExternalLink className="mr-2 h-4 w-4" />
-                        View Full Profile
-                      </Button>
                     </div>
                   </div>
                 </CardContent>
@@ -359,7 +326,7 @@ const SuppliersMap: React.FC = () => {
         </Card>
         <Card>
           <CardContent className="pt-6 text-center">
-            <Package className="h-8 w-8 mx-auto mb-2 text-green-600" />
+            <Truck className="h-8 w-8 mx-auto mb-2 text-green-600" />
             <div className="text-2xl font-bold text-foreground">{categories.length}</div>
             <div className="text-sm text-muted-foreground">Categories</div>
           </CardContent>
