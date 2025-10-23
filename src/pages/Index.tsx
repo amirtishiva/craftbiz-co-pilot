@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from "@/integrations/supabase/client";
 import Navigation from '@/components/layout/Navigation';
 import SecondaryNav from '@/components/layout/SecondaryNav';
 import Dashboard from '@/components/dashboard/Dashboard';
@@ -8,18 +9,36 @@ import BusinessPlan from '@/components/business/BusinessPlan';
 import DesignStudio from '@/components/design/DesignStudio';
 import MarketingHub from '@/components/marketing/MarketingHub';
 import SuppliersMap from '@/components/suppliers/SuppliersMap';
+import type { User } from "@supabase/supabase-js";
 
 const Index = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [ideaData, setIdeaData] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in
-    const isLoggedIn = localStorage.getItem('craftbiz_user');
-    if (!isLoggedIn) {
-      navigate('/');
-    }
+    // Check auth status
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+      } else {
+        navigate("/auth");
+      }
+      setLoading(false);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUser(session.user);
+      } else {
+        navigate("/auth");
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, [navigate]);
 
   const handleIdeaSubmit = (data: any) => {
@@ -45,6 +64,18 @@ const Index = () => {
         return <Dashboard onTabChange={setActiveTab} />;
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background">

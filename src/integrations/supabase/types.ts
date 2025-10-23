@@ -14,7 +14,240 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      business_ideas: {
+        Row: {
+          created_at: string
+          detected_language: string | null
+          id: string
+          input_method: string
+          original_text: string | null
+          product_image_url: string | null
+          refined_idea: string | null
+          updated_at: string
+          user_id: string
+          voice_recording_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          detected_language?: string | null
+          id?: string
+          input_method: string
+          original_text?: string | null
+          product_image_url?: string | null
+          refined_idea?: string | null
+          updated_at?: string
+          user_id: string
+          voice_recording_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          detected_language?: string | null
+          id?: string
+          input_method?: string
+          original_text?: string | null
+          product_image_url?: string | null
+          refined_idea?: string | null
+          updated_at?: string
+          user_id?: string
+          voice_recording_url?: string | null
+        }
+        Relationships: []
+      }
+      business_plans: {
+        Row: {
+          business_name: string
+          competitive_advantage: string | null
+          created_at: string
+          executive_summary: string | null
+          financial_projections: string | null
+          id: string
+          idea_id: string | null
+          implementation_timeline: string | null
+          market_analysis: string | null
+          marketing_strategy: string | null
+          operations_plan: string | null
+          revenue_model: string | null
+          risk_analysis: string | null
+          status: string | null
+          tagline: string | null
+          target_customers: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          business_name: string
+          competitive_advantage?: string | null
+          created_at?: string
+          executive_summary?: string | null
+          financial_projections?: string | null
+          id?: string
+          idea_id?: string | null
+          implementation_timeline?: string | null
+          market_analysis?: string | null
+          marketing_strategy?: string | null
+          operations_plan?: string | null
+          revenue_model?: string | null
+          risk_analysis?: string | null
+          status?: string | null
+          tagline?: string | null
+          target_customers?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          business_name?: string
+          competitive_advantage?: string | null
+          created_at?: string
+          executive_summary?: string | null
+          financial_projections?: string | null
+          id?: string
+          idea_id?: string | null
+          implementation_timeline?: string | null
+          market_analysis?: string | null
+          marketing_strategy?: string | null
+          operations_plan?: string | null
+          revenue_model?: string | null
+          risk_analysis?: string | null
+          status?: string | null
+          tagline?: string | null
+          target_customers?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_plans_idea_id_fkey"
+            columns: ["idea_id"]
+            isOneToOne: false
+            referencedRelation: "business_ideas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      design_assets: {
+        Row: {
+          asset_type: string
+          asset_url: string
+          created_at: string
+          id: string
+          plan_id: string | null
+          prompt_used: string | null
+          user_id: string
+        }
+        Insert: {
+          asset_type: string
+          asset_url: string
+          created_at?: string
+          id?: string
+          plan_id?: string | null
+          prompt_used?: string | null
+          user_id: string
+        }
+        Update: {
+          asset_type?: string
+          asset_url?: string
+          created_at?: string
+          id?: string
+          plan_id?: string | null
+          prompt_used?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "design_assets_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "business_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_content: {
+        Row: {
+          content_text: string
+          created_at: string
+          hashtags: string[] | null
+          id: string
+          plan_id: string | null
+          platform: string
+          user_id: string
+        }
+        Insert: {
+          content_text: string
+          created_at?: string
+          hashtags?: string[] | null
+          id?: string
+          plan_id?: string | null
+          platform: string
+          user_id: string
+        }
+        Update: {
+          content_text?: string
+          created_at?: string
+          hashtags?: string[] | null
+          id?: string
+          plan_id?: string | null
+          platform?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_content_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "business_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suppliers: {
+        Row: {
+          address: string | null
+          category: string
+          city: string | null
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          rating: number | null
+          state: string | null
+          updated_at: string
+          website_url: string | null
+        }
+        Insert: {
+          address?: string | null
+          category: string
+          city?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          rating?: number | null
+          state?: string | null
+          updated_at?: string
+          website_url?: string | null
+        }
+        Update: {
+          address?: string | null
+          category?: string
+          city?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          rating?: number | null
+          state?: string | null
+          updated_at?: string
+          website_url?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
