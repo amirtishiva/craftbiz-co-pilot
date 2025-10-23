@@ -44,31 +44,89 @@ serve(async (req) => {
       throw new Error('OpenAI API key is not configured');
     }
 
-    const systemPrompt = `You are an expert business consultant specializing in helping Indian entrepreneurs create comprehensive business plans. You understand the Indian market, local challenges, and opportunities for small businesses.
+    const systemPrompt = `You are an expert business consultant specializing in helping Indian entrepreneurs create comprehensive, detailed business plans. You understand the Indian market, local challenges, and opportunities for small businesses.
 
-Your task is to generate a complete, practical business plan that is:
-- Tailored to the Indian market context
-- Actionable and realistic for small business owners
-- Comprehensive yet easy to understand
-- Focused on practical implementation`;
+CRITICAL INSTRUCTIONS:
+- Generate DETAILED, COMPREHENSIVE content for each section
+- Each section must be 3-5 paragraphs with specific, actionable information
+- Use concrete numbers, examples, and market data relevant to India
+- Avoid generic statements - be specific to the business idea
+- Format response as valid JSON with complete, detailed content for each field`;
 
     const userPrompt = `Business Idea: ${idea.refined_idea || idea.original_text}
 Business Name: ${businessName || 'Not specified'}
 
-Please generate a comprehensive business plan with the following sections:
+Generate a comprehensive business plan with detailed content for each section:
 
-1. Executive Summary (2-3 paragraphs overview)
-2. Market Analysis (target market, size, trends in India)
-3. Target Customers (detailed customer profiles)
-4. Competitive Advantage (what makes this business unique)
-5. Revenue Model (how the business will make money)
-6. Marketing Strategy (customer acquisition channels suitable for India)
-7. Operations Plan (day-to-day operations, resources needed)
-8. Financial Projections (startup costs, monthly expenses, revenue estimates)
-9. Risk Analysis (potential challenges and mitigation strategies)
-10. Implementation Timeline (6-month roadmap)
+1. EXECUTIVE SUMMARY (3-4 paragraphs, 300-400 words):
+   - Compelling overview of the business concept and vision
+   - Problem being solved and solution offered
+   - Target market and unique value proposition
+   - Key financial highlights and growth potential
 
-Format the response as JSON with these exact keys: executiveSummary, marketAnalysis, targetCustomers, competitiveAdvantage, revenueModel, marketingStrategy, operationsPlan, financialProjections, riskAnalysis, implementationTimeline`;
+2. MARKET ANALYSIS (4-5 paragraphs, 400-500 words):
+   - Detailed target market size and demographics in India
+   - Current market trends and growth opportunities
+   - Customer behavior patterns and preferences
+   - Market gaps and opportunities this business will address
+   - Specific examples and data points
+
+3. TARGET CUSTOMERS (3-4 paragraphs, 300-400 words):
+   - Detailed customer personas with demographics
+   - Customer pain points and needs
+   - Buying behavior and decision-making factors
+   - Customer acquisition and retention strategies
+
+4. COMPETITIVE ADVANTAGE (3-4 paragraphs, 300-400 words):
+   - Specific unique selling propositions
+   - Competitive landscape analysis
+   - Barriers to entry for competitors
+   - How this business differentiates from existing solutions
+   - Long-term competitive moats
+
+5. REVENUE MODEL (3-4 paragraphs, 300-400 words):
+   - Detailed pricing strategy with specific price points
+   - Multiple revenue streams and their contribution
+   - Unit economics and profit margins
+   - Scalability of the business model
+   - Payment terms and cash flow considerations
+
+6. MARKETING STRATEGY (4-5 paragraphs, 400-500 words):
+   - Specific digital and offline marketing channels
+   - Customer acquisition strategy with cost estimates
+   - Brand positioning and messaging
+   - Partnership and collaboration opportunities
+   - Month-by-month marketing roadmap for first 6 months
+
+7. OPERATIONS PLAN (4-5 paragraphs, 400-500 words):
+   - Day-to-day operational workflow
+   - Key resources needed (team, technology, infrastructure)
+   - Supply chain and vendor management
+   - Quality control and customer service processes
+   - Scalability and efficiency improvements
+
+8. FINANCIAL PROJECTIONS (4-5 paragraphs, 400-500 words):
+   - Detailed startup costs breakdown (₹50,000 - ₹5,00,000)
+   - Monthly operating expenses with specific categories
+   - Revenue projections for Year 1, 2, and 3
+   - Break-even analysis and timeline
+   - Funding requirements and ROI expectations
+
+9. RISK ANALYSIS (3-4 paragraphs, 300-400 words):
+   - Major business risks (market, operational, financial)
+   - Specific mitigation strategies for each risk
+   - Contingency plans and alternative approaches
+   - Regulatory and compliance considerations
+
+10. IMPLEMENTATION TIMELINE (3-4 paragraphs, 300-400 words):
+    - Detailed 6-month roadmap with specific milestones
+    - Month-by-month action items and deliverables
+    - Key metrics and success indicators
+    - Resource allocation timeline
+
+Return ONLY valid JSON with these exact keys: executiveSummary, marketAnalysis, targetCustomers, competitiveAdvantage, revenueModel, marketingStrategy, operationsPlan, financialProjections, riskAnalysis, implementationTimeline
+
+Each value must be a detailed, multi-paragraph string with all the information requested above.`;
 
     console.log('Generating business plan for idea:', ideaId);
 
