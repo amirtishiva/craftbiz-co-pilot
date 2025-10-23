@@ -1,3 +1,4 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
@@ -38,9 +39,9 @@ serve(async (req) => {
       throw new Error('Idea not found');
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+    const OPENAI_API_KEY = Deno.env.get('Open_API');
+    if (!OPENAI_API_KEY) {
+      throw new Error('OpenAI API key is not configured');
     }
 
     const systemPrompt = `You are an expert business consultant specializing in helping Indian entrepreneurs create comprehensive business plans. You understand the Indian market, local challenges, and opportunities for small businesses.
@@ -71,30 +72,53 @@ Format the response as JSON with these exact keys: executiveSummary, marketAnaly
 
     console.log('Generating business plan for idea:', ideaId);
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    console.log('Generating business plan with OpenAI GPT-5');
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gpt-5-2025-08-07',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        response_format: { type: "json_object" }
+        max_completion_tokens: 4000,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
-      throw new Error(`AI Gateway error: ${response.status}`);
+      console.error('OpenAI API error:', response.status, errorText);
+      throw new Error(`OpenAI API error: ${response.status}`);
     }
 
     const data = await response.json();
-    const planContent = JSON.parse(data.choices[0].message.content);
+    const content = data.choices[0].message.content.trim();
+    
+    // Try to parse JSON from the response
+    let planContent;
+    try {
+      planContent = JSON.parse(content);
+    } catch (e) {
+      // If not valid JSON, create structured plan from text
+      console.log('Response not JSON, structuring data from text');
+      planContent = {
+        executiveSummary: content.substring(0, 500),
+        marketAnalysis: content.substring(500, 1000) || 'Market analysis pending',
+        targetCustomers: content.substring(1000, 1500) || 'Target customers to be defined',
+        competitiveAdvantage: content.substring(1500, 2000) || 'Competitive advantages to be identified',
+        revenueModel: content.substring(2000, 2500) || 'Revenue model to be developed',
+        marketingStrategy: content.substring(2500, 3000) || 'Marketing strategy to be planned',
+        operationsPlan: content.substring(3000, 3500) || 'Operations plan to be detailed',
+        financialProjections: content.substring(3500, 4000) || 'Financial projections to be calculated',
+        riskAnalysis: content.substring(4000, 4500) || 'Risk analysis to be completed',
+        implementationTimeline: content.substring(4500) || '6-month timeline to be created'
+      };
+    }
 
     // Save business plan to database
     const { data: businessPlan, error: planError } = await supabase

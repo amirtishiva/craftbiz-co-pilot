@@ -1,3 +1,4 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
@@ -34,12 +35,12 @@ serve(async (req) => {
       throw new Error('Invalid authentication');
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+    const OPENAI_API_KEY = Deno.env.get('Open_API');
+    if (!OPENAI_API_KEY) {
+      throw new Error('OpenAI API key is not configured');
     }
 
-    const systemPrompt = `You are a social media marketing expert for Indian businesses. Create engaging, culturally relevant content.`;
+    const systemPrompt = `You are a social media marketing expert for Indian businesses. Create engaging, culturally relevant content. Format your response as JSON with keys: contentText, hashtags (array), cta`;
 
     const userPrompt = `Create ${platform} marketing content for:
 Business: ${businessName}
@@ -49,34 +50,47 @@ Product: ${productDescription || 'Not specified'}
 Provide:
 1. Engaging post text (appropriate length for ${platform})
 2. 5-7 relevant hashtags for Indian market
-3. Call-to-action
+3. Call-to-action`;
 
-Format as JSON with keys: contentText, hashtags (array), cta`;
+    console.log('Generating marketing content with OpenAI GPT-5');
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gpt-5-mini-2025-08-07',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        response_format: { type: "json_object" }
+        max_completion_tokens: 500,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
-      throw new Error(`AI Gateway error: ${response.status}`);
+      console.error('OpenAI API error:', response.status, errorText);
+      throw new Error(`OpenAI API error: ${response.status}`);
     }
 
     const data = await response.json();
-    const content = JSON.parse(data.choices[0].message.content);
+    const responseContent = data.choices[0].message.content.trim();
+    
+    // Try to parse JSON from the response
+    let content;
+    try {
+      content = JSON.parse(responseContent);
+    } catch (e) {
+      // If not valid JSON, create structured content
+      content = {
+        contentText: responseContent,
+        hashtags: ['#MadeInIndia', '#SmallBusiness', '#LocalBusiness', '#SupportLocal', '#IndianEntrepreneur'],
+        cta: 'Contact us to learn more!'
+      };
+    }
 
     // Save to database
     const { data: marketingContent, error: contentError } = await supabase

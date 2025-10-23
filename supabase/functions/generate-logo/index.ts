@@ -1,3 +1,4 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
@@ -35,17 +36,39 @@ serve(async (req) => {
       throw new Error('Invalid authentication');
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+    const OPENAI_API_KEY = Deno.env.get('Open_API');
+    if (!OPENAI_API_KEY) {
+      throw new Error('OpenAI API key is not configured');
     }
 
-    const prompt = `Create a modern, professional logo for "${businessName}", a ${industry || 'business'}. Style: ${style || 'minimalist and professional'}. The logo should be clean, memorable, and suitable for digital and print use.`;
+    const prompt = `Create a modern, professional logo for "${businessName}", a ${industry || 'business'}. Style: ${style || 'minimalist and professional'}. The logo should be clean, memorable, and suitable for digital and print use. Use vibrant colors suitable for Indian market.`;
 
-    console.log('Generating logo with prompt:', prompt);
+    console.log('Generating logo with DALL-E:', prompt);
 
-    // Simulate logo generation - in production, this would call an image generation API
-    const mockLogoUrl = `https://via.placeholder.com/400x400/6366F1/FFFFFF?text=${encodeURIComponent(businessName)}`;
+    // Generate logo using DALL-E
+    const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'dall-e-3',
+        prompt: prompt,
+        n: 1,
+        size: '1024x1024',
+        quality: 'standard',
+      }),
+    });
+
+    if (!imageResponse.ok) {
+      const errorText = await imageResponse.text();
+      console.error('DALL-E API error:', imageResponse.status, errorText);
+      throw new Error(`DALL-E API error: ${imageResponse.status}`);
+    }
+
+    const imageData = await imageResponse.json();
+    const logoUrl = imageData.data[0].url;
 
     // Save to database
     const { data: asset, error: assetError } = await supabase
@@ -53,7 +76,7 @@ serve(async (req) => {
       .insert({
         user_id: user.id,
         asset_type: 'logo',
-        asset_url: mockLogoUrl,
+        asset_url: logoUrl,
         prompt_used: prompt
       })
       .select()

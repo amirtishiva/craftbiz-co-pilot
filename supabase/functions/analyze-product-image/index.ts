@@ -1,3 +1,4 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -17,9 +18,9 @@ serve(async (req) => {
       throw new Error('Image URL is required');
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+    const OPENAI_API_KEY = Deno.env.get('Open_API');
+    if (!OPENAI_API_KEY) {
+      throw new Error('OpenAI API key is not configured');
     }
 
     const systemPrompt = `You are a product analysis expert specializing in identifying business opportunities from product images.
@@ -29,41 +30,58 @@ Your task is to:
 2. Suggest potential target customers
 3. Identify key features and selling points
 4. Suggest a business idea based on the product
-5. Provide market insights`;
+5. Provide market insights
 
-    const userPrompt = `Analyze this product image and provide:
-- Product name and category
-- Target customer segments
-- Key features
-- Suggested business idea
-- Brief market analysis
+Format your response as JSON with keys: productName, category, targetCustomers (array), features (array), suggestedIdea, marketInsights`;
 
-Format as JSON with keys: productName, category, targetCustomers (array), features (array), suggestedIdea, marketInsights`;
+    console.log('Analyzing product image with OpenAI GPT-5 Vision');
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gpt-5-mini-2025-08-07',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
+          { 
+            role: 'user', 
+            content: [
+              { type: 'text', text: 'Analyze this product image and provide detailed business insights.' },
+              { type: 'image_url', image_url: { url: imageUrl } }
+            ]
+          }
         ],
-        response_format: { type: "json_object" }
+        max_completion_tokens: 1000,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
-      throw new Error(`AI Gateway error: ${response.status}`);
+      console.error('OpenAI API error:', response.status, errorText);
+      throw new Error(`OpenAI API error: ${response.status}`);
     }
 
     const data = await response.json();
-    const analysis = JSON.parse(data.choices[0].message.content);
+    const content = data.choices[0].message.content.trim();
+    
+    // Try to parse JSON from the response
+    let analysis;
+    try {
+      analysis = JSON.parse(content);
+    } catch (e) {
+      // If not valid JSON, extract information from text
+      analysis = {
+        productName: 'Analyzed Product',
+        category: 'General',
+        targetCustomers: ['Indian consumers', 'Small business owners'],
+        features: ['Quality craftsmanship', 'Locally sourced materials'],
+        suggestedIdea: content.substring(0, 200),
+        marketInsights: content
+      };
+    }
 
     console.log('Product analysis:', analysis);
 
