@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,6 +15,8 @@ import {
   Calculator,
   Globe
 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface BusinessPlanProps {
   ideaData?: any;
@@ -24,28 +26,95 @@ const BusinessPlan: React.FC<BusinessPlanProps> = ({ ideaData }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [businessPlan, setBusinessPlan] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [businessName, setBusinessName] = useState('');
   const [financialData, setFinancialData] = useState({
     startupCost: '',
     monthlyExpenses: '',
     pricePerUnit: '',
     unitsPerMonth: '',
   });
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (ideaData?.id) {
+      loadExistingPlan(ideaData.id);
+    }
+  }, [ideaData]);
+
+  const loadExistingPlan = async (ideaId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('business_plans')
+        .select('*')
+        .eq('idea_id', ideaId)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setBusinessPlan({
+          executiveSummary: data.executive_summary || '',
+          marketAnalysis: data.market_analysis || '',
+          businessModel: data.competitive_advantage || '',
+          marketingStrategy: data.marketing_strategy || '',
+          operationsPlanning: data.operations_plan || '',
+          financialProjections: data.financial_projections || ''
+        });
+        setBusinessName(data.business_name || '');
+      }
+    } catch (error) {
+      console.error('Error loading plan:', error);
+    }
+  };
 
   const generateBusinessPlan = async () => {
-    setIsGenerating(true);
-    
-    // Simulate AI generation
-    setTimeout(() => {
-      setBusinessPlan({
-        executiveSummary: "Your handmade crafts marketplace connects local artisans with customers seeking authentic, unique products. By eliminating intermediaries, artisans receive fair compensation while customers access genuine handcrafted items at reasonable prices.",
-        marketAnalysis: "The Indian handicrafts market is valued at $4.5 billion with 7 million artisans. E-commerce penetration in this sector is only 15%, representing a significant opportunity. Target demographics include urban millennials and conscious consumers aged 25-45.",
-        businessModel: "Commission-based marketplace earning 8-12% per transaction. Additional revenue from premium seller subscriptions, advertising, and logistics partnerships. Focus on quality curation and authentic storytelling.",
-        marketingStrategy: "Social media marketing highlighting artisan stories, influencer partnerships, craft workshops, and participation in cultural festivals. SEO-optimized content around 'authentic Indian crafts' and 'supporting local artisans'.",
-        operationsPlanning: "Three-phase launch: 1) Onboard 50 artisans in pilot city, 2) Develop quality standards and logistics, 3) Scale to 5 cities within 12 months. Partner with established logistics providers for delivery.",
-        financialProjections: "Break-even expected in month 18. Projected revenue of ₹2.5 lakhs in year 1, scaling to ₹15 lakhs by year 3. Initial investment requirement: ₹5 lakhs for platform development and marketing."
+    if (!ideaData?.id) {
+      toast({
+        title: "Missing Information",
+        description: "No business idea found. Please capture your idea first.",
+        variant: "destructive",
       });
+      return;
+    }
+
+    const nameToUse = businessName || ideaData.type || 'My Business';
+    
+    setIsGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-business-plan', {
+        body: { 
+          ideaId: ideaData.id,
+          businessName: nameToUse
+        }
+      });
+
+      if (error) throw error;
+
+      const planData = data.businessPlan;
+      setBusinessPlan({
+        executiveSummary: planData.executive_summary,
+        marketAnalysis: planData.market_analysis,
+        businessModel: planData.competitive_advantage,
+        marketingStrategy: planData.marketing_strategy,
+        operationsPlanning: planData.operations_plan,
+        financialProjections: planData.financial_projections
+      });
+      setBusinessName(planData.business_name);
+      
+      toast({
+        title: "Business Plan Generated!",
+        description: "Your comprehensive business plan is ready.",
+      });
+    } catch (error) {
+      console.error('Generation error:', error);
+      toast({
+        title: "Generation Failed",
+        description: "Failed to generate business plan. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setIsGenerating(false);
-    }, 3000);
+    }
   };
 
   const handleEditPlan = () => {
@@ -146,16 +215,25 @@ Financial Calculator Results:
                 Our AI will analyze your idea and create a detailed business plan with market analysis, financial projections, and actionable strategies.
               </CardDescription>
             </CardHeader>
-            <CardContent className="text-center">
+            <CardContent className="text-center space-y-6">
               {ideaData && (
-                <div className="mb-6 p-4 bg-muted rounded-lg text-left">
+                <div className="p-4 bg-muted rounded-lg text-left">
                   <h4 className="font-semibold mb-2">Your Business Idea:</h4>
                   <p className="text-sm text-muted-foreground">{ideaData.idea}</p>
                   <div className="mt-2 text-xs text-muted-foreground">
-                    Type: {ideaData.type} | Language: {ideaData.language}
+                    Type: {ideaData.type}
                   </div>
                 </div>
               )}
+
+              <div className="space-y-2 text-left max-w-md mx-auto">
+                <label className="text-sm font-medium">Business Name (Optional)</label>
+                <Input
+                  placeholder="Enter your business name"
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                />
+              </div>
               
               <Button 
                 variant="craft" 

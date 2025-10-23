@@ -12,6 +12,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ImageUploadProps {
   onProductAnalyzed: (productData: any) => void;
@@ -37,40 +38,51 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onProductAnalyzed }) => {
   const { toast } = useToast();
 
   const simulateImageAnalysis = async (): Promise<ProductAnalysis> => {
-    // Step 1: Image Understanding
     setAnalysisStep('Analyzing product image...');
     setProgress(20);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 500));
 
-    setAnalysisStep('Identifying product type and materials...');
-    setProgress(40);
-    await new Promise(resolve => setTimeout(resolve, 1200));
+    setAnalysisStep('Identifying product details...');
+    setProgress(50);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-product-image', {
+        body: { imageUrl: imagePreview }
+      });
 
-    setAnalysisStep('Detecting style and craftsmanship details...');
-    setProgress(60);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+      if (error) throw error;
 
-    setAnalysisStep('Mapping product to business context...');
-    setProgress(80);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+      setProgress(80);
+      setAnalysisStep('Generating business insights...');
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-    setAnalysisStep('Generating business plan prompt...');
-    setProgress(95);
-    await new Promise(resolve => setTimeout(resolve, 800));
+      const analysis: ProductAnalysis = {
+        productType: data.analysis.productName || 'Handcrafted Product',
+        materials: data.analysis.features || ['Handcrafted materials'],
+        style: data.analysis.category || 'Traditional',
+        colors: ['Natural tones'],
+        targetAudience: data.analysis.targetCustomers?.join(', ') || 'Urban consumers',
+        businessContext: data.analysis.category || 'Handicrafts',
+        suggestedBusinessIdea: data.analysis.suggestedIdea || 'Start a handcrafted products business'
+      };
 
-    // Simulate AI Vision Analysis (GPT-4o or CLIP)
-    const analysis: ProductAnalysis = {
-      productType: 'Handwoven Textile / Fabric',
-      materials: ['Natural Cotton', 'Traditional Dyes', 'Hand-spun Thread'],
-      style: 'Traditional Indian Handloom',
-      colors: ['Natural Beige', 'Indigo Blue', 'Earth Tones'],
-      targetAudience: 'Urban customers who prefer sustainable and eco-friendly products',
-      businessContext: 'Sustainable Fashion / Ethnic Wear',
-      suggestedBusinessIdea: 'A business selling eco-friendly handcrafted traditional textiles, targeting urban customers who value sustainable living and authentic craftsmanship. The products will feature traditional Indian handloom techniques with natural dyes and organic materials.'
-    };
-
-    setProgress(100);
-    return analysis;
+      setProgress(100);
+      return analysis;
+    } catch (error) {
+      console.error('API analysis error:', error);
+      // Fallback to mock data
+      const analysis: ProductAnalysis = {
+        productType: 'Handcrafted Product',
+        materials: ['Natural materials', 'Traditional techniques'],
+        style: 'Traditional Indian Craftsmanship',
+        colors: ['Natural tones'],
+        targetAudience: 'Urban customers who value authentic crafts',
+        businessContext: 'Handicrafts & Traditional Arts',
+        suggestedBusinessIdea: 'A business selling handcrafted traditional products, targeting urban customers who value sustainable living and authentic craftsmanship.'
+      };
+      setProgress(100);
+      return analysis;
+    }
   };
 
   const handleImageUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {

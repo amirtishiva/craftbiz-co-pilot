@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import ImageUpload from './ImageUpload';
+import VoiceRecorder from './VoiceRecorder';
+import { supabase } from '@/integrations/supabase/client';
 
 interface IdeaCaptureProps {
   onIdeaSubmit: (idea: any) => void;
@@ -45,71 +47,47 @@ const IdeaCapture: React.FC<IdeaCaptureProps> = ({ onIdeaSubmit }) => {
   ];
 
   const handleRefineIdea = async () => {
+    if (!businessIdea.trim()) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter a business idea first",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsRefining(true);
-    
-    // Simulate AI refinement - only refines into professional description
-    setTimeout(() => {
-      // Examples of refined outputs based on input
-      const refinements: Record<string, string> = {
-        'pottery': 'A creative artisan-led business specializing in handcrafted pottery, ceramic decor, and functional homeware. The venture focuses on combining traditional craftsmanship with modern aesthetics to produce unique, sustainable, and customizable products for homes, cafes, and gifting markets.',
-        't-shirt branding': 'A custom apparel branding business offering personalized t-shirt printing and design services. The venture combines creative graphic design with quality printing techniques to help individuals, businesses, and organizations create distinctive branded merchandise that reflects their identity and values.',
-      };
-      
-      // Get refined text or create a generic refined version
-      const lowerIdea = businessIdea.toLowerCase().trim();
-      const refinedIdea = refinements[lowerIdea] || 
-        `A professional business venture focused on ${businessIdea.trim()}. This initiative aims to deliver high-quality products/services to target customers through innovative approaches, combining expertise with market understanding to create sustainable value and growth opportunities.`;
-      
-      setBusinessIdea(refinedIdea);
-      setIsRefining(false);
-      
+    try {
+      const { data, error } = await supabase.functions.invoke('refine-idea', {
+        body: { ideaText: businessIdea }
+      });
+
+      if (error) throw error;
+
+      setBusinessIdea(data.refinedIdea);
       toast({
         title: "Idea Refined!",
-        description: "Your business idea has been polished into a professional description.",
+        description: "Your business idea has been polished with AI.",
       });
-    }, 2000);
-  };
-
-  const handleVoiceRecording = () => {
-    if (!isRecording) {
-      setIsRecording(true);
+    } catch (error) {
+      console.error('Refinement error:', error);
       toast({
-        title: "Recording Started",
-        description: "Speak your business idea clearly in any language.",
+        title: "Refinement Failed",
+        description: "Failed to refine idea. Please try again.",
+        variant: "destructive",
       });
-      
-      // Simulate recording, transcription, and translation
-      setTimeout(() => {
-        setIsRecording(false);
-        const transcribed = "I want to start an online marketplace for handmade crafts by local artisans in my city. The platform will help artisans reach customers directly and get fair prices for their work.";
-        setTranscribedText(transcribed);
-        setBusinessIdea(transcribed);
-        toast({
-          title: "Recording Complete",
-          description: "Auto-detected language, transcribed, and translated to English.",
-        });
-      }, 3000);
-    } else {
-      setIsRecording(false);
+    } finally {
+      setIsRefining(false);
     }
   };
 
-  const handleRefineTranscription = async () => {
-    setIsRefining(true);
-    
-    // Simulate AI refinement of transcription - only refines into professional description
-    setTimeout(() => {
-      const refinedTranscription = `An online marketplace dedicated to promoting and selling handmade crafts created by local artisans. The platform will bridge the gap between artisans and customers, allowing creators to showcase their products, tell their stories, and sell directly to buyers without intermediaries.`;
-      
-      setBusinessIdea(refinedTranscription);
-      setTranscribedText(refinedTranscription);
-      setIsRefining(false);
-      
-      toast({
-        title: "Transcription Refined!",
-        description: "Your idea has been polished into a clear business description.",
-      });
-    }, 2000);
+  const handleTranscription = (text: string, language: string) => {
+    setTranscribedText(text);
+    setBusinessIdea(text);
+    toast({
+      title: "Voice Transcribed",
+      description: `Successfully transcribed from ${language}`,
+    });
   };
 
   const handleProductAnalyzed = (data: any) => {
@@ -136,25 +114,48 @@ const IdeaCapture: React.FC<IdeaCaptureProps> = ({ onIdeaSubmit }) => {
     }
 
     setIsProcessing(true);
-    
-    // Simulate AI processing
-    setTimeout(() => {
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) throw new Error('Not authenticated');
+
+      const { data: idea, error } = await supabase
+        .from('business_ideas')
+        .insert({
+          user_id: user.id,
+          original_text: contentToSubmit,
+          refined_idea: contentToSubmit,
+          input_method: inputMethod,
+          product_image_url: productData?.imageUrl
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
       const ideaData = {
+        id: idea.id,
         idea: contentToSubmit,
         type: businessType,
-        timestamp: new Date().toISOString(),
         inputMethod,
         productData: productData || null,
       };
       
       onIdeaSubmit(ideaData);
-      setIsProcessing(false);
       
       toast({
         title: "Idea Captured Successfully!",
-        description: "Your business idea has been analyzed and a comprehensive business plan will be generated.",
+        description: "Your business idea has been saved.",
       });
-    }, 2000);
+    } catch (error) {
+      console.error('Submit error:', error);
+      toast({
+        title: "Submission Failed",
+        description: "Failed to save business idea. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -256,58 +257,19 @@ const IdeaCapture: React.FC<IdeaCaptureProps> = ({ onIdeaSubmit }) => {
           {/* Voice Input */}
           {inputMethod === 'voice' && (
             <div className="space-y-4">
-              <div className="text-center">
-                <Button
-                  variant={isRecording ? "destructive" : "accent"}
-                  size="xl"
-                  onClick={handleVoiceRecording}
-                  className="group"
-                >
-                  {isRecording ? (
-                    <>
-                      <MicOff className="mr-2 h-6 w-6" />
-                      Stop Recording
-                    </>
-                  ) : (
-                    <>
-                      <Mic className="mr-2 h-6 w-6" />
-                      Start Recording
-                    </>
-                  )}
-                </Button>
-              </div>
-              
-              {isRecording && (
-                <div className="text-center">
-                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 rounded-full">
-                    <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                    Recording in progress...
-                  </div>
-                </div>
-              )}
+              <VoiceRecorder onTranscription={handleTranscription} />
 
               {transcribedText && (
-                <div className="space-y-2 relative">
-                  <label className="text-sm font-medium">Transcribed Text (Auto-translated to English)</label>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Transcribed Text</label>
                   <Textarea
                     value={transcribedText}
-                    onChange={(e) => setTranscribedText(e.target.value)}
-                    className="min-h-[100px] pr-12"
+                    onChange={(e) => {
+                      setTranscribedText(e.target.value);
+                      setBusinessIdea(e.target.value);
+                    }}
+                    className="min-h-[100px]"
                   />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="absolute bottom-2 right-2 h-8 w-8 p-0"
-                    onClick={handleRefineTranscription}
-                    disabled={isRefining}
-                    title="Refine with AI"
-                  >
-                    {isRefining ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                    ) : (
-                      <Sparkles className="h-4 w-4 text-accent-orange" />
-                    )}
-                  </Button>
                 </div>
               )}
             </div>

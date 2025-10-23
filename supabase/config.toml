@@ -1,7 +1,19 @@
 project_id = "soynuxsibdlgikbpjipr"
 
 [functions.refine-idea]
-verify_jwt = true
+verify_jwt = false
 
 [functions.generate-business-plan]
+verify_jwt = true
+
+[functions.transcribe-voice]
+verify_jwt = false
+
+[functions.analyze-product-image]
+verify_jwt = false
+
+[functions.generate-logo]
+verify_jwt = true
+
+[functions.generate-marketing-content]
 verify_jwt = true
