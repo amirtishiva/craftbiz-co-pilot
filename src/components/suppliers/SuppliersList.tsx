@@ -202,11 +202,6 @@ const SuppliersList: React.FC = () => {
                       <div className="mb-4">
                         <div className="flex items-center gap-2 mb-2">
                           <h3 className="text-xl font-bold text-foreground">{supplier.name}</h3>
-                          {supplier.verified && (
-                            <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-semibold">
-                              Verified
-                            </span>
-                          )}
                         </div>
                         <p className="text-muted-foreground mb-2">{supplier.category}</p>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">

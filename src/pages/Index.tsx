@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navigation from '@/components/layout/Navigation';
+import SecondaryNav from '@/components/layout/SecondaryNav';
 import Dashboard from '@/components/dashboard/Dashboard';
 import IdeaCapture from '@/components/idea/IdeaCapture';
 import BusinessPlan from '@/components/business/BusinessPlan';
@@ -47,7 +48,8 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
+      <Navigation />
+      <SecondaryNav activeTab={activeTab} onTabChange={setActiveTab} />
       <main className="pb-8">
         {renderActiveComponent()}
       </main>
