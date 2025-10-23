@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -19,6 +19,8 @@ import {
   ShoppingBag
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+
+type Libraries = ("places" | "geometry" | "drawing" | "visualization")[];
 
 interface Location {
   lat: number;
@@ -62,183 +64,25 @@ const LocalDealersMap: React.FC = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [map, setMap] = useState<google.maps.Map | null>(null);
 
+  const libraries: Libraries = ['places'];
+  const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
+  const geocoderRef = useRef<google.maps.Geocoder | null>(null);
+  const distanceMatrixRef = useRef<google.maps.DistanceMatrixService | null>(null);
+
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
-    libraries: ['places']
+    libraries
   });
 
-  // Mock dealers data - flat array for dynamic search
-  const allMockDealers: Dealer[] = [
-    {
-      id: '1',
-      name: 'Fashion Hub',
-      category: 'Clothing Store',
-      address: 'Shop 12, Market Street, Mumbai',
-      coordinates: { lat: 19.0760, lng: 72.8777 },
-      distance: '1.2',
-      rating: 4.5,
-      reviews: 234,
-      phone: '+91 98765 43210',
-      open_now: true
-    },
-    {
-      id: '2',
-      name: 'Style Studio',
-      category: 'Clothing Store',
-      address: '45 Fashion Plaza, Mumbai',
-      coordinates: { lat: 19.0800, lng: 72.8800 },
-      distance: '2.1',
-      rating: 4.7,
-      reviews: 189,
-      phone: '+91 98765 43211',
-      open_now: true
-    },
-    {
-      id: '3',
-      name: 'Trendy Wear',
-      category: 'Clothing Store',
-      address: '78 Shopping Complex, Mumbai',
-      coordinates: { lat: 19.0720, lng: 72.8750 },
-      distance: '3.5',
-      rating: 4.3,
-      reviews: 156,
-      phone: '+91 98765 43212',
-      open_now: false
-    },
-    {
-      id: '4',
-      name: 'Silk & Cotton House',
-      category: 'Fabric Store',
-      address: '23 Textile Market, Mumbai',
-      coordinates: { lat: 19.0780, lng: 72.8790 },
-      distance: '1.8',
-      rating: 4.6,
-      reviews: 312,
-      phone: '+91 98765 43213',
-      open_now: true
-    },
-    {
-      id: '5',
-      name: 'Premium Fabrics',
-      category: 'Fabric Store',
-      address: '67 Fabric Lane, Mumbai',
-      coordinates: { lat: 19.0750, lng: 72.8765 },
-      distance: '2.3',
-      rating: 4.8,
-      reviews: 278,
-      phone: '+91 98765 43214',
-      open_now: true
-    },
-    {
-      id: '6',
-      name: 'Kids World Toys',
-      category: 'Toy Store',
-      address: '89 Children Plaza, Mumbai',
-      coordinates: { lat: 19.0790, lng: 72.8785 },
-      distance: '1.5',
-      rating: 4.9,
-      reviews: 421,
-      phone: '+91 98765 43215',
-      open_now: true
-    },
-    {
-      id: '7',
-      name: 'Happy Toys',
-      category: 'Toy Store',
-      address: '34 Play Street, Mumbai',
-      coordinates: { lat: 19.0770, lng: 72.8760 },
-      distance: '2.7',
-      rating: 4.4,
-      reviews: 198,
-      phone: '+91 98765 43216',
-      open_now: true
-    },
-    {
-      id: '8',
-      name: 'Spice Garden',
-      category: 'Restaurant',
-      address: '12 Food Street, Mumbai',
-      coordinates: { lat: 19.0755, lng: 72.8780 },
-      distance: '0.8',
-      rating: 4.6,
-      reviews: 567,
-      phone: '+91 98765 43217',
-      open_now: true
-    },
-    {
-      id: '9',
-      name: 'The Dining Room',
-      category: 'Restaurant',
-      address: '56 Culinary Lane, Mumbai',
-      coordinates: { lat: 19.0800, lng: 72.8795 },
-      distance: '2.0',
-      rating: 4.7,
-      reviews: 489,
-      phone: '+91 98765 43218',
-      open_now: true
-    },
-    {
-      id: '10',
-      name: 'Tech Electronics',
-      category: 'Electronics Store',
-      address: '91 Tech Plaza, Mumbai',
-      coordinates: { lat: 19.0765, lng: 72.8770 },
-      distance: '1.4',
-      rating: 4.5,
-      reviews: 345,
-      phone: '+91 98765 43219',
-      open_now: true
-    },
-    {
-      id: '11',
-      name: 'City Hardware',
-      category: 'Hardware Store',
-      address: '15 Builder Street, Mumbai',
-      coordinates: { lat: 19.0775, lng: 72.8755 },
-      distance: '1.9',
-      rating: 4.3,
-      reviews: 167,
-      phone: '+91 98765 43220',
-      open_now: true
-    },
-    {
-      id: '12',
-      name: 'Book Haven',
-      category: 'Book Store',
-      address: '42 Reader Lane, Mumbai',
-      coordinates: { lat: 19.0785, lng: 72.8772 },
-      distance: '1.6',
-      rating: 4.8,
-      reviews: 412,
-      phone: '+91 98765 43221',
-      open_now: true
-    },
-    {
-      id: '13',
-      name: 'Health Plus Pharmacy',
-      category: 'Pharmacy',
-      address: '28 Medical Street, Mumbai',
-      coordinates: { lat: 19.0768, lng: 72.8788 },
-      distance: '1.3',
-      rating: 4.6,
-      reviews: 289,
-      phone: '+91 98765 43222',
-      open_now: true
-    },
-    {
-      id: '14',
-      name: 'Cozy Cafe',
-      category: 'Cafe',
-      address: '33 Coffee Plaza, Mumbai',
-      coordinates: { lat: 19.0758, lng: 72.8768 },
-      distance: '1.1',
-      rating: 4.7,
-      reviews: 523,
-      phone: '+91 98765 43223',
-      open_now: true
+  // Initialize Google Maps services
+  useEffect(() => {
+    if (isLoaded && map) {
+      placesServiceRef.current = new google.maps.places.PlacesService(map);
+      geocoderRef.current = new google.maps.Geocoder();
+      distanceMatrixRef.current = new google.maps.DistanceMatrixService();
     }
-  ];
+  }, [isLoaded, map]);
 
   // Detect user location on mount
   useEffect(() => {
@@ -276,6 +120,10 @@ const LocalDealersMap: React.FC = () => {
 
   const onLoad = useCallback((map: google.maps.Map) => {
     setMap(map);
+    // Initialize services when map loads
+    placesServiceRef.current = new google.maps.places.PlacesService(map);
+    geocoderRef.current = new google.maps.Geocoder();
+    distanceMatrixRef.current = new google.maps.DistanceMatrixService();
   }, []);
 
   const onUnmount = useCallback(() => {
@@ -294,7 +142,65 @@ const LocalDealersMap: React.FC = () => {
     }
   }, [map, dealers, userLocation]);
 
-  const handleSearch = (query: string) => {
+  const calculateDistances = async (places: google.maps.places.PlaceResult[], origin: Location): Promise<Dealer[]> => {
+    if (!distanceMatrixRef.current || places.length === 0) return [];
+
+    return new Promise((resolve) => {
+      const destinations = places
+        .filter(place => place.geometry?.location)
+        .map(place => place.geometry!.location!);
+
+      if (destinations.length === 0) {
+        resolve([]);
+        return;
+      }
+
+      distanceMatrixRef.current!.getDistanceMatrix(
+        {
+          origins: [new google.maps.LatLng(origin.lat, origin.lng)],
+          destinations: destinations,
+          travelMode: google.maps.TravelMode.DRIVING,
+          unitSystem: google.maps.UnitSystem.METRIC,
+        },
+        (response, status) => {
+          if (status === google.maps.DistanceMatrixStatus.OK && response) {
+            const dealers: Dealer[] = places
+              .filter(place => place.geometry?.location)
+              .map((place, index) => {
+                const element = response.rows[0]?.elements[index];
+                const distance = element?.distance?.value 
+                  ? (element.distance.value / 1000).toFixed(1) 
+                  : '0';
+
+                return {
+                  id: place.place_id || `place-${index}`,
+                  name: place.name || 'Unknown',
+                  category: place.types?.[0]?.replace(/_/g, ' ') || 'Store',
+                  address: place.vicinity || place.formatted_address || 'Address not available',
+                  coordinates: {
+                    lat: place.geometry!.location!.lat(),
+                    lng: place.geometry!.location!.lng(),
+                  },
+                  distance,
+                  rating: place.rating || 0,
+                  reviews: place.user_ratings_total || 0,
+                  phone: place.formatted_phone_number,
+                  open_now: place.opening_hours?.isOpen?.() || false,
+                };
+              })
+              .filter(dealer => parseFloat(dealer.distance) <= selectedRadius)
+              .sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
+
+            resolve(dealers);
+          } else {
+            resolve([]);
+          }
+        }
+      );
+    });
+  };
+
+  const handleSearch = async (query: string) => {
     if (!query.trim()) {
       setDealers([]);
       setSearchQuery('');
@@ -310,35 +216,51 @@ const LocalDealersMap: React.FC = () => {
       return;
     }
 
+    if (!placesServiceRef.current) {
+      toast({
+        title: "Maps not ready",
+        description: "Please wait for the map to load.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSearching(true);
     setSearchQuery(query);
 
-    // Simulate API call with dynamic search
-    setTimeout(() => {
-      const searchLower = query.toLowerCase();
-      
-      // Search across name, category, and address
-      const results = allMockDealers.filter(dealer => 
-        dealer.name.toLowerCase().includes(searchLower) ||
-        dealer.category.toLowerCase().includes(searchLower) ||
-        dealer.address.toLowerCase().includes(searchLower)
-      );
-      
-      // Filter by radius
-      const filteredResults = results.filter(dealer => 
-        parseFloat(dealer.distance) <= selectedRadius
-      );
+    const request: google.maps.places.PlaceSearchRequest = {
+      location: new google.maps.LatLng(userLocation.lat, userLocation.lng),
+      radius: selectedRadius * 1000, // Convert km to meters
+      keyword: query,
+    };
 
-      setDealers(filteredResults);
-      setIsSearching(false);
+    placesServiceRef.current.nearbySearch(request, async (results, status) => {
+      if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+        const dealersWithDistances = await calculateDistances(results, userLocation);
+        setDealers(dealersWithDistances);
+        setIsSearching(false);
 
-      if (filteredResults.length === 0) {
+        if (dealersWithDistances.length === 0) {
+          toast({
+            title: "No results found",
+            description: "Try expanding your search radius or different keywords.",
+          });
+        } else {
+          toast({
+            title: "Search complete",
+            description: `Found ${dealersWithDistances.length} nearby locations.`,
+          });
+        }
+      } else {
+        setIsSearching(false);
+        setDealers([]);
         toast({
-          title: "No results found",
-          description: "Try expanding your search radius or different keywords.",
+          title: "Search failed",
+          description: "Unable to find nearby locations. Please try again.",
+          variant: "destructive",
         });
       }
-    }, 800);
+    });
   };
 
   const handleQuickSearch = (category: string) => {
