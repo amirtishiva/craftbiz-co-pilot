@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -37,6 +38,19 @@ interface Dealer {
   open_now?: boolean;
 }
 
+const mapContainerStyle = {
+  width: '100%',
+  height: '600px'
+};
+
+const mapOptions = {
+  disableDefaultUI: false,
+  zoomControl: true,
+  streetViewControl: false,
+  mapTypeControl: false,
+  fullscreenControl: true,
+};
+
 const LocalDealersMap: React.FC = () => {
   const { toast } = useToast();
   const [userLocation, setUserLocation] = useState<Location | null>(null);
@@ -46,6 +60,13 @@ const LocalDealersMap: React.FC = () => {
   const [dealers, setDealers] = useState<Dealer[]>([]);
   const [selectedDealer, setSelectedDealer] = useState<Dealer | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [map, setMap] = useState<google.maps.Map | null>(null);
+
+  const { isLoaded, loadError } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
+    libraries: ['places']
+  });
 
   // Mock dealers data - flat array for dynamic search
   const allMockDealers: Dealer[] = [
@@ -251,7 +272,27 @@ const LocalDealersMap: React.FC = () => {
         variant: "destructive",
       });
     }
+  }, [toast]);
+
+  const onLoad = useCallback((map: google.maps.Map) => {
+    setMap(map);
   }, []);
+
+  const onUnmount = useCallback(() => {
+    setMap(null);
+  }, []);
+
+  // Fit map bounds to show all dealers
+  useEffect(() => {
+    if (map && dealers.length > 0 && userLocation) {
+      const bounds = new google.maps.LatLngBounds();
+      bounds.extend(userLocation);
+      dealers.forEach(dealer => {
+        bounds.extend(dealer.coordinates);
+      });
+      map.fitBounds(bounds);
+    }
+  }, [map, dealers, userLocation]);
 
   const handleSearch = (query: string) => {
     if (!query.trim()) {
@@ -329,12 +370,35 @@ const LocalDealersMap: React.FC = () => {
     );
   };
 
-  if (locationStatus === 'loading') {
+  if (loadError) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <div className="text-center py-12">
+            <AlertCircle className="h-16 w-16 mx-auto mb-4 text-destructive" />
+            <h3 className="text-lg font-semibold mb-2">Failed to Load Maps</h3>
+            <p className="text-muted-foreground mb-4">
+              There was an error loading Google Maps. Please check your API key configuration.
+            </p>
+            <Button onClick={() => window.location.reload()}>
+              Try Again
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!isLoaded || locationStatus === 'loading') {
     return (
       <div className="flex flex-col items-center justify-center py-16">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <h3 className="text-lg font-semibold mb-2">Detecting your location...</h3>
-        <p className="text-muted-foreground">Please allow location access when prompted</p>
+        <h3 className="text-lg font-semibold mb-2">
+          {locationStatus === 'loading' ? 'Detecting your location...' : 'Loading maps...'}
+        </h3>
+        <p className="text-muted-foreground">
+          {locationStatus === 'loading' ? 'Please allow location access when prompted' : 'Please wait'}
+        </p>
       </div>
     );
   }
@@ -522,118 +586,115 @@ const LocalDealersMap: React.FC = () => {
           )}
         </div>
 
-        {/* Map View */}
+        {/* Google Map View */}
         <div className="lg:col-span-2">
           <Card>
             <CardContent className="pt-6">
-              <div className="h-[600px] bg-muted rounded-lg relative overflow-hidden">
-                {/* Map Placeholder with Markers */}
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-green-50 dark:from-blue-950/20 dark:to-green-950/20">
+              {userLocation ? (
+                <GoogleMap
+                  mapContainerStyle={mapContainerStyle}
+                  center={userLocation}
+                  zoom={13}
+                  onLoad={onLoad}
+                  onUnmount={onUnmount}
+                  options={mapOptions}
+                >
                   {/* User Location Marker */}
-                  {userLocation && (
-                    <div 
-                      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20"
-                      title="Your Location"
-                    >
-                      <div className="relative">
-                        <div className="absolute inset-0 bg-blue-500 rounded-full animate-ping opacity-75"></div>
-                        <div className="relative bg-blue-600 rounded-full p-2 shadow-lg">
-                          <Navigation className="h-6 w-6 text-white" />
-                        </div>
-                      </div>
-                      <div className="text-xs font-semibold text-center mt-1 bg-white px-2 py-1 rounded shadow-md">
-                        You
-                      </div>
-                    </div>
-                  )}
+                  <Marker
+                    position={userLocation}
+                    icon={{
+                      path: google.maps.SymbolPath.CIRCLE,
+                      scale: 8,
+                      fillColor: '#3B82F6',
+                      fillOpacity: 1,
+                      strokeColor: '#FFFFFF',
+                      strokeWeight: 2,
+                    }}
+                    title="Your Location"
+                  />
 
                   {/* Dealer Markers */}
-                  {dealers.map((dealer, index) => (
-                    <div
+                  {dealers.map((dealer) => (
+                    <Marker
                       key={dealer.id}
-                      className="absolute cursor-pointer transition-transform hover:scale-110"
-                      style={{
-                        top: `${40 + (index * 8)}%`,
-                        left: `${45 + (index % 3) * 15}%`,
-                      }}
+                      position={dealer.coordinates}
                       onClick={() => setSelectedDealer(dealer)}
+                      icon={{
+                        path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
+                        scale: 6,
+                        fillColor: selectedDealer?.id === dealer.id ? '#DC2626' : '#EF4444',
+                        fillOpacity: 1,
+                        strokeColor: '#FFFFFF',
+                        strokeWeight: 2,
+                        rotation: 180,
+                      }}
                       title={dealer.name}
-                    >
-                      <div className="relative">
-                        <MapPin className={`h-8 w-8 ${
-                          selectedDealer?.id === dealer.id ? 'text-red-600' : 'text-red-500'
-                        } drop-shadow-lg`} fill="currentColor" />
-                      </div>
-                    </div>
+                    />
                   ))}
 
-                  {/* Selected Dealer Info Window */}
+                  {/* Info Window for Selected Dealer */}
                   {selectedDealer && (
-                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 w-80">
-                      <Card>
-                        <CardContent className="pt-4 space-y-3">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <h4 className="font-bold text-base mb-1">{selectedDealer.name}</h4>
-                              <p className="text-sm text-muted-foreground">{selectedDealer.category}</p>
-                            </div>
-                            {selectedDealer.open_now && (
-                              <Badge variant="secondary">Open</Badge>
-                            )}
+                    <InfoWindow
+                      position={selectedDealer.coordinates}
+                      onCloseClick={() => setSelectedDealer(null)}
+                    >
+                      <div className="p-2 max-w-xs">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <h4 className="font-bold text-sm mb-1">{selectedDealer.name}</h4>
+                            <p className="text-xs text-gray-600">{selectedDealer.category}</p>
                           </div>
-                          
-                          <div className="flex items-center gap-2">
-                            {renderStars(selectedDealer.rating)}
-                            <span className="text-sm text-muted-foreground">
-                              ({selectedDealer.reviews} reviews)
-                            </span>
-                          </div>
-                          
-                          <p className="text-sm text-muted-foreground">{selectedDealer.address}</p>
-                          
-                          <div className="flex items-center gap-2 text-sm">
-                            <MapPin className="h-4 w-4 text-muted-foreground" />
-                            <span>{selectedDealer.distance} km away</span>
-                          </div>
-                          
-                          <div className="flex gap-2 pt-2">
-                            <Button 
-                              className="flex-1"
-                              onClick={() => openDirections(selectedDealer)}
+                          {selectedDealer.open_now && (
+                            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Open</span>
+                          )}
+                        </div>
+                        
+                        <div className="flex items-center gap-1 mb-2">
+                          {renderStars(selectedDealer.rating)}
+                          <span className="text-xs text-gray-600">
+                            ({selectedDealer.reviews} reviews)
+                          </span>
+                        </div>
+                        
+                        <p className="text-xs text-gray-700 mb-2">{selectedDealer.address}</p>
+                        
+                        <div className="flex items-center gap-1 text-xs text-gray-600 mb-3">
+                          <MapPin className="h-3 w-3" />
+                          <span>{selectedDealer.distance} km away</span>
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          <button
+                            className="flex-1 bg-primary text-white text-xs px-3 py-1.5 rounded hover:bg-primary/90 flex items-center justify-center gap-1"
+                            onClick={() => openDirections(selectedDealer)}
+                          >
+                            <Navigation className="h-3 w-3" />
+                            Directions
+                          </button>
+                          {selectedDealer.phone && (
+                            <a
+                              href={`tel:${selectedDealer.phone}`}
+                              className="bg-gray-100 text-gray-700 text-xs px-3 py-1.5 rounded hover:bg-gray-200 flex items-center justify-center"
                             >
-                              <Navigation className="mr-2 h-4 w-4" />
-                              Directions
-                            </Button>
-                            {selectedDealer.phone && (
-                              <Button 
-                                variant="outline"
-                                asChild
-                              >
-                                <a href={`tel:${selectedDealer.phone}`}>
-                                  <Phone className="h-4 w-4" />
-                                </a>
-                              </Button>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  )}
-
-                  {/* Map Placeholder Text */}
-                  {dealers.length === 0 && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="text-center">
-                        <Store className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                        <h3 className="text-lg font-semibold mb-2">Interactive Map View</h3>
-                        <p className="text-muted-foreground">
-                          Search for dealers to see them on the map
-                        </p>
+                              <Phone className="h-3 w-3" />
+                            </a>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    </InfoWindow>
                   )}
+                </GoogleMap>
+              ) : (
+                <div className="h-[600px] bg-muted rounded-lg flex items-center justify-center">
+                  <div className="text-center">
+                    <Store className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                    <h3 className="text-lg font-semibold mb-2">Interactive Map View</h3>
+                    <p className="text-muted-foreground">
+                      Waiting for location...
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </div>
