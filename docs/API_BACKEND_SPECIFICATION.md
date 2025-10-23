@@ -1,7 +1,8 @@
 # CraftBiz - API Backend Specification
 
-**Version**: 2.0  
-**Last Updated**: January 2025
+**Version**: 3.0  
+**Last Updated**: January 2025  
+**Status**: Production Ready
 
 ---
 
@@ -13,75 +14,97 @@
 5. [Design Studio API](#5-design-studio-api)
 6. [Marketing Hub API](#6-marketing-hub-api)
 7. [Suppliers API](#7-suppliers-api)
-8. [Edge Functions](#8-edge-functions)
+8. [AI Integration Layer](#8-ai-integration-layer)
 9. [Error Handling](#9-error-handling)
+10. [Rate Limits & Quotas](#10-rate-limits--quotas)
 
 ---
 
 ## 1. Overview
 
 ### 1.1 Base URLs
+
 ```
-API: https://[project-ref].supabase.co/rest/v1
-Edge Functions: https://[project-ref].supabase.co/functions/v1
-Storage: https://[project-ref].supabase.co/storage/v1
-OpenAI: https://api.openai.com/v1
-Google Maps: https://maps.googleapis.com/maps/api
+API Base:           https://[project-ref].supabase.co/rest/v1
+Edge Functions:     https://[project-ref].supabase.co/functions/v1
+Storage:            https://[project-ref].supabase.co/storage/v1
+OpenAI API:         https://api.openai.com/v1
+Google Maps API:    https://maps.googleapis.com/maps/api
 ```
 
 ### 1.2 Authentication
-All API requests require JWT token in header:
+
+All API requests require JWT token authentication:
+
 ```http
 Authorization: Bearer <JWT_TOKEN>
 apikey: <SUPABASE_ANON_KEY>
+Content-Type: application/json
 ```
 
 ### 1.3 Standard Response Format
 
-**Success**:
+**Success Response**:
 ```json
 {
   "success": true,
-  "data": { ... }
+  "data": { ... },
+  "metadata": {
+    "timestamp": "2025-01-23T10:00:00Z",
+    "request_id": "uuid"
+  }
 }
 ```
 
-**Error**:
+**Error Response**:
 ```json
 {
   "success": false,
   "error": {
     "code": "ERROR_CODE",
-    "message": "Error description"
+    "message": "Human-readable error message",
+    "details": { ... }
+  },
+  "metadata": {
+    "timestamp": "2025-01-23T10:00:00Z",
+    "request_id": "uuid"
   }
 }
 ```
 
 ### 1.4 HTTP Status Codes
-- `200` - Success
-- `201` - Created
-- `400` - Bad Request
-- `401` - Unauthorized
-- `403` - Forbidden
-- `404` - Not Found
-- `429` - Rate Limit Exceeded
-- `500` - Server Error
+
+| Code | Meaning | Use Case |
+|------|---------|----------|
+| `200` | OK | Successful request |
+| `201` | Created | Resource created successfully |
+| `400` | Bad Request | Invalid input parameters |
+| `401` | Unauthorized | Missing or invalid authentication |
+| `403` | Forbidden | Insufficient permissions |
+| `404` | Not Found | Resource doesn't exist |
+| `422` | Unprocessable Entity | Validation errors |
+| `429` | Too Many Requests | Rate limit exceeded |
+| `500` | Internal Server Error | Server-side error |
+| `503` | Service Unavailable | External service unavailable |
 
 ---
 
 ## 2. Authentication
 
 ### 2.1 Sign Up
+
 **Endpoint**: `POST /auth/v1/signup`
 
 **Request**:
 ```json
 {
-  "email": "user@example.com",
-  "password": "password123",
+  "email": "artisan@example.com",
+  "password": "SecurePassword123!",
   "options": {
     "data": {
-      "full_name": "John Doe"
+      "full_name": "Rajesh Kumar",
+      "business_type": "Handicrafts",
+      "language": "en"
     }
   }
 }
@@ -90,36 +113,51 @@ apikey: <SUPABASE_ANON_KEY>
 **Response**: `201 Created`
 ```json
 {
-  "access_token": "eyJhbGc...",
-  "refresh_token": "...",
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "v1.refresh_token...",
+  "expires_in": 3600,
+  "token_type": "bearer",
   "user": {
-    "id": "uuid",
-    "email": "user@example.com"
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "email": "artisan@example.com",
+    "email_confirmed_at": null,
+    "created_at": "2025-01-23T10:00:00Z",
+    "user_metadata": {
+      "full_name": "Rajesh Kumar",
+      "business_type": "Handicrafts"
+    }
   }
 }
 ```
 
 ### 2.2 Sign In
+
 **Endpoint**: `POST /auth/v1/token?grant_type=password`
 
 **Request**:
 ```json
 {
-  "email": "user@example.com",
-  "password": "password123"
+  "email": "artisan@example.com",
+  "password": "SecurePassword123!"
 }
 ```
 
 **Response**: `200 OK`
 ```json
 {
-  "access_token": "eyJhbGc...",
-  "refresh_token": "...",
-  "expires_in": 3600
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "v1.refresh_token...",
+  "expires_in": 3600,
+  "token_type": "bearer",
+  "user": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "email": "artisan@example.com"
+  }
 }
 ```
 
 ### 2.3 Sign Out
+
 **Endpoint**: `POST /auth/v1/logout`
 
 **Headers**:
@@ -129,171 +167,386 @@ Authorization: Bearer <JWT_TOKEN>
 
 **Response**: `204 No Content`
 
+### 2.4 Refresh Token
+
+**Endpoint**: `POST /auth/v1/token?grant_type=refresh_token`
+
+**Request**:
+```json
+{
+  "refresh_token": "v1.refresh_token..."
+}
+```
+
+**Response**: `200 OK`
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "v1.refresh_token...",
+  "expires_in": 3600
+}
+```
+
 ---
 
 ## 3. Business Ideas API
 
 ### 3.1 Create Business Idea
+
 **Endpoint**: `POST /rest/v1/business_ideas`
 
 **Request**:
 ```json
 {
-  "content": "I want to start a handmade crafts marketplace...",
+  "content": "I want to create a marketplace for handmade pottery and ceramics, connecting local artisans with urban customers who value authentic craftsmanship.",
   "business_type": "E-commerce",
-  "input_method": "text | voice | image",
-  "product_analysis": {
-    "product_type": "Handwoven Textile",
-    "materials": ["Natural Cotton", "Traditional Dyes"],
-    "style": "Traditional Indian Handloom",
-    "colors": ["Natural Beige", "Indigo Blue"],
-    "target_audience": "Urban eco-conscious customers",
-    "business_context": "Sustainable Fashion"
-  }
+  "input_method": "text",
+  "original_language": "en",
+  "product_analysis": null
 }
 ```
 
 **Response**: `201 Created`
 ```json
 {
-  "id": "uuid",
-  "user_id": "uuid",
-  "content": "...",
+  "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+  "user_id": "550e8400-e29b-41d4-a716-446655440000",
+  "content": "I want to create a marketplace for handmade pottery...",
   "business_type": "E-commerce",
-  "input_method": "image",
-  "product_analysis": {},
-  "created_at": "2025-01-15T10:00:00Z"
+  "input_method": "text",
+  "original_language": "en",
+  "product_analysis": null,
+  "created_at": "2025-01-23T10:00:00Z",
+  "updated_at": "2025-01-23T10:00:00Z"
 }
 ```
 
 ### 3.2 Get User's Business Ideas
-**Endpoint**: `GET /rest/v1/business_ideas?user_id=eq.<user_id>`
+
+**Endpoint**: `GET /rest/v1/business_ideas?user_id=eq.<user_id>&order=created_at.desc`
 
 **Response**: `200 OK`
 ```json
 [
   {
-    "id": "uuid",
-    "content": "...",
+    "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+    "content": "Marketplace for handmade pottery...",
     "business_type": "E-commerce",
-    "created_at": "2025-01-15T10:00:00Z"
+    "input_method": "text",
+    "created_at": "2025-01-23T10:00:00Z"
+  },
+  {
+    "id": "8d7f5680-8536-51fe-b15g-f18gd2g01bf8",
+    "content": "Online platform for sustainable textiles...",
+    "business_type": "Retail",
+    "input_method": "voice",
+    "created_at": "2025-01-22T15:30:00Z"
   }
 ]
 ```
+
+### 3.3 Get Single Business Idea
+
+**Endpoint**: `GET /rest/v1/business_ideas?id=eq.<idea_id>`
+
+**Response**: `200 OK`
+```json
+{
+  "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+  "user_id": "550e8400-e29b-41d4-a716-446655440000",
+  "content": "Marketplace for handmade pottery...",
+  "business_type": "E-commerce",
+  "input_method": "text",
+  "original_language": "en",
+  "product_analysis": null,
+  "created_at": "2025-01-23T10:00:00Z"
+}
+```
+
+### 3.4 Delete Business Idea
+
+**Endpoint**: `DELETE /rest/v1/business_ideas?id=eq.<idea_id>`
+
+**Response**: `204 No Content`
 
 ---
 
 ## 4. Business Plans API
 
 ### 4.1 Generate Business Plan (Edge Function)
+
 **Endpoint**: `POST /functions/v1/generate-business-plan`
 
 **Request**:
 ```json
 {
-  "idea_id": "uuid",
-  "business_idea": "Handmade crafts marketplace...",
-  "business_type": "E-commerce"
+  "business_idea": "Marketplace for handmade pottery connecting local artisans with urban customers",
+  "business_type": "E-commerce",
+  "input_method": "text",
+  "product_analysis": null
 }
+```
+
+**AI Prompt Template**:
+
+```markdown
+**Role**: You are an expert business consultant specializing in Indian small businesses and artisan entrepreneurship.
+
+**Context**: 
+- The user is an entrepreneur in India looking to start a new business
+- Business Type: {{business_type}}
+- Input Method: {{input_method}}
+- Business Idea: {{business_idea}}
+{{#if product_analysis}}
+- Product Analysis: {{product_analysis}}
+{{/if}}
+
+**Instruction**: Generate a comprehensive, actionable business plan with the following sections:
+
+1. **Executive Summary**: 150-200 words overview
+2. **Market Analysis**: Indian market size, trends, target demographics
+3. **Business Model**: Revenue streams, pricing, cost structure
+4. **Marketing Strategy**: Customer acquisition, digital marketing, local outreach
+5. **Operations Planning**: Supply chain, logistics, technology requirements
+6. **Financial Projections**: Startup costs, revenue projections (12-36 months)
+
+**Output Format**: Structured JSON with detailed, India-specific insights
 ```
 
 **Edge Function Implementation**:
+
 ```typescript
-const response = await fetch("https://api.openai.com/v1/chat/completions", {
-  method: "POST",
-  headers: {
-    "Authorization": `Bearer ${OPENAI_API_KEY}`,
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    model: "gpt-5-2025-08-07",
-    messages: [
-      {
-        role: "system",
-        content: "You are a business plan expert..."
-      },
-      {
-        role: "user",
-        content: `Create a business plan for: ${business_idea}`
-      }
-    ],
-    max_completion_tokens: 4000,
-    tools: [
-      {
-        type: "function",
-        function: {
-          name: "generate_business_plan",
-          description: "Generate structured business plan",
-          parameters: {
-            type: "object",
-            properties: {
-              executive_summary: { type: "string" },
-              market_analysis: { type: "string" },
-              business_model: { type: "string" },
-              marketing_strategy: { type: "string" },
-              operations_planning: { type: "string" },
-              financial_projections: { type: "string" }
-            },
-            required: ["executive_summary", "market_analysis", "business_model"]
-          }
-        }
-      }
-    ],
-    tool_choice: {
-      type: "function",
-      function: { name: "generate_business_plan" }
+// supabase/functions/generate-business-plan/index.ts
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { business_idea, business_type, input_method, product_analysis } = await req.json();
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+
+    if (!OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY not configured');
     }
-  })
+
+    // Build system prompt
+    const systemPrompt = `You are an expert business consultant specializing in Indian small businesses and artisan entrepreneurship. Generate comprehensive, actionable business plans with India-specific market insights.`;
+
+    // Build user prompt
+    const userPrompt = `Create a detailed business plan for this ${business_type} business:
+
+Business Idea: ${business_idea}
+${product_analysis ? `Product Analysis: ${JSON.stringify(product_analysis)}` : ''}
+
+Generate a comprehensive business plan with these sections:
+1. Executive Summary (150-200 words)
+2. Market Analysis (Indian market, trends, demographics)
+3. Business Model (revenue streams, pricing, costs)
+4. Marketing Strategy (customer acquisition, digital & local)
+5. Operations Planning (supply chain, logistics, tech)
+6. Financial Projections (startup costs, 12-36 month projections)`;
+
+    // Call OpenAI API with function calling for structured output
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "gpt-5-2025-08-07",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        max_completion_tokens: 4000,
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "generate_business_plan",
+              description: "Generate a structured business plan",
+              parameters: {
+                type: "object",
+                properties: {
+                  executive_summary: { 
+                    type: "string",
+                    description: "150-200 word overview of the business"
+                  },
+                  market_analysis: { 
+                    type: "string",
+                    description: "Indian market analysis with size, trends, and demographics"
+                  },
+                  business_model: { 
+                    type: "string",
+                    description: "Revenue streams, pricing strategy, and cost structure"
+                  },
+                  marketing_strategy: { 
+                    type: "string",
+                    description: "Customer acquisition and marketing approach"
+                  },
+                  operations_planning: { 
+                    type: "string",
+                    description: "Supply chain, logistics, and operational requirements"
+                  },
+                  financial_projections: { 
+                    type: "string",
+                    description: "Startup costs and revenue projections"
+                  }
+                },
+                required: ["executive_summary", "market_analysis", "business_model", "marketing_strategy", "operations_planning", "financial_projections"],
+                additionalProperties: false
+              }
+            }
+          }
+        ],
+        tool_choice: {
+          type: "function",
+          function: { name: "generate_business_plan" }
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OpenAI API error:', response.status, errorText);
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    // Extract structured data from function call
+    const toolCall = data.choices[0].message.tool_calls[0];
+    const planData = JSON.parse(toolCall.function.arguments);
+
+    // Save to Supabase
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const authHeader = req.headers.get('Authorization');
+    const token = authHeader?.replace('Bearer ', '');
+    const { data: { user } } = await supabaseClient.auth.getUser(token);
+
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    const { data: insertedPlan, error: insertError } = await supabaseClient
+      .from('business_plans')
+      .insert({
+        user_id: user.id,
+        executive_summary: planData.executive_summary,
+        market_analysis: planData.market_analysis,
+        business_model: planData.business_model,
+        marketing_strategy: planData.marketing_strategy,
+        operations_planning: planData.operations_planning,
+        financial_projections: planData.financial_projections,
+        business_type: business_type,
+        input_method: input_method
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      throw insertError;
+    }
+
+    return new Response(
+      JSON.stringify({ success: true, data: insertedPlan }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }}
+    );
+
+  } catch (error) {
+    console.error('Error generating business plan:', error);
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: {
+          code: 'GENERATION_FAILED',
+          message: error instanceof Error ? error.message : 'Unknown error'
+        }
+      }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }}
+    );
+  }
 });
-
-const data = await response.json();
-const planData = JSON.parse(data.choices[0].message.tool_calls[0].function.arguments);
 ```
 
 **Response**: `200 OK`
 ```json
 {
-  "id": "uuid",
-  "idea_id": "uuid",
-  "executive_summary": "...",
-  "market_analysis": "...",
-  "business_model": "...",
-  "marketing_strategy": "...",
-  "operations_planning": "...",
-  "financial_projections": "..."
+  "success": true,
+  "data": {
+    "id": "9e8f7680-9647-62gf-c26h-g29he3h12cg9",
+    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "executive_summary": "CraftBiz Marketplace connects local Indian artisans...",
+    "market_analysis": "The Indian handicrafts market is valued at $4.5 billion...",
+    "business_model": "Commission-based marketplace earning 8-12% per transaction...",
+    "marketing_strategy": "Social media marketing highlighting artisan stories...",
+    "operations_planning": "Three-phase launch: onboard artisans, establish logistics...",
+    "financial_projections": "Initial investment: ₹5 lakhs. Break-even: 18 months...",
+    "business_type": "E-commerce",
+    "created_at": "2025-01-23T10:05:00Z"
+  }
 }
 ```
 
-### 4.2 Get Business Plan
-**Endpoint**: `GET /rest/v1/business_plans?id=eq.<plan_id>`
+### 4.2 Get Business Plans
+
+**Endpoint**: `GET /rest/v1/business_plans?user_id=eq.<user_id>&order=created_at.desc`
 
 **Response**: `200 OK`
 ```json
-{
-  "id": "uuid",
-  "executive_summary": "...",
-  "market_analysis": "...",
-  "created_at": "2025-01-15T11:00:00Z"
-}
+[
+  {
+    "id": "9e8f7680-9647-62gf-c26h-g29he3h12cg9",
+    "executive_summary": "CraftBiz Marketplace connects...",
+    "business_type": "E-commerce",
+    "created_at": "2025-01-23T10:05:00Z"
+  }
+]
 ```
 
 ### 4.3 Update Business Plan
+
 **Endpoint**: `PATCH /rest/v1/business_plans?id=eq.<plan_id>`
 
 **Request**:
 ```json
 {
-  "executive_summary": "Updated summary..."
+  "executive_summary": "Updated executive summary text...",
+  "marketing_strategy": "Revised marketing approach..."
 }
 ```
 
 **Response**: `200 OK`
+```json
+{
+  "id": "9e8f7680-9647-62gf-c26h-g29he3h12cg9",
+  "executive_summary": "Updated executive summary text...",
+  "marketing_strategy": "Revised marketing approach...",
+  "updated_at": "2025-01-23T11:00:00Z"
+}
+```
 
 ---
 
 ## 5. Design Studio API
 
 ### 5.1 Generate Logo (Edge Function)
+
 **Endpoint**: `POST /functions/v1/generate-logo`
 
 **Request**:
@@ -302,137 +555,287 @@ const planData = JSON.parse(data.choices[0].message.tool_calls[0].function.argum
   "business_name": "CraftBiz",
   "description": "Modern minimalist logo for handmade crafts marketplace",
   "style": "modern",
-  "colors": ["orange", "brown"]
+  "colors": ["orange", "brown"],
+  "industry": "E-commerce"
 }
 ```
 
+**AI Prompt Template**:
+
+```markdown
+**Role**: You are a professional graphic designer specializing in brand identity and logo design.
+
+**Context**:
+- Business Name: {{business_name}}
+- Industry: {{industry}}
+- Style Preference: {{style}}
+- Color Palette: {{colors}}
+- Description: {{description}}
+
+**Instruction**: Create a professional logo that:
+- Represents the brand identity and values
+- Is scalable and works in various sizes
+- Uses the specified color palette
+- Follows modern design principles
+- Is culturally relevant for Indian audience
+
+**Output**: Generate a {{style}} style logo design with clean lines, professional typography, and the specified colors.
+```
+
 **Edge Function Implementation**:
+
 ```typescript
-const response = await fetch("https://api.openai.com/v1/images/generations", {
-  method: "POST",
-  headers: {
-    "Authorization": `Bearer ${OPENAI_API_KEY}`,
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    model: "gpt-image-1",
-    prompt: `Professional logo for ${business_name}: ${description}. Style: ${style}. Colors: ${colors.join(", ")}`,
-    n: 1,
-    size: "1024x1024",
-    response_format: "b64_json"
-  })
+// supabase/functions/generate-logo/index.ts
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { decode } from "https://deno.land/std@0.177.0/encoding/base64.ts";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { business_name, description, style, colors, industry } = await req.json();
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+
+    // Build detailed prompt
+    const prompt = `Professional ${style} logo design for "${business_name}", a ${industry} business. ${description}. Color palette: ${colors.join(', ')}. Modern, scalable, clean design with Indian cultural relevance. High quality, vector-style illustration.`;
+
+    // Call DALL-E API
+    const response = await fetch("https://api.openai.com/v1/images/generations", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "gpt-image-1",
+        prompt: prompt,
+        n: 1,
+        size: "1024x1024",
+        response_format: "b64_json",
+        quality: "hd"
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Image generation failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const imageBase64 = data.data[0].b64_json;
+
+    // Upload to Supabase Storage
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const authHeader = req.headers.get('Authorization');
+    const token = authHeader?.replace('Bearer ', '');
+    const { data: { user } } = await supabaseClient.auth.getUser(token);
+
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    const fileName = `logos/${user.id}/${Date.now()}.png`;
+    const imageBuffer = decode(imageBase64);
+
+    const { data: uploadData, error: uploadError } = await supabaseClient.storage
+      .from('design-assets')
+      .upload(fileName, imageBuffer, {
+        contentType: 'image/png',
+        cacheControl: '3600'
+      });
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabaseClient.storage
+      .from('design-assets')
+      .getPublicUrl(fileName);
+
+    // Save metadata to database
+    const { data: assetData, error: insertError } = await supabaseClient
+      .from('design_assets')
+      .insert({
+        user_id: user.id,
+        asset_type: 'logo',
+        file_url: publicUrl,
+        prompt: prompt,
+        metadata: {
+          business_name,
+          style,
+          colors,
+          industry
+        }
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      throw insertError;
+    }
+
+    return new Response(
+      JSON.stringify({ success: true, data: assetData }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }}
+    );
+
+  } catch (error) {
+    console.error('Error generating logo:', error);
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: {
+          code: 'LOGO_GENERATION_FAILED',
+          message: error instanceof Error ? error.message : 'Unknown error'
+        }
+      }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }}
+    );
+  }
 });
-
-const data = await response.json();
-const imageBase64 = data.data[0].b64_json;
-
-// Upload to Supabase Storage
-const { data: uploadData, error } = await supabaseClient.storage
-  .from('design-assets')
-  .upload(`logos/${userId}/${Date.now()}.png`, 
-    decode(imageBase64), 
-    { contentType: 'image/png' }
-  );
 ```
 
 **Response**: `200 OK`
 ```json
 {
-  "id": "uuid",
-  "asset_type": "logo",
-  "file_url": "https://[project-ref].supabase.co/storage/v1/object/public/design-assets/logos/...",
-  "prompt": "Modern minimalist logo..."
+  "success": true,
+  "data": {
+    "id": "af9g8791-af58-73hg-d37i-h3aif4i23dha",
+    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "asset_type": "logo",
+    "file_url": "https://[project-ref].supabase.co/storage/v1/object/public/design-assets/logos/550e8400/1706003400000.png",
+    "prompt": "Professional modern logo design for CraftBiz...",
+    "metadata": {
+      "business_name": "CraftBiz",
+      "style": "modern",
+      "colors": ["orange", "brown"],
+      "industry": "E-commerce"
+    },
+    "created_at": "2025-01-23T12:00:00Z"
+  }
 }
 ```
 
 ### 5.2 Generate Scene (Edge Function)
+
 **Endpoint**: `POST /functions/v1/generate-scene`
 
 **Request**:
 ```json
 {
-  "description": "Lifestyle scene with customers using handmade crafts",
+  "description": "Lifestyle scene with customers browsing handmade pottery in a modern boutique",
   "style": "Photographic",
-  "aspect_ratio": "16:9"
+  "aspect_ratio": "16:9",
+  "mood": "warm and inviting"
 }
 ```
 
-**Edge Function Implementation**:
-```typescript
-const sizeMap = {
-  "16:9": "1792x1024",
-  "1:1": "1024x1024",
-  "9:16": "1024x1792"
-};
+**AI Prompt Template**:
 
-const response = await fetch("https://api.openai.com/v1/images/generations", {
-  method: "POST",
-  headers: {
-    "Authorization": `Bearer ${OPENAI_API_KEY}`,
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    model: "gpt-image-1",
-    prompt: `${style} style: ${description}. High quality, professional marketing photo.`,
-    size: sizeMap[aspect_ratio],
-    response_format: "b64_json"
-  })
-});
+```markdown
+**Role**: You are a professional photographer and visual content creator.
+
+**Context**:
+- Scene Description: {{description}}
+- Style: {{style}}
+- Aspect Ratio: {{aspect_ratio}}
+- Mood: {{mood}}
+
+**Instruction**: Create a high-quality marketing photo that:
+- Captures the specified scene authentically
+- Maintains {{style}} style photography standards
+- Evokes {{mood}} emotional response
+- Is suitable for marketing and promotional materials
+- Features Indian cultural context when relevant
+
+**Output**: Professional {{aspect_ratio}} {{style}} photograph with excellent lighting and composition.
 ```
 
 **Response**: `200 OK`
 ```json
 {
-  "id": "uuid",
-  "asset_type": "scene",
-  "file_url": "https://...",
-  "description": "Lifestyle scene..."
+  "success": true,
+  "data": {
+    "id": "bg0h9802-bg69-84ih-e48j-i4bkg5j34eib",
+    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "asset_type": "scene",
+    "file_url": "https://[project-ref].supabase.co/storage/v1/object/public/design-assets/scenes/550e8400/1706004000000.png",
+    "description": "Lifestyle scene with customers browsing...",
+    "metadata": {
+      "style": "Photographic",
+      "aspect_ratio": "16:9",
+      "mood": "warm and inviting"
+    },
+    "created_at": "2025-01-23T12:10:00Z"
+  }
 }
 ```
 
 ### 5.3 Generate Mockup (Edge Function)
+
 **Endpoint**: `POST /functions/v1/generate-mockup`
 
 **Request**:
 ```json
 {
-  "logo_id": "uuid",
+  "logo_id": "af9g8791-af58-73hg-d37i-h3aif4i23dha",
   "product_type": "tshirt",
-  "color": "white"
+  "color": "white",
+  "view": "front"
 }
 ```
 
-**Edge Function Implementation**:
-```typescript
-// Get logo from storage
-const { data: logoData } = await supabaseClient.storage
-  .from('design-assets')
-  .download(logoPath);
+**AI Prompt Template**:
 
-const logoBase64 = await fileToBase64(logoData);
+```markdown
+**Role**: You are a professional product photographer and mockup designer.
 
-const response = await fetch("https://api.openai.com/v1/images/generations", {
-  method: "POST",
-  headers: {
-    "Authorization": `Bearer ${OPENAI_API_KEY}`,
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    model: "gpt-image-1",
-    prompt: `Professional product mockup: ${color} ${product_type} with custom logo printed on the center. Realistic, high quality, studio lighting.`,
-    size: "1024x1024",
-    response_format: "b64_json"
-  })
-});
+**Context**:
+- Product Type: {{product_type}}
+- Color: {{color}}
+- View: {{view}}
+- Logo: [Provided Image]
+
+**Instruction**: Create a realistic product mockup showing:
+- The logo professionally applied to the {{product_type}}
+- Studio-quality lighting and photography
+- {{color}} colored product
+- {{view}} view angle
+- Professional presentation suitable for e-commerce
+
+**Output**: High-quality product mockup with realistic materials and lighting.
 ```
 
 **Response**: `200 OK`
 ```json
 {
-  "id": "uuid",
-  "asset_type": "mockup",
-  "file_url": "https://...",
-  "product_type": "tshirt"
+  "success": true,
+  "data": {
+    "id": "ch1i0913-ch7a-95ji-f59k-j5clh6k45fjc",
+    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "asset_type": "mockup",
+    "file_url": "https://[project-ref].supabase.co/storage/v1/object/public/design-assets/mockups/550e8400/1706004600000.png",
+    "metadata": {
+      "logo_id": "af9g8791-af58-73hg-d37i-h3aif4i23dha",
+      "product_type": "tshirt",
+      "color": "white",
+      "view": "front"
+    },
+    "created_at": "2025-01-23T12:20:00Z"
+  }
 }
 ```
 
@@ -441,6 +844,7 @@ const response = await fetch("https://api.openai.com/v1/images/generations", {
 ## 6. Marketing Hub API
 
 ### 6.1 Generate Marketing Content (Edge Function)
+
 **Endpoint**: `POST /functions/v1/generate-marketing-content`
 
 **Request**:
@@ -448,183 +852,360 @@ const response = await fetch("https://api.openai.com/v1/images/generations", {
 {
   "platform": "instagram",
   "audience": "millennials",
-  "campaign_focus": "Supporting local artisans"
+  "campaign_focus": "Supporting local artisans and sustainable fashion",
+  "tone": "inspirational",
+  "business_context": "Handmade crafts marketplace"
+}
+```
+
+**AI Prompt Template**:
+
+```markdown
+**Role**: You are an expert social media marketer and copywriter specializing in {{platform}} content.
+
+**Context**:
+- Platform: {{platform}}
+- Target Audience: {{audience}}
+- Campaign Focus: {{campaign_focus}}
+- Tone: {{tone}}
+- Business: {{business_context}}
+
+**Instruction**: Create engaging {{platform}} content that:
+- Resonates with {{audience}} audience
+- Communicates {{campaign_focus}} effectively
+- Uses {{tone}} tone and voice
+- Follows {{platform}} best practices and character limits
+- Includes relevant hashtags for discoverability
+- Drives engagement and action
+
+**Output Format**:
+{
+  "content": "Main post content",
+  "hashtags": ["#tag1", "#tag2", ...],
+  "call_to_action": "CTA text"
 }
 ```
 
 **Edge Function Implementation**:
+
 ```typescript
-const platformLimits = {
+// supabase/functions/generate-marketing-content/index.ts
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+// Platform character limits
+const platformLimits: Record<string, number> = {
   facebook: 63206,
   instagram: 2200,
   twitter: 280,
-  linkedin: 3000
+  linkedin: 3000,
+  pinterest: 500
 };
 
-const response = await fetch("https://api.openai.com/v1/chat/completions", {
-  method: "POST",
-  headers: {
-    "Authorization": `Bearer ${OPENAI_API_KEY}`,
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    model: "gpt-5-mini-2025-08-07",
-    messages: [
-      {
-        role: "system",
-        content: `Generate ${platform} post for ${audience} audience about ${campaign_focus}. Max ${platformLimits[platform]} characters. Include relevant hashtags.`
-      },
-      {
-        role: "user",
-        content: campaign_focus
-      }
-    ],
-    max_completion_tokens: 500
-  })
-});
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
 
-const data = await response.json();
-const content = data.choices[0].message.content;
+  try {
+    const { platform, audience, campaign_focus, tone, business_context } = await req.json();
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+
+    const characterLimit = platformLimits[platform] || 2000;
+
+    const systemPrompt = `You are an expert social media marketer specializing in ${platform} content creation. Generate engaging, authentic content that drives meaningful engagement.`;
+
+    const userPrompt = `Create ${platform} content for ${audience} audience about "${campaign_focus}".
+
+Business Context: ${business_context}
+Tone: ${tone}
+Character Limit: ${characterLimit}
+
+Requirements:
+- Write compelling copy that resonates with ${audience}
+- Include relevant hashtags (5-10 for Instagram, 2-3 for others)
+- Add a clear call-to-action
+- Stay within character limit
+- Use emojis appropriately for the platform`;
+
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "gpt-5-mini-2025-08-07",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        max_completion_tokens: 800,
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "generate_marketing_content",
+              description: "Generate platform-optimized marketing content",
+              parameters: {
+                type: "object",
+                properties: {
+                  content: { 
+                    type: "string",
+                    description: "Main post content with emojis and formatting"
+                  },
+                  hashtags: { 
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Relevant hashtags for the post"
+                  },
+                  call_to_action: { 
+                    type: "string",
+                    description: "Clear call-to-action for the audience"
+                  }
+                },
+                required: ["content", "hashtags", "call_to_action"],
+                additionalProperties: false
+              }
+            }
+          }
+        ],
+        tool_choice: {
+          type: "function",
+          function: { name: "generate_marketing_content" }
+        }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const toolCall = data.choices[0].message.tool_calls[0];
+    const contentData = JSON.parse(toolCall.function.arguments);
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        data: {
+          platform,
+          content: contentData.content,
+          hashtags: contentData.hashtags,
+          call_to_action: contentData.call_to_action,
+          character_count: contentData.content.length,
+          character_limit: characterLimit
+        }
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }}
+    );
+
+  } catch (error) {
+    console.error('Error generating marketing content:', error);
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: {
+          code: 'CONTENT_GENERATION_FAILED',
+          message: error instanceof Error ? error.message : 'Unknown error'
+        }
+      }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }}
+    );
+  }
+});
 ```
 
 **Response**: `200 OK`
 ```json
 {
-  "id": "uuid",
-  "platform": "instagram",
-  "content": "Behind every handcrafted piece is an artisan's story...",
-  "hashtags": ["#HandmadeCrafts", "#LocalArtisans", "#SupportLocal"]
+  "success": true,
+  "data": {
+    "platform": "instagram",
+    "content": "🎨 Behind every handcrafted piece is an artisan's story ✨\n\nMeet Radha from Rajasthan, whose pottery has been passed down through generations. When you buy from our platform, you're not just getting beautiful ceramics - you're supporting a family tradition and helping preserve ancient techniques.\n\nThis is what authentic craftsmanship looks like 🏺\n\nSwipe to see more of Radha's incredible work →",
+    "hashtags": [
+      "#HandmadeCrafts",
+      "#LocalArtisans",
+      "#SupportLocal",
+      "#SustainableFashion",
+      "#IndianHandicrafts",
+      "#ArtisanStories",
+      "#CraftBiz",
+      "#MakeInIndia"
+    ],
+    "call_to_action": "Shop authentic. Shop local. Link in bio 🔗",
+    "character_count": 387,
+    "character_limit": 2200
+  }
 }
 ```
-
 
 ---
 
 ## 7. Suppliers API
 
-### 7.1 Search Suppliers
-**Endpoint**: `GET /rest/v1/suppliers?category=eq.<category>&city=eq.<city>`
+### 7.1 Search Nearby Dealers (Edge Function)
 
-**Response**: `200 OK`
+**Endpoint**: `POST /functions/v1/nearby-dealers-search`
+
+**Request**:
 ```json
-[
-  {
-    "id": "uuid",
-    "name": "Rajesh Textile Mills",
-    "category": "Textiles & Fabrics",
-    "city": "Mumbai",
-    "rating": 4.8,
-    "phone": "+91 98765 43210",
-    "verified": true
+{
+  "query": "fabric stores",
+  "location": {
+    "lat": 19.0760,
+    "lng": 72.8777
+  },
+  "radius": 5000,
+  "type": "store"
+}
+```
+
+**Edge Function Implementation**:
+
+```typescript
+// supabase/functions/nearby-dealers-search/index.ts
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
   }
-]
-```
 
-### 7.2 Geocode Supplier Address (Edge Function)
-**Endpoint**: `POST /functions/v1/geocode-address`
+  try {
+    const { query, location, radius, type } = await req.json();
+    const GOOGLE_MAPS_API_KEY = Deno.env.get('GOOGLE_MAPS_API_KEY');
 
-**Request**:
-```json
-{
-  "address": "Dadar East, Mumbai, Maharashtra"
-}
-```
+    // Google Places API Nearby Search
+    const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?` +
+      `location=${location.lat},${location.lng}&` +
+      `radius=${radius}&` +
+      `keyword=${encodeURIComponent(query)}&` +
+      `${type ? `type=${type}&` : ''}` +
+      `key=${GOOGLE_MAPS_API_KEY}`;
 
-**Edge Function Implementation**:
-```typescript
-const response = await fetch(
-  `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`
-);
+    const response = await fetch(placesUrl);
+    const data = await response.json();
 
-const data = await response.json();
-const location = data.results[0].geometry.location;
-
-// Update supplier with coordinates
-await supabaseClient
-  .from('suppliers')
-  .update({
-    coordinates: `POINT(${location.lng} ${location.lat})`
-  })
-  .eq('id', supplier_id);
-```
-
-**Response**: `200 OK`
-```json
-{
-  "lat": 19.0176,
-  "lng": 72.8561,
-  "formatted_address": "Dadar East, Mumbai, Maharashtra 400014, India"
-}
-```
-
-### 7.3 Get Distance & Travel Time (Edge Function)
-**Endpoint**: `POST /functions/v1/get-supplier-distance`
-
-**Request**:
-```json
-{
-  "user_location": "19.0760,72.8777",
-  "supplier_id": "uuid"
-}
-```
-
-**Edge Function Implementation**:
-```typescript
-const response = await fetch(
-  `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${user_location}&destinations=${supplier_location}&key=${GOOGLE_MAPS_API_KEY}`
-);
-
-const data = await response.json();
-const element = data.rows[0].elements[0];
-```
-
-**Response**: `200 OK`
-```json
-{
-  "distance": "2.3 km",
-  "duration": "8 mins",
-  "status": "OK"
-}
-```
-
-### 7.4 Get Directions (Edge Function)
-**Endpoint**: `POST /functions/v1/get-directions`
-
-**Request**:
-```json
-{
-  "origin": "19.0760,72.8777",
-  "destination": "19.0176,72.8561",
-  "mode": "driving"
-}
-```
-
-**Edge Function Implementation**:
-```typescript
-const response = await fetch(
-  `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&mode=${mode}&key=${GOOGLE_MAPS_API_KEY}`
-);
-
-const data = await response.json();
-const route = data.routes[0];
-```
-
-**Response**: `200 OK`
-```json
-{
-  "distance": "5.1 km",
-  "duration": "15 mins",
-  "steps": [
-    {
-      "instruction": "Head south on Main St",
-      "distance": "0.5 km"
+    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+      throw new Error(`Google Places API error: ${data.status}`);
     }
-  ]
+
+    // Calculate distances and transform results
+    const dealers = (data.results || []).map((place: any) => {
+      const distance = calculateDistance(
+        location,
+        { lat: place.geometry.location.lat, lng: place.geometry.location.lng }
+      );
+
+      return {
+        id: place.place_id,
+        name: place.name,
+        address: place.vicinity,
+        coordinates: {
+          lat: place.geometry.location.lat,
+          lng: place.geometry.location.lng
+        },
+        rating: place.rating || 0,
+        reviews: place.user_ratings_total || 0,
+        category: place.types?.[0] || 'general',
+        open_now: place.opening_hours?.open_now,
+        distance: distance,
+        distance_text: `${distance.toFixed(1)} km`,
+        photo_reference: place.photos?.[0]?.photo_reference
+      };
+    });
+
+    // Sort by distance
+    dealers.sort((a, b) => a.distance - b.distance);
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        data: {
+          dealers,
+          total: dealers.length,
+          query_location: location,
+          search_radius: radius
+        }
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }}
+    );
+
+  } catch (error) {
+    console.error('Error searching nearby dealers:', error);
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: {
+          code: 'SEARCH_FAILED',
+          message: error instanceof Error ? error.message : 'Unknown error'
+        }
+      }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }}
+    );
+  }
+});
+
+function calculateDistance(point1: any, point2: any): number {
+  const R = 6371; // Earth radius in km
+  const dLat = (point2.lat - point1.lat) * Math.PI / 180;
+  const dLng = (point2.lng - point1.lng) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(point1.lat * Math.PI / 180) * Math.cos(point2.lat * Math.PI / 180) *
+    Math.sin(dLng/2) * Math.sin(dLng/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
 }
 ```
 
-### 7.5 Get Supplier Details (Google Places API)
-**Endpoint**: `POST /functions/v1/get-supplier-details`
+**Response**: `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "dealers": [
+      {
+        "id": "ChIJN1t_tDeuEmsRUsoyG83frY4",
+        "name": "Mumbai Fabric House",
+        "address": "123 Kalbadevi Road, Mumbai",
+        "coordinates": {
+          "lat": 19.0775,
+          "lng": 72.8779
+        },
+        "rating": 4.5,
+        "reviews": 234,
+        "category": "store",
+        "open_now": true,
+        "distance": 0.3,
+        "distance_text": "0.3 km",
+        "photo_reference": "CmRaAAAA..."
+      }
+    ],
+    "total": 15,
+    "query_location": {
+      "lat": 19.0760,
+      "lng": 72.8777
+    },
+    "search_radius": 5000
+  }
+}
+```
+
+### 7.2 Get Dealer Details (Edge Function)
+
+**Endpoint**: `POST /functions/v1/dealer-details`
 
 **Request**:
 ```json
@@ -633,263 +1214,174 @@ const route = data.routes[0];
 }
 ```
 
-**Edge Function Implementation**:
-```typescript
-const response = await fetch(
-  `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place_id}&fields=name,rating,reviews,formatted_phone_number,website,opening_hours&key=${GOOGLE_MAPS_API_KEY}`
-);
+**Response**: `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "place_id": "ChIJN1t_tDeuEmsRUsoyG83frY4",
+    "name": "Mumbai Fabric House",
+    "formatted_address": "123 Kalbadevi Road, Mumbai, Maharashtra 400002",
+    "phone": "+91 22 2345 6789",
+    "website": "https://mumbaifabrichouse.com",
+    "rating": 4.5,
+    "reviews": 234,
+    "opening_hours": {
+      "open_now": true,
+      "weekday_text": [
+        "Monday: 9:00 AM – 8:00 PM",
+        "Tuesday: 9:00 AM – 8:00 PM",
+        "..."
+      ]
+    },
+    "photos": ["photo_url_1", "photo_url_2"],
+    "reviews_sample": [
+      {
+        "author_name": "Priya Sharma",
+        "rating": 5,
+        "text": "Excellent variety of fabrics...",
+        "time": "2025-01-20"
+      }
+    ]
+  }
+}
+```
 
-const data = await response.json();
-const details = data.result;
+### 7.3 Get Directions (Edge Function)
+
+**Endpoint**: `POST /functions/v1/get-directions`
+
+**Request**:
+```json
+{
+  "origin": {
+    "lat": 19.0760,
+    "lng": 72.8777
+  },
+  "destination": {
+    "lat": 19.0775,
+    "lng": 72.8779
+  },
+  "mode": "driving"
+}
 ```
 
 **Response**: `200 OK`
 ```json
 {
-  "name": "Rajesh Textile Mills",
-  "rating": 4.8,
-  "reviews": 127,
-  "phone": "+91 98765 43210",
-  "website": "https://rjmtextiles.com",
-  "opening_hours": {
-    "monday": "9:00 AM – 6:00 PM",
-    "tuesday": "9:00 AM – 6:00 PM"
+  "success": true,
+  "data": {
+    "distance": "0.3 km",
+    "duration": "2 mins",
+    "steps": [
+      {
+        "instruction": "Head north on Street Name",
+        "distance": "150 m",
+        "duration": "1 min"
+      }
+    ],
+    "polyline": "encoded_polyline_string",
+    "google_maps_url": "https://www.google.com/maps/dir/?api=1&origin=19.0760,72.8777&destination=19.0775,72.8779"
   }
 }
 ```
 
 ---
 
-## 8. AI Refinement & Analysis (Edge Functions)
+## 8. AI Integration Layer
 
-### 8.1 Refine Business Idea
-**Endpoint**: `POST /functions/v1/refine-idea`
+### 8.1 AI Prompt Templates
 
-**Description**: Refine raw business idea into a professional, descriptive business context suitable for submission.
+All AI interactions follow a structured prompt format:
 
-**Request**:
-```json
-{
-  "raw_idea": "pottery"
-}
+#### Template Structure
+
+```markdown
+**Role**: [AI's specialized role and expertise]
+
+**Context**: 
+- [Key business context]
+- [User-specific details]
+- [Relevant constraints]
+
+**Instruction**: [Clear, specific task description]
+
+**Output Format**: [Expected structure of response]
 ```
 
-**Edge Function Implementation**:
+#### Example: Business Plan Generation
+
 ```typescript
-const response = await fetch("https://api.openai.com/v1/chat/completions", {
-  method: "POST",
-  headers: {
-    "Authorization": `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    model: "gpt-5-mini-2025-08-07",
-    messages: [
-      {
-        role: "system",
-        content: "You are a business description expert. Refine raw business ideas into clear, professional, and descriptive business contexts. Output ONLY the refined description as plain text, without any structured sections like Executive Summary, Business Goals, etc. Keep it as a single cohesive paragraph describing the business opportunity."
-      },
-      {
-        role: "user",
-        content: `Refine this business idea: ${rawIdea}`
-      }
-    ],
-    max_completion_tokens: 300
-  })
-});
+const businessPlanPrompt = {
+  role: "You are an expert business consultant specializing in Indian small businesses and artisan entrepreneurship with 15 years of experience.",
+  
+  context: `
+    - Business Type: ${businessType}
+    - Target Market: Indian consumers
+    - Business Idea: ${businessIdea}
+    ${productAnalysis ? `- Product Analysis: ${JSON.stringify(productAnalysis)}` : ''}
+  `,
+  
+  instruction: `
+    Generate a comprehensive, actionable business plan optimized for the Indian market.
+    
+    Include:
+    1. Executive Summary (150-200 words)
+    2. Market Analysis (Indian market size, trends, demographics)
+    3. Business Model (revenue streams, pricing, cost structure)
+    4. Marketing Strategy (digital + offline channels for India)
+    5. Operations Planning (supply chain, logistics, technology)
+    6. Financial Projections (startup costs, 12-36 month revenue projections in INR)
+    
+    Use India-specific insights, cultural context, and local market data.
+  `,
+  
+  outputFormat: "Structured JSON with detailed sections"
+};
 ```
 
-**Response**: `200 OK`
-```json
-{
-  "refined_idea": "A creative artisan-led business specializing in handcrafted pottery, ceramic decor, and functional homeware. The venture focuses on combining traditional craftsmanship with modern aesthetics to produce unique, sustainable, and customizable products for homes, cafes, and gifting markets."
-}
-```
+### 8.2 Model Selection Matrix
 
-### 8.2 Analyze Product Image
-**Endpoint**: `POST /functions/v1/analyze-product-image`
+| Use Case | Model | Reasoning |
+|----------|-------|-----------|
+| Business Plan Generation | `gpt-5-2025-08-07` | Complex reasoning, long-form content |
+| Marketing Content | `gpt-5-mini-2025-08-07` | Balanced quality and speed |
+| Language Detection | `gpt-5-nano-2025-08-07` | Simple classification task |
+| Translation | `gpt-5-mini-2025-08-07` | Quality translation needed |
+| Voice Transcription | `whisper-1` | Specialized audio model |
+| Image Analysis | `gpt-4o` | Vision capabilities required |
+| Logo Generation | `gpt-image-1` | Image generation |
 
-**Description**: Use AI Vision (GPT-4o) to analyze product images and generate business context.
+### 8.3 Token Management
 
-**Request**: Multipart form-data with image file
+**Text Generation**:
+- Business Plans: 4000 max tokens
+- Marketing Content: 800 max tokens
+- Translations: 500 max tokens
 
-**Edge Function Implementation**:
-```typescript
-// Convert image to base64
-const arrayBuffer = await imageFile.arrayBuffer();
-const base64Image = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-
-const response = await fetch("https://api.openai.com/v1/chat/completions", {
-  method: "POST",
-  headers: {
-    "Authorization": `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    model: "gpt-4o",
-    messages: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: "Analyze this handcrafted product. Identify: product type, materials, style, colors, craftsmanship details, regional art style. Suggest business context and target audience for selling this product."
-          },
-          {
-            type: "image_url",
-            image_url: {
-              url: `data:image/jpeg;base64,${base64Image}`
-            }
-          }
-        ]
-      }
-    ],
-    max_tokens: 1000
-  })
-});
-```
-
-**Response**: `200 OK`
-```json
-{
-  "product_type": "Handwoven Textile / Fabric",
-  "materials": ["Natural Cotton", "Traditional Dyes", "Hand-spun Thread"],
-  "style": "Traditional Indian Handloom",
-  "colors": ["Natural Beige", "Indigo Blue", "Earth Tones"],
-  "target_audience": "Urban customers who prefer sustainable and eco-friendly products",
-  "business_context": "Sustainable Fashion / Ethnic Wear",
-  "suggested_business_idea": "A business selling eco-friendly handcrafted traditional textiles..."
-}
-```
-
-### 8.3 Voice Transcription & Translation
-**Endpoint**: `POST /functions/v1/transcribe-voice`
-
-**Description**: Transcribe voice recording, detect language, and translate to English.
-
-**Request**: Multipart form-data with audio file
-
-**Edge Function Implementation**:
-```typescript
-// Step 1: Transcribe with Whisper
-const formData = new FormData();
-formData.append('file', audioFile);
-formData.append('model', 'whisper-1');
-
-const transcribeResponse = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-  method: "POST",
-  headers: {
-    "Authorization": `Bearer ${Deno.env.get('OPENAI_API_KEY')}`
-  },
-  body: formData
-});
-
-const { text: transcribedText } = await transcribeResponse.json();
-
-// Step 2: Detect language (simple pattern matching or AI)
-const detectedLanguage = detectLanguageFromText(transcribedText);
-
-// Step 3: Translate if not English
-let englishTranslation = transcribedText;
-if (detectedLanguage !== 'en') {
-  const translateResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: "gpt-5-mini-2025-08-07",
-      messages: [
-        {
-          role: "system",
-          content: "Translate the following text to English. Preserve business context."
-        },
-        {
-          role: "user",
-          content: transcribedText
-        }
-      ],
-      max_completion_tokens: 1000
-    })
-  });
-
-  const data = await translateResponse.json();
-  englishTranslation = data.choices[0].message.content;
-}
-```
-
-**Response**: `200 OK`
-```json
-{
-  "transcribed_text": "मैं हस्तनिर्मित शिल्प बेचना चाहता हूँ...",
-  "detected_language": "hi",
-  "english_translation": "I want to sell handmade crafts..."
-}
-```
-
-### 8.4 Refine Logo Description
-**Endpoint**: `POST /functions/v1/refine-logo-description`
-
-**Description**: Enhance brand description before logo generation.
-
-**Request**:
-```json
-{
-  "description": "Modern logo for crafts business"
-}
-```
-
-**Edge Function Implementation**:
-```typescript
-const response = await fetch("https://api.openai.com/v1/chat/completions", {
-  method: "POST",
-  headers: {
-    "Authorization": `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    model: "gpt-5-mini-2025-08-07",
-    messages: [
-      {
-        role: "system",
-        content: "Enhance logo descriptions by adding creative details, style suggestions, and color recommendations."
-      },
-      {
-        role: "user",
-        content: description
-      }
-    ],
-    max_completion_tokens: 200
-  })
-});
-```
-
-**Response**: `200 OK`
-```json
-{
-  "original_description": "Modern logo for crafts business",
-  "refined_description": "Modern, minimalist logo for handmade crafts business. Incorporate warm earth tones (terracotta, ochre, natural beige). Clean sans-serif typography paired with handcrafted icon element. Professional yet artisanal feel."
-}
-```
+**Image Generation**:
+- Logos: 1024x1024 (HD quality)
+- Scenes: Variable (1024x1024, 1792x1024, 1024x1792)
+- Mockups: 1024x1024
 
 ---
 
 ## 9. Error Handling
 
-### 9.1 Common Error Codes
+### 9.1 Error Codes
 
-| Code | Description | HTTP Status |
-|------|-------------|-------------|
-| `AUTH_REQUIRED` | Missing authentication token | 401 |
-| `INVALID_TOKEN` | Invalid or expired token | 401 |
-| `PERMISSION_DENIED` | Insufficient permissions | 403 |
-| `NOT_FOUND` | Resource not found | 404 |
-| `VALIDATION_ERROR` | Invalid request data | 400 |
-| `RATE_LIMIT_EXCEEDED` | Too many requests | 429 |
-| `AI_SERVICE_ERROR` | OpenAI API error | 500 |
-| `MAPS_API_ERROR` | Google Maps API error | 500 |
-| `DATABASE_ERROR` | Database operation failed | 500 |
+| Code | Description | HTTP Status | Retry Strategy |
+|------|-------------|-------------|----------------|
+| `AUTH_REQUIRED` | Missing authentication | 401 | Redirect to login |
+| `AUTH_INVALID` | Invalid token | 401 | Refresh token |
+| `PERMISSION_DENIED` | Insufficient permissions | 403 | Show error message |
+| `NOT_FOUND` | Resource doesn't exist | 404 | None |
+| `VALIDATION_ERROR` | Input validation failed | 422 | Fix input and retry |
+| `RATE_LIMIT_EXCEEDED` | Too many requests | 429 | Exponential backoff |
+| `AI_SERVICE_ERROR` | OpenAI API error | 500 | Retry after delay |
+| `STORAGE_ERROR` | Supabase storage error | 500 | Retry once |
+| `DATABASE_ERROR` | Database operation failed | 500 | Retry once |
+| `EXTERNAL_API_ERROR` | Google Maps API error | 503 | Retry with backoff |
 
 ### 9.2 Error Response Examples
 
@@ -899,10 +1391,26 @@ const response = await fetch("https://api.openai.com/v1/chat/completions", {
   "success": false,
   "error": {
     "code": "VALIDATION_ERROR",
-    "message": "Invalid business type",
+    "message": "Input validation failed",
     "details": {
-      "field": "business_type",
-      "allowed_values": ["E-commerce", "Food & Restaurant", "Technology"]
+      "field": "business_idea",
+      "issue": "Must be at least 10 characters"
+    }
+  }
+}
+```
+
+**Rate Limit Error**:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "RATE_LIMIT_EXCEEDED",
+    "message": "Rate limit exceeded. Please try again later.",
+    "details": {
+      "retry_after": 60,
+      "limit": 100,
+      "window": "1 hour"
     }
   }
 }
@@ -914,36 +1422,76 @@ const response = await fetch("https://api.openai.com/v1/chat/completions", {
   "success": false,
   "error": {
     "code": "AI_SERVICE_ERROR",
-    "message": "OpenAI API rate limit exceeded. Please try again later."
+    "message": "Content generation failed",
+    "details": {
+      "provider": "OpenAI",
+      "model": "gpt-5-2025-08-07",
+      "reason": "Service temporarily unavailable"
+    }
   }
 }
 ```
 
 ---
 
-## 10. Rate Limits
+## 10. Rate Limits & Quotas
 
-- **Supabase**: 500 requests/minute per user
-- **OpenAI**: Varies by plan
-- **Google Maps**: 25,000 requests/day (free tier)
+### 10.1 Supabase Rate Limits
+
+| Resource | Free Tier | Paid Tier |
+|----------|-----------|-----------|
+| API Requests | 500/min | Unlimited |
+| Storage Uploads | 50MB/min | 200MB/min |
+| Edge Functions | 500K invocations/month | Unlimited |
+| Database Connections | 60 concurrent | 200+ concurrent |
+
+### 10.2 OpenAI Rate Limits
+
+| Model | Requests/min | Tokens/min |
+|-------|--------------|------------|
+| GPT-5 | 500 | 150,000 |
+| GPT-5 Mini | 1000 | 200,000 |
+| GPT-5 Nano | 2000 | 400,000 |
+| GPT-Image-1 | 50 | N/A |
+
+### 10.3 Google Maps Rate Limits
+
+| API | Requests/day (Free) | Requests/day (Paid) |
+|-----|---------------------|---------------------|
+| Places API | 0 | 300,000 |
+| Geocoding | 40,000 | Unlimited |
+| Directions | 40,000 | Unlimited |
+| Distance Matrix | 40,000 | Unlimited |
+
+**Note**: Google provides $200 free monthly credit.
 
 ---
 
-## 11. Environment Variables (Secrets)
+## 11. Versioning & Changelog
 
-Store in Supabase Dashboard → Settings → Edge Functions → Secrets:
+**Current Version**: 3.0  
+**API Version**: `v1`
 
-```bash
-OPENAI_API_KEY=sk-proj-...
-GOOGLE_MAPS_API_KEY=AIzaSy...
-```
+### Changelog
 
-For frontend (public keys only):
-```bash
-VITE_SUPABASE_URL=https://[project-ref].supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGc...
-VITE_GOOGLE_MAPS_API_KEY=AIzaSy...
-```
+**v3.0** (January 2025)
+- Complete API documentation overhaul
+- Added structured AI prompt templates
+- Comprehensive error handling documentation
+- Added Local Dealers search functionality
+- Enhanced security and validation
+
+**v2.0** (December 2024)
+- Added Design Studio APIs
+- Implemented Marketing Hub
+- Enhanced input pipeline
+- Added voice and image support
+
+**v1.0** (November 2024)
+- Initial release
+- Basic authentication
+- Business plan generation
+- Text input support
 
 ---
 
