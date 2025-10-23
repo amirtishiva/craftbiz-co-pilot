@@ -7,7 +7,6 @@ import {
   Megaphone,
   Truck
 } from 'lucide-react';
-import { useLanguage } from '@/contexts/LanguageContext';
 
 interface SecondaryNavProps {
   activeTab: string;
@@ -15,15 +14,13 @@ interface SecondaryNavProps {
 }
 
 const SecondaryNav: React.FC<SecondaryNavProps> = ({ activeTab, onTabChange }) => {
-  const { t } = useLanguage();
-
   const navItems = [
-    { id: 'dashboard', label: t('nav.dashboard'), icon: Lightbulb },
-    { id: 'idea', label: t('nav.yourIdea'), icon: PlusCircle },
-    { id: 'business-plan', label: t('nav.businessPlan'), icon: FileText },
-    { id: 'design-studio', label: t('nav.designStudio'), icon: Palette },
-    { id: 'marketing', label: t('nav.marketing'), icon: Megaphone },
-    { id: 'suppliers', label: t('nav.suppliers'), icon: Truck },
+    { id: 'dashboard', label: 'Dashboard', icon: Lightbulb },
+    { id: 'idea', label: 'Your Idea', icon: PlusCircle },
+    { id: 'business-plan', label: 'Business Plan', icon: FileText },
+    { id: 'design-studio', label: 'Design Studio', icon: Palette },
+    { id: 'marketing', label: 'Marketing', icon: Megaphone },
+    { id: 'suppliers', label: 'Suppliers', icon: Truck },
   ];
 
   return (

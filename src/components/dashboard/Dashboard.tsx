@@ -11,20 +11,17 @@ import {
   Users,
   Target
 } from 'lucide-react';
-import { useLanguage } from '@/contexts/LanguageContext';
 
 interface DashboardProps {
   onTabChange: (tab: string) => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
-  const { t } = useLanguage();
-
   const features = [
     {
       id: 'idea',
-      title: t('dashboard.features.shareIdea'),
-      description: t('dashboard.features.shareIdea.desc'),
+      title: 'Share Your Idea',
+      description: 'Tell us about your craft business vision',
       icon: Lightbulb,
       color: 'text-yellow-600',
       bgColor: 'bg-yellow-50',
@@ -32,8 +29,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
     },
     {
       id: 'business-plan',
-      title: t('dashboard.features.aiPlan'),
-      description: t('dashboard.features.aiPlan.desc'),
+      title: 'AI-Generated Plan',
+      description: 'Get a personalized business plan',
       icon: FileText,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50',
@@ -41,8 +38,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
     },
     {
       id: 'design-studio',
-      title: t('dashboard.features.designStudio'),
-      description: t('dashboard.features.designStudio.desc'),
+      title: 'Design Studio',
+      description: 'Create logos and brand materials',
       icon: Palette,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50',
@@ -50,8 +47,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
     },
     {
       id: 'marketing',
-      title: t('dashboard.features.marketing'),
-      description: t('dashboard.features.marketing.desc'),
+      title: 'Marketing Hub',
+      description: 'Generate social media content',
       icon: Megaphone,
       color: 'text-green-600',
       bgColor: 'bg-green-50',
@@ -60,10 +57,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
   ];
 
   const stats = [
-    { label: t('dashboard.stats.ideasAnalyzed'), value: '1', icon: TrendingUp },
-    { label: t('dashboard.stats.plansGenerated'), value: '0', icon: FileText },
-    { label: t('dashboard.stats.designsCreated'), value: '0', icon: Palette },
-    { label: t('dashboard.stats.marketingAssets'), value: '0', icon: Target },
+    { label: 'Ideas Analyzed', value: '1', icon: TrendingUp },
+    { label: 'Plans Generated', value: '0', icon: FileText },
+    { label: 'Designs Created', value: '0', icon: Palette },
+    { label: 'Marketing Assets', value: '0', icon: Target },
   ];
 
   return (
@@ -72,10 +69,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
       <div className="gradient-warm rounded-2xl p-8 mb-8 shadow-medium">
         <div className="text-center">
           <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
-            {t('dashboard.hero.title')}
+            Start Any Small Business Today
           </h1>
           <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-            {t('dashboard.hero.description')}
+            Transform your craft skills into a thriving business with AI-powered tools and expert guidance
           </p>
           <Button 
             variant="craft" 
@@ -83,7 +80,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
             onClick={() => onTabChange('idea')}
             className="group"
           >
-            {t('dashboard.hero.cta')}
+            Get Started Now
             <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-smooth" />
           </Button>
         </div>
@@ -131,7 +128,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
               <CardContent>
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-muted-foreground">
-                    {t('dashboard.progress')}: {feature.progress}%
+                    Progress: {feature.progress}%
                   </div>
                   <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-smooth" />
                 </div>
@@ -152,10 +149,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
-            {t('dashboard.nextSteps')}
+            Your Next Steps
           </CardTitle>
           <CardDescription>
-            {t('dashboard.nextSteps.desc')}
+            Follow these steps to build your business from scratch
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -166,12 +163,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
                   1
                 </div>
                 <div>
-                  <h4 className="font-semibold">{t('dashboard.step1')}</h4>
-                  <p className="text-sm text-muted-foreground">{t('dashboard.step1.desc')}</p>
+                  <h4 className="font-semibold">Share Your Business Idea</h4>
+                  <p className="text-sm text-muted-foreground">Tell us about your craft and vision</p>
                 </div>
               </div>
               <Button variant="warm" onClick={() => onTabChange('idea')}>
-                {t('dashboard.startNow')}
+                Start Now
               </Button>
             </div>
             <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg opacity-60">
@@ -180,12 +177,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
                   2
                 </div>
                 <div>
-                  <h4 className="font-semibold">{t('dashboard.step2')}</h4>
-                  <p className="text-sm text-muted-foreground">{t('dashboard.step2.desc')}</p>
+                  <h4 className="font-semibold">Review AI-Generated Business Plan</h4>
+                  <p className="text-sm text-muted-foreground">Get detailed insights and strategy</p>
                 </div>
               </div>
               <Button variant="outline" disabled>
-                {t('dashboard.comingNext')}
+                Coming Next
               </Button>
             </div>
             <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg opacity-60">
@@ -194,12 +191,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
                   3
                 </div>
                 <div>
-                  <h4 className="font-semibold">{t('dashboard.step3')}</h4>
-                  <p className="text-sm text-muted-foreground">{t('dashboard.step3.desc')}</p>
+                  <h4 className="font-semibold">Launch Your Marketing</h4>
+                  <p className="text-sm text-muted-foreground">Create content and reach customers</p>
                 </div>
               </div>
               <Button variant="outline" disabled>
-                {t('dashboard.comingNext')}
+                Coming Next
               </Button>
             </div>
           </div>

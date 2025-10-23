@@ -3,12 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { LogOut } from 'lucide-react';
 import { toast } from 'sonner';
-import LanguageSelector from './LanguageSelector';
-import { useLanguage } from '@/contexts/LanguageContext';
 
 const Navigation: React.FC = () => {
   const navigate = useNavigate();
-  const { t } = useLanguage();
 
   const handleLogout = () => {
     localStorage.removeItem('craftbiz_user');
@@ -25,7 +22,6 @@ const Navigation: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            <LanguageSelector />
             <Button
               variant="outline"
               size="sm"
@@ -33,7 +29,7 @@ const Navigation: React.FC = () => {
               className="flex items-center gap-2"
             >
               <LogOut className="h-4 w-4" />
-              {t('nav.logout')}
+              Log Out
             </Button>
           </div>
         </div>
