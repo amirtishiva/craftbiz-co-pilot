@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -111,16 +111,27 @@ const Auth = () => {
               {loading ? "Loading..." : isLogin ? "Sign In" : "Sign Up"}
             </Button>
           </form>
-          <div className="mt-4 text-center text-sm">
+          <div className="mt-4 text-center text-sm space-y-2">
             <button
               type="button"
               onClick={() => setIsLogin(!isLogin)}
-              className="text-primary hover:underline"
+              className="text-primary hover:underline block w-full"
+              aria-label={isLogin ? "Switch to sign up" : "Switch to sign in"}
             >
               {isLogin
                 ? "Don't have an account? Sign up"
                 : "Already have an account? Sign in"}
             </button>
+            {isLogin && (
+              <button
+                type="button"
+                onClick={() => navigate("/forgot-password")}
+                className="text-muted-foreground hover:text-primary hover:underline text-sm block w-full"
+                aria-label="Reset password"
+              >
+                Forgot password?
+              </button>
+            )}
           </div>
         </CardContent>
       </Card>

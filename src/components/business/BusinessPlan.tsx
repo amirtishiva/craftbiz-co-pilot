@@ -25,7 +25,9 @@ interface BusinessPlanProps {
 const BusinessPlan: React.FC<BusinessPlanProps> = ({ ideaData }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [businessPlan, setBusinessPlan] = useState<any>(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const [planId, setPlanId] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState<{[key: string]: boolean}>({});
+  const [editedContent, setEditedContent] = useState<{[key: string]: string}>({});
   const [businessName, setBusinessName] = useState('');
   const [financialData, setFinancialData] = useState({
     startupCost: '',
@@ -52,6 +54,7 @@ const BusinessPlan: React.FC<BusinessPlanProps> = ({ ideaData }) => {
       if (error) throw error;
 
       if (data) {
+        setPlanId(data.id);
         setBusinessPlan({
           executiveSummary: data.executive_summary || '',
           marketAnalysis: data.market_analysis || '',
@@ -91,6 +94,7 @@ const BusinessPlan: React.FC<BusinessPlanProps> = ({ ideaData }) => {
       if (error) throw error;
 
       const planData = data.businessPlan;
+      setPlanId(data.planId || null);
       setBusinessPlan({
         executiveSummary: planData.executive_summary,
         marketAnalysis: planData.market_analysis,
@@ -117,8 +121,77 @@ const BusinessPlan: React.FC<BusinessPlanProps> = ({ ideaData }) => {
     }
   };
 
-  const handleEditPlan = () => {
-    setIsEditing(!isEditing);
+  const toggleEdit = (section: string) => {
+    setIsEditing(prev => ({ ...prev, [section]: !prev[section] }));
+    if (!editedContent[section] && businessPlan) {
+      const content = getSectionContent(section);
+      setEditedContent(prev => ({ ...prev, [section]: content }));
+    }
+  };
+
+  const getSectionContent = (sectionId: string): string => {
+    switch(sectionId) {
+      case 'executive': return businessPlan.executiveSummary;
+      case 'market': return businessPlan.marketAnalysis;
+      case 'business': return businessPlan.businessModel;
+      case 'marketing': return businessPlan.marketingStrategy;
+      case 'operations': return businessPlan.operationsPlanning;
+      case 'financial': return businessPlan.financialProjections;
+      default: return '';
+    }
+  };
+
+  const handleSaveSection = async (sectionId: string) => {
+    if (!planId) {
+      toast({
+        title: "Save Failed",
+        description: "No plan ID found. Please regenerate the plan.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const fieldMap: {[key: string]: string} = {
+        'executive': 'executive_summary',
+        'market': 'market_analysis',
+        'business': 'competitive_advantage',
+        'marketing': 'marketing_strategy',
+        'operations': 'operations_plan',
+        'financial': 'financial_projections'
+      };
+
+      const { error } = await supabase
+        .from('business_plans')
+        .update({ [fieldMap[sectionId]]: editedContent[sectionId] })
+        .eq('id', planId);
+
+      if (error) throw error;
+
+      // Update local state
+      setBusinessPlan((prev: any) => {
+        const key = sectionId === 'executive' ? 'executiveSummary' :
+                    sectionId === 'market' ? 'marketAnalysis' :
+                    sectionId === 'business' ? 'businessModel' :
+                    sectionId === 'marketing' ? 'marketingStrategy' :
+                    sectionId === 'operations' ? 'operationsPlanning' :
+                    'financialProjections';
+        return { ...prev, [key]: editedContent[sectionId] };
+      });
+
+      toggleEdit(sectionId);
+      toast({
+        title: "Section Updated",
+        description: "Your changes have been saved successfully.",
+      });
+    } catch (error) {
+      console.error('Save error:', error);
+      toast({
+        title: "Save Failed",
+        description: "Failed to save changes. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDownloadPDF = () => {
@@ -267,11 +340,7 @@ Financial Calculator Results:
               <p className="text-muted-foreground">Generated for: {ideaData?.type || 'Your Business'}</p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={handleEditPlan}>
-                <Edit className="mr-2 h-4 w-4" />
-                {isEditing ? 'Save Changes' : 'Edit Plan'}
-              </Button>
-              <Button variant="craft" onClick={handleDownloadPDF}>
+              <Button variant="craft" onClick={handleDownloadPDF} aria-label="Download business plan as text file">
                 <Download className="mr-2 h-4 w-4" />
                 Download PDF
               </Button>
@@ -300,18 +369,51 @@ Financial Calculator Results:
                     case 'financial': content = businessPlan.financialProjections; break;
                   }
                   
+                  const isEditingSection = isEditing[section.id];
+                  
                   return (
                     <Card key={section.id} className="h-full">
                       <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-lg">
-                          <Icon className="h-5 w-5 text-accent-orange" />
-                          {section.title}
-                        </CardTitle>
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="flex items-center gap-2 text-lg">
+                            <Icon className="h-5 w-5 text-accent-orange" />
+                            {section.title}
+                          </CardTitle>
+                          <div className="flex gap-2">
+                            {isEditingSection && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => toggleEdit(section.id)}
+                              >
+                                Cancel
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              variant={isEditingSection ? "default" : "outline"}
+                              onClick={() => isEditingSection ? handleSaveSection(section.id) : toggleEdit(section.id)}
+                              aria-label={isEditingSection ? `Save ${section.title}` : `Edit ${section.title}`}
+                            >
+                              <Edit className="h-4 w-4 mr-1" />
+                              {isEditingSection ? 'Save' : 'Edit'}
+                            </Button>
+                          </div>
+                        </div>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-sm text-muted-foreground leading-relaxed">
-                          {content}
-                        </p>
+                        {isEditingSection ? (
+                          <textarea
+                            className="w-full min-h-[200px] p-2 border rounded-md text-sm"
+                            value={editedContent[section.id] || content}
+                            onChange={(e) => setEditedContent(prev => ({ ...prev, [section.id]: e.target.value }))}
+                            aria-label={`Edit ${section.title} content`}
+                          />
+                        ) : (
+                          <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                            {content}
+                          </p>
+                        )}
                       </CardContent>
                     </Card>
                   );

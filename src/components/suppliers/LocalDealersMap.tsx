@@ -22,6 +22,9 @@ import { useToast } from '@/hooks/use-toast';
 
 type Libraries = ("places" | "geometry" | "drawing" | "visualization")[];
 
+// Define libraries outside component to prevent re-initialization
+const GOOGLE_MAPS_LIBRARIES: Libraries = ['places'];
+
 interface Location {
   lat: number;
   lng: number;
@@ -64,7 +67,6 @@ const LocalDealersMap: React.FC = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [map, setMap] = useState<google.maps.Map | null>(null);
 
-  const libraries: Libraries = ['places'];
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
   const geocoderRef = useRef<google.maps.Geocoder | null>(null);
   const distanceMatrixRef = useRef<google.maps.DistanceMatrixService | null>(null);
@@ -72,7 +74,7 @@ const LocalDealersMap: React.FC = () => {
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
-    libraries
+    libraries: GOOGLE_MAPS_LIBRARIES
   });
 
   // Initialize Google Maps services

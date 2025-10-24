@@ -14,11 +14,18 @@ import {
   Route
 } from 'lucide-react';
 
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { useEffect } from 'react';
+
 const SuppliersList: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all-categories');
   const [selectedCity, setSelectedCity] = useState('all-cities');
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   const categories = [
     'Textiles & Fabrics',
@@ -42,72 +49,50 @@ const SuppliersList: React.FC = () => {
     'Ahmedabad'
   ];
 
-  const suppliers = [
-    {
-      id: 1,
-      name: 'Rajesh Textile Mills',
-      category: 'Textiles & Fabrics',
-      city: 'Mumbai',
-      address: 'Dadar East, Mumbai, Maharashtra',
-      phone: '+91 98765 43210',
-      email: 'contact@rjmtextiles.com',
-      rating: 4.8,
-      reviews: 127,
-      minOrder: '500 units',
-      deliveryTime: '7-10 days',
-      specialties: ['Cotton Fabrics', 'Silk', 'Handloom'],
-      verified: true,
-      distance: '2.3 km'
-    },
-    {
-      id: 2,
-      name: 'Singh Packaging Solutions',
-      category: 'Packaging',
-      city: 'Delhi',
-      address: 'Lajpat Nagar, New Delhi',
-      phone: '+91 87654 32109',
-      email: 'info@singhpack.com',
-      rating: 4.6,
-      reviews: 89,
-      minOrder: '1000 pieces',
-      deliveryTime: '3-5 days',
-      specialties: ['Eco-friendly Packaging', 'Custom Boxes', 'Labels'],
-      verified: true,
-      distance: '5.1 km'
-    },
-    {
-      id: 3,
-      name: 'Craft Raw Materials Co.',
-      category: 'Raw Materials',
-      city: 'Bangalore',
-      address: 'Commercial Street, Bangalore',
-      phone: '+91 76543 21098',
-      email: 'sales@craftraw.co.in',
-      rating: 4.5,
-      reviews: 156,
-      minOrder: '50 kg',
-      deliveryTime: '5-7 days',
-      specialties: ['Natural Dyes', 'Clay', 'Wood', 'Metal Components'],
-      verified: false,
-      distance: '8.7 km'
-    },
-    {
-      id: 4,
-      name: 'Modern Print House',
-      category: 'Printing Services',
-      city: 'Chennai',
-      address: 'T. Nagar, Chennai, Tamil Nadu',
-      phone: '+91 65432 10987',
-      email: 'orders@modernprint.in',
-      rating: 4.7,
-      reviews: 203,
-      minOrder: '100 pieces',
-      deliveryTime: '2-4 days',
-      specialties: ['Digital Printing', 'Business Cards', 'Brochures', 'Banners'],
-      verified: true,
-      distance: '3.2 km'
-    }
-  ];
+  // Fetch suppliers from database
+  useEffect(() => {
+    const fetchSuppliers = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('suppliers')
+          .select('*')
+          .order('name');
+
+        if (error) throw error;
+
+        // Transform database data to match component structure
+        const transformedSuppliers = data?.map((supplier: any) => ({
+          id: supplier.id,
+          name: supplier.name,
+          category: supplier.category,
+          city: supplier.city || 'N/A',
+          address: supplier.address || 'Address not available',
+          phone: supplier.contact_phone || '',
+          email: supplier.contact_email || '',
+          rating: supplier.rating || 0,
+          reviews: Math.floor(Math.random() * 200), // Mock reviews count
+          minOrder: '500 units',
+          deliveryTime: '5-7 days',
+          specialties: [supplier.description || supplier.category],
+          verified: supplier.rating && supplier.rating >= 4.5,
+          distance: 'N/A'
+        })) || [];
+
+        setSuppliers(transformedSuppliers);
+      } catch (error) {
+        console.error('Error fetching suppliers:', error);
+        toast({
+          title: "Error loading suppliers",
+          description: "Failed to load supplier data. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSuppliers();
+  }, [toast]);
 
   const filteredSuppliers = suppliers.filter(supplier => {
     const matchesSearch = supplier.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -131,6 +116,7 @@ const SuppliersList: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
+                aria-label="Search suppliers"
               />
             </div>
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
@@ -182,7 +168,14 @@ const SuppliersList: React.FC = () => {
       {viewMode === 'list' ? (
         /* List View */
         <div className="space-y-4">
-          {filteredSuppliers.length === 0 ? (
+          {loading ? (
+            <Card>
+              <CardContent className="pt-6 text-center py-8">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading suppliers...</p>
+              </CardContent>
+            </Card>
+          ) : filteredSuppliers.length === 0 ? (
             <Card>
               <CardContent className="pt-6 text-center py-8">
                 <Search className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />

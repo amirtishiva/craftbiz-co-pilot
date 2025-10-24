@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { validateImage } from '@/lib/validation';
 
 interface ImageUploadProps {
   onProductAnalyzed: (productData: any) => void;
@@ -89,21 +90,12 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onProductAnalyzed }) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
+    // Validate image using validation utility
+    const validation = validateImage(file);
+    if (!validation.valid) {
       toast({
-        title: "Invalid File Type",
-        description: "Please upload an image file (JPG, PNG, WEBP).",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      toast({
-        title: "File Too Large",
-        description: "Please upload an image smaller than 10MB.",
+        title: "Invalid Image",
+        description: validation.error || "Please upload a valid image file.",
         variant: "destructive",
       });
       return;

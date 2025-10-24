@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import ImageUpload from './ImageUpload';
 import VoiceRecorder from './VoiceRecorder';
 import { supabase } from '@/integrations/supabase/client';
+import { businessIdeaSchema } from '@/lib/validation';
 
 interface IdeaCaptureProps {
   onIdeaSubmit: (idea: any) => void;
@@ -104,10 +105,17 @@ const IdeaCapture: React.FC<IdeaCaptureProps> = ({ onIdeaSubmit }) => {
   const handleSubmit = async () => {
     const contentToSubmit = productData?.businessIdea || businessIdea;
     
-    if (!contentToSubmit.trim() || !businessType) {
+    // Validate input
+    try {
+      businessIdeaSchema.parse({
+        ideaText: contentToSubmit,
+        businessType: businessType
+      });
+    } catch (error: any) {
+      const errorMessage = error.errors?.[0]?.message || "Please check your input";
       toast({
-        title: "Missing Information",
-        description: "Please provide your business idea and select a business type.",
+        title: "Validation Error",
+        description: errorMessage,
         variant: "destructive",
       });
       return;
