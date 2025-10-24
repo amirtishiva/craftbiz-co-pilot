@@ -12,11 +12,14 @@ serve(async (req) => {
   }
 
   try {
-    const { imageUrl } = await req.json();
+    const { imageData, imageUrl } = await req.json();
 
-    if (!imageUrl) {
-      throw new Error('Image URL is required');
+    if (!imageData && !imageUrl) {
+      throw new Error('Image data or URL is required');
     }
+
+    // Use imageUrl if provided, otherwise use imageData
+    const imageInput = imageUrl || imageData;
 
     const OPENAI_API_KEY = Deno.env.get('Open_API');
     if (!OPENAI_API_KEY) {
@@ -49,8 +52,8 @@ Format your response as JSON with keys: productName, category, targetCustomers (
           { 
             role: 'user', 
             content: [
-              { type: 'text', text: 'Analyze this product image and provide detailed business insights.' },
-              { type: 'image_url', image_url: { url: imageUrl } }
+              { type: 'text', text: 'Analyze this product image and provide detailed business insights. Return your response as a JSON object with these keys: productName, category, targetCustomers (array), features (array), suggestedIdea, marketInsights.' },
+              { type: 'image_url', image_url: { url: imageInput } }
             ]
           }
         ],

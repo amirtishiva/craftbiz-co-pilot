@@ -56,10 +56,20 @@ const VoiceRecorder = ({ onTranscription }: VoiceRecorderProps) => {
                 body: { audioData: base64Audio }
               });
 
-              if (error) throw error;
+              if (error) {
+                console.error('Transcription error:', error);
+                throw error;
+              }
 
-              onTranscription(data.transcribedText, data.detectedLanguage);
-              toast.success('Voice transcribed successfully');
+              // Use translated text if available, otherwise use transcribed text
+              const finalText = data.translatedText || data.transcribedText;
+              onTranscription(finalText, data.detectedLanguage);
+              
+              if (data.detectedLanguage !== 'en') {
+                toast.success(`Voice transcribed and translated from ${data.detectedLanguage} to English`);
+              } else {
+                toast.success('Voice transcribed successfully');
+              }
             };
           } catch (error) {
             console.error('Transcription error:', error);

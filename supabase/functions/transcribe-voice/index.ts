@@ -23,45 +23,81 @@ serve(async (req) => {
       throw new Error('OpenAI API key is not configured');
     }
 
-    console.log('Transcribing audio with OpenAI Whisper');
+    console.log('Transcribing audio with OpenAI Whisper API');
 
-    // For demonstration, simulating transcription as real audio processing requires binary data
-    // In production, you would send actual audio file to Whisper API
-    const transcriptionPrompt = `Transcribe this business idea voice recording and detect the language. 
-    If not in English, translate to English while preserving the original intent.`;
+    // Convert base64 to binary
+    const base64Audio = audioData.includes('base64,') 
+      ? audioData.split('base64,')[1] 
+      : audioData;
+    
+    const binaryAudio = Uint8Array.from(atob(base64Audio), c => c.charCodeAt(0));
+    
+    // Create form data for Whisper API
+    const formData = new FormData();
+    const audioBlob = new Blob([binaryAudio], { type: 'audio/webm' });
+    formData.append('file', audioBlob, 'audio.webm');
+    formData.append('model', 'whisper-1');
+    formData.append('response_format', 'verbose_json');
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Step 1: Transcribe with Whisper
+    const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: 'gpt-5-mini-2025-08-07',
-        messages: [
-          { role: 'system', content: 'You are a transcription and translation specialist for business ideas.' },
-          { role: 'user', content: transcriptionPrompt }
-        ],
-        max_completion_tokens: 300,
-      }),
+      body: formData,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('OpenAI API error:', response.status, errorText);
-      throw new Error(`OpenAI API error: ${response.status}`);
+    if (!whisperResponse.ok) {
+      const errorText = await whisperResponse.text();
+      console.error('Whisper API error:', whisperResponse.status, errorText);
+      throw new Error(`Whisper API error: ${whisperResponse.status}`);
     }
 
-    const data = await response.json();
-    const transcribedText = data.choices[0].message.content.trim();
+    const whisperData = await whisperResponse.json();
+    const transcribedText = whisperData.text;
+    const detectedLanguage = whisperData.language || 'en';
 
-    console.log('Transcribed text:', transcribedText);
+    console.log('Transcribed text:', transcribedText, 'Language:', detectedLanguage);
+
+    // Step 2: If not English, translate using GPT
+    let translatedText = transcribedText;
+    
+    if (detectedLanguage !== 'en') {
+      const translationResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-5-nano-2025-08-07',
+          messages: [
+            { 
+              role: 'system', 
+              content: 'You are a professional translator. Translate the business idea to English while preserving the original intent and meaning. Provide only the translated text without any additional commentary.'
+            },
+            { 
+              role: 'user', 
+              content: `Translate this business idea to English: "${transcribedText}"`
+            }
+          ],
+          max_completion_tokens: 300,
+        }),
+      });
+
+      if (translationResponse.ok) {
+        const translationData = await translationResponse.json();
+        translatedText = translationData.choices[0].message.content.trim();
+        console.log('Translated text:', translatedText);
+      }
+    }
 
     return new Response(
       JSON.stringify({ 
         transcribedText,
-        detectedLanguage: 'en',
-        translatedText: transcribedText
+        detectedLanguage,
+        translatedText
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

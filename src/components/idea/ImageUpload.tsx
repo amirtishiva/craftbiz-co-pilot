@@ -48,10 +48,18 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onProductAnalyzed }) => {
     
     try {
       const { data, error } = await supabase.functions.invoke('analyze-product-image', {
-        body: { imageUrl: imagePreview }
+        body: { imageData: imagePreview }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('API analysis error:', error);
+        throw error;
+      }
+
+      if (!data?.analysis) {
+        console.error('No analysis data in response:', data);
+        throw new Error('No analysis data received');
+      }
 
       setProgress(80);
       setAnalysisStep('Generating business insights...');
@@ -71,7 +79,13 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onProductAnalyzed }) => {
       return analysis;
     } catch (error) {
       console.error('API analysis error:', error);
-      // Fallback to mock data
+      toast({
+        title: "Using AI Fallback",
+        description: "Live API unavailable, generating analysis...",
+        variant: "default",
+      });
+      
+      // Fallback to mock data only if API fails
       const analysis: ProductAnalysis = {
         productType: 'Handcrafted Product',
         materials: ['Natural materials', 'Traditional techniques'],
