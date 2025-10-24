@@ -9,14 +9,18 @@ import {
   ArrowRight,
   TrendingUp,
   Users,
-  Target
+  Target,
+  Loader2
 } from 'lucide-react';
+import { useDashboardStats } from '@/hooks/useDashboardStats';
 
 interface DashboardProps {
   onTabChange: (tab: string) => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
+  const { stats, loading } = useDashboardStats();
+
   const features = [
     {
       id: 'idea',
@@ -56,11 +60,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
     },
   ];
 
-  const stats = [
-    { label: 'Ideas Analyzed', value: '1', icon: TrendingUp },
-    { label: 'Plans Generated', value: '0', icon: FileText },
-    { label: 'Designs Created', value: '0', icon: Palette },
-    { label: 'Marketing Assets', value: '0', icon: Target },
+  const dashboardStats = [
+    { label: 'Ideas Analyzed', value: stats.ideas, icon: TrendingUp },
+    { label: 'Plans Generated', value: stats.plans, icon: FileText },
+    { label: 'Designs Created', value: stats.designs, icon: Palette },
+    { label: 'Marketing Assets', value: stats.marketing, icon: Target },
   ];
 
   return (
@@ -88,18 +92,24 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        {stats.map((stat, index) => {
-          const Icon = stat.icon;
-          return (
-            <Card key={index} className="text-center">
-              <CardContent className="pt-6">
-                <Icon className="h-8 w-8 mx-auto mb-2 text-accent-orange" />
-                <div className="text-2xl font-bold text-foreground">{stat.value}</div>
-                <div className="text-sm text-muted-foreground">{stat.label}</div>
-              </CardContent>
-            </Card>
-          );
-        })}
+        {loading ? (
+          <div className="col-span-full flex justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          dashboardStats.map((stat, index) => {
+            const Icon = stat.icon;
+            return (
+              <Card key={index} className="text-center">
+                <CardContent className="pt-6">
+                  <Icon className="h-8 w-8 mx-auto mb-2 text-accent-orange" />
+                  <div className="text-2xl font-bold text-foreground">{stat.value}</div>
+                  <div className="text-sm text-muted-foreground">{stat.label}</div>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
       </div>
 
       {/* Features Grid */}

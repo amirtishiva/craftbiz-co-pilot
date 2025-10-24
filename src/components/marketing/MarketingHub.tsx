@@ -12,78 +12,77 @@ import {
   Share2,
   Download,
   Eye,
-  Edit
+  Edit,
+  Loader2
 } from 'lucide-react';
+import { useMarketingContent } from '@/hooks/useMarketingContent';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 const MarketingHub: React.FC = () => {
+  const { toast } = useToast();
+  const { content: generatedContent, loading: contentLoading, setContent } = useMarketingContent();
   const [contentType, setContentType] = useState('social-post');
   const [audienceType, setAudienceType] = useState('general');
   const [contentPrompt, setContentPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedContent, setGeneratedContent] = useState<any[]>([]);
   const [previewContent, setPreviewContent] = useState<any>(null);
   const [showPreview, setShowPreview] = useState(false);
 
   const generateContent = async () => {
+    if (!contentPrompt.trim()) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter a campaign focus",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsGenerating(true);
-    
-    // Simulate AI content generation
-    setTimeout(() => {
-      const content = [
-        {
-          id: 1,
-          type: 'Facebook Post',
-          content: `🎨 Discover the beauty of authentic Indian handicrafts! 
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) throw new Error('Not authenticated');
 
-Our platform connects you directly with talented local artisans who pour their heart into every piece. From intricate pottery to stunning textiles, each item tells a story of tradition and craftsmanship.
-
-✨ Why choose handmade?
-• Support local communities
-• Own unique, one-of-a-kind pieces  
-• Preserve traditional art forms
-• Fair prices for artisans
-
-Shop authentic. Shop local. Shop with purpose.
-
-#HandmadeCrafts #LocalArtisans #AuthenticIndia #SupportLocal #HandcraftedWithLove`,
-          engagement: 'High',
-          platform: 'Facebook'
-        },
-        {
-          id: 2,
-          type: 'Instagram Caption',
-          content: `Behind every handcrafted piece is an artisan's story 👥✨
-
-Meet Radha from Rajasthan, whose pottery has been passed down through generations. When you buy from our platform, you're not just getting beautiful ceramics - you're supporting a family tradition and helping preserve ancient techniques.
-
-This is what authentic craftsmanship looks like 🏺
-
-#MeetTheArtisan #HandmadePottery #RajasthaniCrafts #ArtisanStories #CraftBiz`,
-          engagement: 'Very High',
-          platform: 'Instagram'
-        },
-        {
-          id: 3,
-          type: 'LinkedIn Post',
-          content: `The Indian handicrafts industry employs over 7 million artisans, yet most struggle to reach customers directly.
-
-Our marketplace is changing that by:
-📈 Eliminating middlemen who take 70% of profits
-🤝 Providing direct customer access
-📱 Offering digital tools for modern selling
-🌍 Showcasing authentic Indian crafts globally
-
-When technology meets tradition, everyone wins. Artisans earn fair wages, customers get authentic products, and cultural heritage thrives.
-
-#SocialImpact #IndianHandicrafts #DigitalTransformation #Entrepreneurship`,
-          engagement: 'Medium',
-          platform: 'LinkedIn'
+      const { data, error } = await supabase.functions.invoke('generate-marketing-content', {
+        body: { 
+          prompt: contentPrompt,
+          contentType,
+          audienceType
         }
-      ];
-      
-      setGeneratedContent(content);
+      });
+
+      if (error) throw error;
+
+      // Save to database
+      const { data: savedContent, error: saveError } = await supabase
+        .from('marketing_content')
+        .insert({
+          user_id: user.id,
+          platform: contentType,
+          content_text: data.content,
+          hashtags: data.hashtags || []
+        })
+        .select()
+        .single();
+
+      if (saveError) throw saveError;
+
+      setContent(prev => [savedContent, ...prev]);
+      toast({
+        title: "Content Generated!",
+        description: "Your marketing content has been created.",
+      });
+    } catch (error) {
+      console.error('Content generation error:', error);
+      toast({
+        title: "Generation Failed",
+        description: "Failed to generate content. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setIsGenerating(false);
-    }, 2500);
+    }
   };
 
   const handlePreviewContent = (content: any) => {
@@ -273,7 +272,11 @@ When technology meets tradition, everyone wins. Artisans earn fair wages, custom
           </div>
 
           {/* Generated Content */}
-          {generatedContent.length > 0 && (
+          {contentLoading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            </div>
+          ) : generatedContent.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle>Generated Content</CardTitle>
@@ -287,27 +290,18 @@ When technology meets tradition, everyone wins. Artisans earn fair wages, custom
                     <div key={content.id} className="border border-border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold">{content.type}</span>
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            content.engagement === 'High' ? 'bg-green-100 text-green-700' :
-                            content.engagement === 'Very High' ? 'bg-blue-100 text-blue-700' :
-                            'bg-yellow-100 text-yellow-700'
-                          }`}>
-                            {content.engagement} Engagement
-                          </span>
+                          <span className="font-semibold">{content.platform}</span>
+                          {content.hashtags && content.hashtags.length > 0 && (
+                            <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700">
+                              {content.hashtags.length} hashtags
+                            </span>
+                          )}
                         </div>
                         <div className="flex gap-2">
                           <Button 
                             size="sm" 
                             variant="ghost"
-                            onClick={() => handleEditContent(content)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="ghost"
-                            onClick={() => handleCopyContent(content.content)}
+                            onClick={() => handleCopyContent(content.content_text)}
                           >
                             <Copy className="h-4 w-4" />
                           </Button>
@@ -320,9 +314,16 @@ When technology meets tradition, everyone wins. Artisans earn fair wages, custom
                           </Button>
                         </div>
                       </div>
-                      <div className="whitespace-pre-line text-sm text-muted-foreground leading-relaxed">
-                        {content.content}
+                      <div className="whitespace-pre-line text-sm text-muted-foreground leading-relaxed mb-3">
+                        {content.content_text}
                       </div>
+                      {content.hashtags && content.hashtags.length > 0 && (
+                        <div className="flex flex-wrap gap-2 pt-3 border-t">
+                          {content.hashtags.map((tag: string, idx: number) => (
+                            <span key={idx} className="text-xs text-primary">#{tag}</span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

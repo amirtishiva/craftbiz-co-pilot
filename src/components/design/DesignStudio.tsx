@@ -15,13 +15,18 @@ import {
   Upload,
   Eye,
   Heart,
-  Share2
+  Share2,
+  Loader2
 } from 'lucide-react';
+import { useDesignAssets } from '@/hooks/useDesignAssets';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 const DesignStudio: React.FC = () => {
+  const { toast } = useToast();
+  const { assets, loading: assetsLoading, setAssets } = useDesignAssets();
   const [logoPrompt, setLogoPrompt] = useState('');
   const [isGeneratingLogo, setIsGeneratingLogo] = useState(false);
-  const [generatedLogos, setGeneratedLogos] = useState<any[]>([]);
   const [selectedLogo, setSelectedLogo] = useState<any>(null);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [activeTab, setActiveTab] = useState('logo');
@@ -29,42 +34,61 @@ const DesignStudio: React.FC = () => {
   const [customSceneStyle, setCustomSceneStyle] = useState('Photographic');
   const [customSceneRatio, setCustomSceneRatio] = useState('16:9 (Landscape)');
   const [isGeneratingScene, setIsGeneratingScene] = useState(false);
-  const [generatedScenes, setGeneratedScenes] = useState<any[]>([]);
+
+  // Filter assets by type
+  const generatedLogos = assets.filter(asset => asset.asset_type === 'logo');
+  const generatedScenes = assets.filter(asset => asset.asset_type === 'scene');
 
   const generateLogo = async () => {
+    if (!logoPrompt.trim()) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter a brand description",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsGeneratingLogo(true);
-    
-    // Simulate AI logo generation
-    setTimeout(() => {
-      const newLogos = [
-        {
-          id: 1,
-          url: '/api/placeholder/200/200',
-          style: 'Modern Minimalist',
-          description: 'Clean, professional design with modern typography'
-        },
-        {
-          id: 2,
-          url: '/api/placeholder/200/200',
-          style: 'Vintage Craft',
-          description: 'Traditional Indian patterns with handcrafted feel'
-        },
-        {
-          id: 3,
-          url: '/api/placeholder/200/200',
-          style: 'Contemporary',
-          description: 'Bold colors with geometric elements'
-        },
-        {
-          id: 4,
-          url: '/api/placeholder/200/200',
-          style: 'Elegant Script',
-          description: 'Sophisticated script with artistic flourishes'
-        }
-      ];
-      setGeneratedLogos(newLogos);
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase.functions.invoke('generate-logo', {
+        body: { prompt: logoPrompt }
+      });
+
+      if (error) throw error;
+
+      // Save to database
+      const { data: savedAsset, error: saveError } = await supabase
+        .from('design_assets')
+        .insert({
+          user_id: user.id,
+          asset_type: 'logo',
+          asset_url: data.logoUrl,
+          prompt_used: logoPrompt
+        })
+        .select()
+        .single();
+
+      if (saveError) throw saveError;
+
+      setAssets(prev => [savedAsset, ...prev]);
+      toast({
+        title: "Logo Generated!",
+        description: "Your logo has been created successfully.",
+      });
+    } catch (error) {
+      console.error('Logo generation error:', error);
+      toast({
+        title: "Generation Failed",
+        description: "Failed to generate logo. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setIsGeneratingLogo(false);
-    }, 3000);
+    }
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -86,25 +110,61 @@ const DesignStudio: React.FC = () => {
   };
 
   const generateScene = async (templateId?: string) => {
+    const prompt = templateId || customSceneDescription;
+    if (!prompt.trim()) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter a scene description",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsGeneratingScene(true);
-    
-    setTimeout(() => {
-      const sceneData = {
-        id: Date.now(),
-        type: templateId || 'custom',
-        description: templateId ? `${templateId} scene generated` : customSceneDescription,
-        style: customSceneStyle,
-        ratio: customSceneRatio,
-        url: '/api/placeholder/400/300'
-      };
-      
-      setGeneratedScenes(prev => [...prev, sceneData]);
-      setIsGeneratingScene(false);
-      
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase.functions.invoke('generate-logo', {
+        body: { 
+          prompt: `Marketing scene: ${prompt}. Style: ${customSceneStyle}. Aspect ratio: ${customSceneRatio}` 
+        }
+      });
+
+      if (error) throw error;
+
+      // Save to database
+      const { data: savedAsset, error: saveError } = await supabase
+        .from('design_assets')
+        .insert({
+          user_id: user.id,
+          asset_type: 'scene',
+          asset_url: data.logoUrl,
+          prompt_used: prompt
+        })
+        .select()
+        .single();
+
+      if (saveError) throw saveError;
+
+      setAssets(prev => [savedAsset, ...prev]);
       if (!templateId) {
         setCustomSceneDescription('');
       }
-    }, 2500);
+      toast({
+        title: "Scene Generated!",
+        description: "Your marketing scene has been created.",
+      });
+    } catch (error) {
+      console.error('Scene generation error:', error);
+      toast({
+        title: "Generation Failed",
+        description: "Failed to generate scene. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingScene(false);
+    }
   };
 
   const handleCustomSceneGenerate = () => {
@@ -254,7 +314,11 @@ const DesignStudio: React.FC = () => {
           </div>
 
           {/* Generated Logos */}
-          {generatedLogos.length > 0 && (
+          {assetsLoading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            </div>
+          ) : generatedLogos.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle>Generated Logos</CardTitle>
@@ -272,19 +336,14 @@ const DesignStudio: React.FC = () => {
                       }`}
                       onClick={() => setSelectedLogo(logo)}
                     >
-                      <div className="aspect-square bg-gray-100 rounded-lg mb-3 flex items-center justify-center">
-                        <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-bold">
-                          CB
-                        </div>
+                      <div className="aspect-square bg-gray-100 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
+                        <img src={logo.asset_url} alt="Generated logo" className="w-full h-full object-cover" />
                       </div>
-                      <h4 className="font-semibold text-sm">{logo.style}</h4>
-                      <p className="text-xs text-muted-foreground mt-1">{logo.description}</p>
+                      <h4 className="font-semibold text-sm">Generated Logo</h4>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{logo.prompt_used}</p>
                       <div className="flex gap-1 mt-2">
-                        <Button size="sm" variant="ghost" className="h-8 px-2">
+                        <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => window.open(logo.asset_url, '_blank')}>
                           <Eye className="h-3 w-3" />
-                        </Button>
-                        <Button size="sm" variant="ghost" className="h-8 px-2">
-                          <Heart className="h-3 w-3" />
                         </Button>
                         <Button size="sm" variant="ghost" className="h-8 px-2">
                           <Download className="h-3 w-3" />
