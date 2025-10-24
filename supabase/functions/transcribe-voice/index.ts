@@ -61,7 +61,7 @@ serve(async (req) => {
     console.log('Transcribed text:', transcribedText, 'Language:', detectedLanguage);
 
     // Step 2: If not English, translate using GPT-5 Mini
-    let translatedText = transcribedText;
+    let translatedText = null;
     
     if (detectedLanguage !== 'en') {
       console.log('Detected non-English language, translating to English...');
@@ -78,30 +78,36 @@ serve(async (req) => {
             messages: [
               { 
                 role: 'system', 
-                content: 'You are a professional translator. Translate the business idea to English while preserving the original intent and meaning. Provide only the translated text without any additional commentary.'
+                content: 'You are a professional translator specialized in business context. Translate the following business idea from any language to clear, professional English. Maintain the original meaning and business intent. Return ONLY the translated English text, nothing else.'
               },
               { 
                 role: 'user', 
-                content: `Translate this business idea to English: "${transcribedText}"`
+                content: transcribedText
               }
             ],
-            max_completion_tokens: 300,
+            max_completion_tokens: 500,
           }),
         });
 
         if (!translationResponse.ok) {
           const errorText = await translationResponse.text();
           console.error('Translation API error:', translationResponse.status, errorText);
-          throw new Error(`Translation API error: ${translationResponse.status}`);
+          throw new Error(`Translation API error: ${translationResponse.status} - ${errorText}`);
         }
 
         const translationData = await translationResponse.json();
         translatedText = translationData.choices[0].message.content.trim();
-        console.log('Successfully translated text:', translatedText);
+        
+        if (!translatedText || translatedText.length === 0) {
+          console.error('Translation returned empty text');
+          translatedText = null;
+        } else {
+          console.log('Successfully translated text:', translatedText);
+        }
       } catch (error) {
         console.error('Translation failed:', error);
-        // If translation fails, we'll still return the original transcribed text
-        // but log the error for debugging
+        // Translation failed, will return null and frontend will use original text
+        translatedText = null;
       }
     }
 

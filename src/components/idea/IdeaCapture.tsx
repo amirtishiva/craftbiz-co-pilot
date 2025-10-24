@@ -268,7 +268,7 @@ const IdeaCapture: React.FC<IdeaCaptureProps> = ({ onIdeaSubmit }) => {
               <VoiceRecorder onTranscription={handleTranscription} />
 
               {transcribedText && (
-                <div className="space-y-2">
+                <div className="space-y-2 relative">
                   <label className="text-sm font-medium">Transcribed Text</label>
                   <Textarea
                     value={transcribedText}
@@ -276,8 +276,24 @@ const IdeaCapture: React.FC<IdeaCaptureProps> = ({ onIdeaSubmit }) => {
                       setTranscribedText(e.target.value);
                       setBusinessIdea(e.target.value);
                     }}
-                    className="min-h-[100px]"
+                    className="min-h-[100px] pr-12"
                   />
+                  {transcribedText.trim() && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute bottom-2 right-2 h-8 w-8 p-0"
+                      onClick={handleRefineIdea}
+                      disabled={isRefining}
+                      title="Refine with AI"
+                    >
+                      {isRefining ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                      ) : (
+                        <Sparkles className="h-4 w-4 text-accent-orange" />
+                      )}
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

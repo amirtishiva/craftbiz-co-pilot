@@ -63,10 +63,22 @@ const VoiceRecorder = ({ onTranscription }: VoiceRecorderProps) => {
 
               // Use translated text if available, otherwise use transcribed text
               const finalText = data.translatedText || data.transcribedText;
+              
+              console.log('Transcription response:', {
+                original: data.transcribedText,
+                translated: data.translatedText,
+                language: data.detectedLanguage,
+                finalText
+              });
+
               onTranscription(finalText, data.detectedLanguage);
               
               if (data.detectedLanguage !== 'en') {
-                toast.success(`Voice transcribed and translated from ${data.detectedLanguage} to English`);
+                if (data.translatedText) {
+                  toast.success(`Voice transcribed from ${data.detectedLanguage} and translated to English`);
+                } else {
+                  toast.warning(`Voice transcribed in ${data.detectedLanguage}. Translation failed, showing original text.`);
+                }
               } else {
                 toast.success('Voice transcribed successfully');
               }
