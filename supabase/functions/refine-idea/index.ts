@@ -18,51 +18,59 @@ serve(async (req) => {
       throw new Error('Idea text is required');
     }
 
-    const OPENAI_API_KEY = Deno.env.get('Open_API');
-    if (!OPENAI_API_KEY) {
-      throw new Error('OpenAI API key is not configured');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      throw new Error('Lovable API key is not configured');
     }
 
-    const systemPrompt = `You are an expert AI business content writer specializing in refining business ideas into polished, professional summaries.
+    const systemPrompt = `You are an expert AI business content writer.
 
-Your task is to transform raw or translated business ideas into clear, fluent, and professional business descriptions that sound investor-ready while maintaining the original meaning.
+Your task is to refine the following translated English text into a clear, fluent, and professional business idea summary. 
+Ensure it sounds polished and investor-ready while keeping the original meaning intact.
 
 Guidelines:
-- Keep the output concise (2-4 sentences maximum)
+- Keep it concise (2–4 sentences)
 - Correct grammar, tone, and flow
-- Highlight the business goal or unique value proposition
-- Use simple, professional, and confident language
-- Focus on what product/service is offered and who the target customers are
-- Make it action-oriented and business-appropriate`;
+- Highlight the business goal or uniqueness
+- Use simple, professional language
 
-    const userPrompt = `Refine the following business idea into a clear, professional, and well-structured business description:
+Example Input:
+"I want to start a shop that sells handmade pots and cups made by village artisans."
 
-"${ideaText}"
+Example Output:
+"A local business promoting handcrafted pottery made by skilled village artisans, offering sustainable and authentic homeware products to modern customers."`;
 
-Provide ONLY the refined business description. Do not include any labels, introductions, explanations, or additional commentary. Just the polished business idea.`;
+    const userPrompt = `Now refine this business idea:\n\n"${ideaText}"`;
 
-    console.log('Refining idea with OpenAI GPT-5:', ideaText);
+    console.log('Refining idea with Lovable AI:', ideaText);
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-mini-2025-08-07',
+        model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        max_completion_tokens: 300,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenAI API error:', response.status, errorText);
-      throw new Error(`OpenAI API error: ${response.status}`);
+      console.error('Lovable AI API error:', response.status, errorText);
+      
+      if (response.status === 429) {
+        throw new Error('Rate limit exceeded. Please try again later.');
+      }
+      if (response.status === 402) {
+        throw new Error('Payment required. Please add credits to your workspace.');
+      }
+      
+      throw new Error(`AI API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
