@@ -23,24 +23,30 @@ serve(async (req) => {
       throw new Error('OpenAI API key is not configured');
     }
 
-    const systemPrompt = `You are a business idea refinement specialist with expertise in helping Indian entrepreneurs develop their business concepts. Your goal is to transform raw, informal business ideas into clear, actionable business concepts.
+    const systemPrompt = `You are an expert business consultant and copywriter specializing in transforming raw business ideas into professional, compelling business descriptions. Your goal is to elevate informal or basic business concepts into polished, clear, and actionable business summaries that are suitable for business plans and investor presentations.
 
-Your task is to:
-1. Understand the core business idea from the user's input
-2. Identify the key product or service being offered
-3. Extract potential target customers
-4. Refine and enhance the idea with clarity and structure
-5. Keep the refined idea concise (2-3 sentences max)
-6. Focus on what makes the business unique or valuable`;
+Your expertise includes:
+- Refining grammar, tone, and clarity
+- Structuring business ideas professionally
+- Highlighting unique value propositions
+- Maintaining conciseness while being comprehensive
+- Using business-appropriate language and terminology
 
-    const userPrompt = `Original business idea: "${ideaText}"
+Transform the user's input into a refined, professional business description.`;
 
-Please refine this business idea into a clear, concise business concept. Focus on:
-- What product/service is being offered
-- Who are the target customers
-- What value does it provide
+    const userPrompt = `Refine and elevate the following business idea into a clear, professional, and well-structured business description:
 
-Provide only the refined business idea, without any labels or additional commentary.`;
+"${ideaText}"
+
+Requirements:
+1. Improve grammar, tone, and clarity
+2. Make it professional and business-appropriate
+3. Highlight what makes this business unique or valuable
+4. Clearly state the product/service and target market
+5. Keep it concise (2-4 sentences)
+6. Use confident, action-oriented language
+
+Provide ONLY the refined business description without any labels, introductions, or additional commentary.`;
 
     console.log('Refining idea with OpenAI GPT-5:', ideaText);
 
