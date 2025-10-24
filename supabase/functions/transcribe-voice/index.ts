@@ -60,36 +60,48 @@ serve(async (req) => {
 
     console.log('Transcribed text:', transcribedText, 'Language:', detectedLanguage);
 
-    // Step 2: If not English, translate using GPT
+    // Step 2: If not English, translate using GPT-5 Mini
     let translatedText = transcribedText;
     
     if (detectedLanguage !== 'en') {
-      const translationResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-5-nano-2025-08-07',
-          messages: [
-            { 
-              role: 'system', 
-              content: 'You are a professional translator. Translate the business idea to English while preserving the original intent and meaning. Provide only the translated text without any additional commentary.'
-            },
-            { 
-              role: 'user', 
-              content: `Translate this business idea to English: "${transcribedText}"`
-            }
-          ],
-          max_completion_tokens: 300,
-        }),
-      });
+      console.log('Detected non-English language, translating to English...');
+      
+      try {
+        const translationResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-5-mini-2025-08-07',
+            messages: [
+              { 
+                role: 'system', 
+                content: 'You are a professional translator. Translate the business idea to English while preserving the original intent and meaning. Provide only the translated text without any additional commentary.'
+              },
+              { 
+                role: 'user', 
+                content: `Translate this business idea to English: "${transcribedText}"`
+              }
+            ],
+            max_completion_tokens: 300,
+          }),
+        });
 
-      if (translationResponse.ok) {
+        if (!translationResponse.ok) {
+          const errorText = await translationResponse.text();
+          console.error('Translation API error:', translationResponse.status, errorText);
+          throw new Error(`Translation API error: ${translationResponse.status}`);
+        }
+
         const translationData = await translationResponse.json();
         translatedText = translationData.choices[0].message.content.trim();
-        console.log('Translated text:', translatedText);
+        console.log('Successfully translated text:', translatedText);
+      } catch (error) {
+        console.error('Translation failed:', error);
+        // If translation fails, we'll still return the original transcribed text
+        // but log the error for debugging
       }
     }
 
