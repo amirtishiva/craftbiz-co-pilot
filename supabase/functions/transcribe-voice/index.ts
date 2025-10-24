@@ -78,11 +78,11 @@ serve(async (req) => {
             messages: [
               { 
                 role: 'system', 
-                content: 'You are a professional translator specialized in business context. Translate the following business idea from any language to clear, professional English. Maintain the original meaning and business intent. Return ONLY the translated English text, nothing else.'
+                content: 'You are a professional translator. Translate the given text from any language to clear, natural English. Maintain the original meaning. Return ONLY the English translation without any explanations, labels, or additional text.'
               },
               { 
                 role: 'user', 
-                content: transcribedText
+                content: `Translate this to English:\n\n${transcribedText}`
               }
             ],
             max_completion_tokens: 500,

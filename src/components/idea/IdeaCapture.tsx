@@ -48,7 +48,9 @@ const IdeaCapture: React.FC<IdeaCaptureProps> = ({ onIdeaSubmit }) => {
   ];
 
   const handleRefineIdea = async () => {
-    if (!businessIdea.trim()) {
+    const textToRefine = inputMethod === 'voice' ? transcribedText : businessIdea;
+    
+    if (!textToRefine.trim()) {
       toast({
         title: "Missing Information",
         description: "Please enter a business idea first",
@@ -60,12 +62,24 @@ const IdeaCapture: React.FC<IdeaCaptureProps> = ({ onIdeaSubmit }) => {
     setIsRefining(true);
     try {
       const { data, error } = await supabase.functions.invoke('refine-idea', {
-        body: { ideaText: businessIdea }
+        body: { ideaText: textToRefine }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Edge function error:', error);
+        throw error;
+      }
 
+      if (!data?.refinedIdea) {
+        throw new Error('No refined idea returned');
+      }
+
+      // Update both states to ensure consistency
       setBusinessIdea(data.refinedIdea);
+      if (inputMethod === 'voice') {
+        setTranscribedText(data.refinedIdea);
+      }
+      
       toast({
         title: "Idea Refined!",
         description: "Your business idea has been polished with AI.",
@@ -74,7 +88,7 @@ const IdeaCapture: React.FC<IdeaCaptureProps> = ({ onIdeaSubmit }) => {
       console.error('Refinement error:', error);
       toast({
         title: "Refinement Failed",
-        description: "Failed to refine idea. Please try again.",
+        description: "Could not refine the idea. Please try again.",
         variant: "destructive",
       });
     } finally {

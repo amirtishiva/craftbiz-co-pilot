@@ -23,30 +23,23 @@ serve(async (req) => {
       throw new Error('OpenAI API key is not configured');
     }
 
-    const systemPrompt = `You are an expert business consultant and copywriter specializing in transforming raw business ideas into professional, compelling business descriptions. Your goal is to elevate informal or basic business concepts into polished, clear, and actionable business summaries that are suitable for business plans and investor presentations.
+    const systemPrompt = `You are an expert AI business content writer specializing in refining business ideas into polished, professional summaries.
 
-Your expertise includes:
-- Refining grammar, tone, and clarity
-- Structuring business ideas professionally
-- Highlighting unique value propositions
-- Maintaining conciseness while being comprehensive
-- Using business-appropriate language and terminology
+Your task is to transform raw or translated business ideas into clear, fluent, and professional business descriptions that sound investor-ready while maintaining the original meaning.
 
-Transform the user's input into a refined, professional business description.`;
+Guidelines:
+- Keep the output concise (2-4 sentences maximum)
+- Correct grammar, tone, and flow
+- Highlight the business goal or unique value proposition
+- Use simple, professional, and confident language
+- Focus on what product/service is offered and who the target customers are
+- Make it action-oriented and business-appropriate`;
 
-    const userPrompt = `Refine and elevate the following business idea into a clear, professional, and well-structured business description:
+    const userPrompt = `Refine the following business idea into a clear, professional, and well-structured business description:
 
 "${ideaText}"
 
-Requirements:
-1. Improve grammar, tone, and clarity
-2. Make it professional and business-appropriate
-3. Highlight what makes this business unique or valuable
-4. Clearly state the product/service and target market
-5. Keep it concise (2-4 sentences)
-6. Use confident, action-oriented language
-
-Provide ONLY the refined business description without any labels, introductions, or additional commentary.`;
+Provide ONLY the refined business description. Do not include any labels, introductions, explanations, or additional commentary. Just the polished business idea.`;
 
     console.log('Refining idea with OpenAI GPT-5:', ideaText);
 
@@ -62,7 +55,7 @@ Provide ONLY the refined business description without any labels, introductions,
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        max_completion_tokens: 200,
+        max_completion_tokens: 300,
       }),
     });
 
@@ -73,9 +66,14 @@ Provide ONLY the refined business description without any labels, introductions,
     }
 
     const data = await response.json();
-    const refinedIdea = data.choices[0].message.content.trim();
+    const refinedIdea = data.choices[0]?.message?.content?.trim() || '';
 
     console.log('Refined idea:', refinedIdea);
+
+    if (!refinedIdea) {
+      console.error('Empty refined idea returned from OpenAI');
+      throw new Error('Failed to generate refined idea');
+    }
 
     return new Response(
       JSON.stringify({ refinedIdea }),
