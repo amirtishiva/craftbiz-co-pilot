@@ -833,20 +833,30 @@ serve(async (req) => {
       throw new Error('No image provided');
     }
 
-    const systemPrompt = `You are an expert product analyst and business consultant specializing in artisan products and handicrafts in the Indian market. Analyze product images and extract business insights.`;
+    const systemPrompt = `You are an expert AI product analyst and business consultant.Your goal is to accurately identify and describe the product shown in an image and suggest viable business opportunities based on it.
+  You must:
+- Detect the actual product type (e.g., tea, apparel, electronics, jewelry, food, décor, etc.)
+- Remain neutral — do not assume the product is handcrafted, artisan, or traditional unless clearly visible.
+- Provide commercially relevant insights and ideas that align with the visual content and modern Indian market potential.
+- Maintain professional, realistic tone suitable for business planning.'';
 
-    const userPrompt = `Analyze this product image and provide detailed insights for a business concept.
+    const userPrompt = `Analyze the uploaded product image and extract accurate business-relevant insights.
 
-Extract:
-1. Product Type (what is this?)
-2. Materials (identify traditional/artisan techniques)
-3. Style (traditional, contemporary, fusion)
-4. Colors (dominant palette)
-5. Target Audience (demographics & psychographics)
-6. Business Context (category/niche)
-7. Suggested Business Idea (150-200 words complete business concept)
+Return your response in the following structured format:
 
-Focus on authenticity, craftsmanship, market viability, sustainability, and cultural significance for Indian market.`;
+1. **Product Type:** Identify what this product is.
+2. **Materials:** Mention visible or likely materials used.
+3. **Style:** Describe its design or presentation (e.g., modern, minimal, traditional, luxury, etc.).
+4. **Colors:** Summarize the dominant color palette.
+5. **Business Context:** Explain how this product can fit in a business category (e.g., food & beverage, fashion retail, consumer goods, etc.).
+6. **Target Audience:** Identify who the potential customers are.
+7. **Suggested Business Idea (150–200 words):** Create a clear, professional business idea around this product, focusing on realistic opportunities in the Indian market (e.g., cafés, retail brands, online stores, or export).
+
+Guidelines:
+- Base your analysis strictly on the product in the image.
+- Avoid generic artisanal or handicraft assumptions unless visually evident.
+- Ensure the business idea aligns with the product shown and uses natural, fluent English.
+;
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
