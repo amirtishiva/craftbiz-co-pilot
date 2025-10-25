@@ -14,6 +14,8 @@ serve(async (req) => {
   try {
     const { imageData, imageUrl } = await req.json();
 
+    console.log('Received request with imageData:', imageData ? 'present' : 'missing', 'imageUrl:', imageUrl ? 'present' : 'missing');
+
     if (!imageData && !imageUrl) {
       throw new Error('Image data or URL is required');
     }
@@ -26,18 +28,34 @@ serve(async (req) => {
       throw new Error('OpenAI API key is not configured');
     }
 
-    const systemPrompt = `You are a product analysis expert specializing in identifying business opportunities from product images.
-    
-Your task is to:
-1. Identify the product category and type
-2. Suggest potential target customers
-3. Identify key features and selling points
-4. Suggest a business idea based on the product
-5. Provide market insights
+    const systemPrompt = `You are a product analysis expert specializing in identifying business opportunities from product images. You have extensive knowledge of Indian markets, craftsmanship, and business opportunities.
 
-Format your response as JSON with keys: productName, category, targetCustomers (array), features (array), suggestedIdea, marketInsights`;
+Your task is to analyze the product image and extract:
+1. Product Name - A clear, specific name for the product
+2. Category - The business category (e.g., Automotive, Handicrafts, Food, etc.)
+3. Target Customers - An array of specific customer segments (e.g., ["Vehicle owners", "Fleet operators"])
+4. Features - An array of key product features and selling points (e.g., ["Durable rubber", "All-terrain capability"])
+5. Suggested Business Idea - A 150-200 word unique, detailed business idea specifically for THIS product that includes:
+   - What makes this product/business unique
+   - Specific target market
+   - Revenue potential
+   - Competitive advantage
+   - Implementation approach
+6. Market Insights - Brief market analysis for this product category
 
-    console.log('Analyzing product image with OpenAI GPT-5 Vision');
+CRITICAL: The business idea MUST be specific to the actual product in the image. Do NOT give generic responses.
+
+Return ONLY a JSON object with this exact structure:
+{
+  "productName": "specific product name",
+  "category": "product category",
+  "targetCustomers": ["customer 1", "customer 2", "customer 3"],
+  "features": ["feature 1", "feature 2", "feature 3", "feature 4"],
+  "suggestedIdea": "A detailed 150-200 word business idea specific to this product...",
+  "marketInsights": "Market analysis for this product category..."
+}`;
+
+    console.log('Analyzing product image with OpenAI GPT-4o Vision');
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -46,47 +64,65 @@ Format your response as JSON with keys: productName, category, targetCustomers (
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-mini-2025-08-07',
+        model: 'gpt-4o',
         messages: [
           { role: 'system', content: systemPrompt },
           { 
             role: 'user', 
             content: [
-              { type: 'text', text: 'Analyze this product image and provide detailed business insights. Return your response as a JSON object with these keys: productName, category, targetCustomers (array), features (array), suggestedIdea, marketInsights.' },
+              { 
+                type: 'text', 
+                text: 'Analyze this product image in detail. Identify exactly what product is shown and provide a comprehensive, unique business analysis. Return ONLY valid JSON with the exact keys: productName, category, targetCustomers (array), features (array), suggestedIdea (150-200 words), marketInsights.' 
+              },
               { type: 'image_url', image_url: { url: imageInput } }
             ]
           }
         ],
-        max_completion_tokens: 1000,
+        max_tokens: 1500,
+        temperature: 0.7,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error('OpenAI API error:', response.status, errorText);
-      throw new Error(`OpenAI API error: ${response.status}`);
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
+    console.log('OpenAI response received');
+    
     const content = data.choices[0].message.content.trim();
+    console.log('Raw content from OpenAI:', content.substring(0, 200));
     
     // Try to parse JSON from the response
     let analysis;
     try {
-      analysis = JSON.parse(content);
+      // Remove markdown code blocks if present
+      let jsonContent = content;
+      if (content.includes('```json')) {
+        jsonContent = content.split('```json')[1].split('```')[0].trim();
+      } else if (content.includes('```')) {
+        jsonContent = content.split('```')[1].split('```')[0].trim();
+      }
+      
+      analysis = JSON.parse(jsonContent);
+      console.log('Successfully parsed JSON analysis');
     } catch (e) {
-      // If not valid JSON, extract information from text
+      console.error('Failed to parse JSON, error:', e);
+      console.error('Content that failed to parse:', content);
+      // If not valid JSON, try to extract information from text
       analysis = {
         productName: 'Analyzed Product',
         category: 'General',
         targetCustomers: ['Indian consumers', 'Small business owners'],
         features: ['Quality craftsmanship', 'Locally sourced materials'],
-        suggestedIdea: content.substring(0, 200),
+        suggestedIdea: content.length > 200 ? content.substring(0, 200) : content,
         marketInsights: content
       };
     }
 
-    console.log('Product analysis:', analysis);
+    console.log('Final product analysis:', JSON.stringify(analysis, null, 2));
 
     return new Response(
       JSON.stringify({ analysis }),
