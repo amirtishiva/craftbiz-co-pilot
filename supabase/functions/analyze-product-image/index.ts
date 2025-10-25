@@ -25,34 +25,28 @@ serve(async (req) => {
       throw new Error('OpenAI API key is not configured');
     }
 
-    const systemPrompt = `You are a product analysis expert specializing in identifying business opportunities from product images.
+    const systemPrompt = `You are an expert product analyst. Analyze the uploaded image and identify the EXACT product shown.
 
-Analyze the product image in detail and extract:
-1. Product Name - The EXACT product visible in the image (e.g., "Premium Darjeeling Tea", "Handwoven Silk Scarf", "Ceramic Teapot")
-2. Category - Specific business category (e.g., "Beverage/Tea", "Textiles/Fashion", "Home Decor", "Food Products")
-3. Target Customers - Array of 3-4 specific customer segments for THIS exact product
-4. Features - Array of 4-6 key features visible or implied from THIS product
-5. Suggested Business Idea - A unique 150-200 word business idea SPECIFICALLY for this exact product
-6. Market Insights - Market analysis for this specific product category
+CRITICAL INSTRUCTIONS:
+1. Look at the image carefully - what SPECIFIC product do you see?
+2. If it's tea → say "Tea Beverage" NOT "Handcrafted Product"
+3. If it's pottery → say "Ceramic Pottery" NOT "General Handicraft"
+4. If it's textiles → say "Textile/Fabric Product" NOT "Traditional Craft"
+5. Be SPECIFIC about materials you can SEE in the image
+6. Base colors on what's VISIBLE in the image
+7. Create a business idea that matches the ACTUAL product
 
-CRITICAL RULES:
-- Base your response ENTIRELY on what you see in the image
-- Do NOT use generic responses
-- Do NOT default to "handicrafts" unless the product is actually a handicraft
-- Be SPECIFIC about the product type (e.g., if it's tea, say "tea business", not "handicraft business")
-- The business idea must match the actual product in the image
-
-Return ONLY valid JSON with this structure:
+RESPONSE FORMAT - Return ONLY valid JSON (no markdown, no extra text):
 {
-  "productName": "exact product name from image",
-  "category": "specific category",
-  "targetCustomers": ["customer 1", "customer 2", "customer 3"],
-  "features": ["feature 1", "feature 2", "feature 3", "feature 4"],
-  "suggestedIdea": "150-200 word business idea for THIS specific product",
-  "marketInsights": "Market analysis for THIS product"
+  "productName": "specific product you see in image",
+  "category": "specific category matching the product",
+  "targetCustomers": ["specific customer 1", "specific customer 2", "specific customer 3"],
+  "features": ["visible feature 1", "visible feature 2", "visible feature 3", "visible feature 4"],
+  "suggestedIdea": "A unique 150-200 word business idea for THIS EXACT product you see in the image",
+  "marketInsights": "Market analysis for THIS specific product category"
 }`;
 
-    console.log('Analyzing product image with OpenAI GPT-4o Vision');
+    console.log('Calling OpenAI GPT-4o Vision API...');
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -69,7 +63,7 @@ Return ONLY valid JSON with this structure:
             content: [
               { 
                 type: 'text', 
-                text: 'Look at this image carefully. What SPECIFIC product do you see? Analyze this EXACT product and create a detailed business analysis for it. Do NOT give generic handicraft responses. Return ONLY valid JSON.' 
+                text: 'Analyze this product image. What do you see? Describe the EXACT product, materials, colors visible. Return ONLY valid JSON matching the schema provided. NO markdown formatting, NO code blocks, ONLY raw JSON.' 
               },
               { 
                 type: 'image_url', 
@@ -81,51 +75,56 @@ Return ONLY valid JSON with this structure:
             ]
           }
         ],
-        max_tokens: 2000,
-        temperature: 0.8,
+        max_tokens: 1500,
+        temperature: 0.7,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenAI API error:', response.status, errorText);
-      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+      console.error('OpenAI API error - Status:', response.status);
+      console.error('OpenAI API error - Details:', errorText);
+      throw new Error(`OpenAI API failed: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-    console.log('OpenAI response received');
+    console.log('OpenAI API response received successfully');
     
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      console.error('Invalid OpenAI response structure:', JSON.stringify(data));
+      throw new Error('Invalid response structure from OpenAI');
+    }
+
     const content = data.choices[0].message.content.trim();
-    console.log('Raw content from OpenAI:', content.substring(0, 200));
+    console.log('Raw AI response (first 300 chars):', content.substring(0, 300));
     
-    // Try to parse JSON from the response
+    // Parse JSON from the response
     let analysis;
     try {
       // Remove markdown code blocks if present
       let jsonContent = content;
+      
       if (content.includes('```json')) {
+        console.log('Removing ```json markdown wrapper');
         jsonContent = content.split('```json')[1].split('```')[0].trim();
       } else if (content.includes('```')) {
+        console.log('Removing ``` markdown wrapper');
         jsonContent = content.split('```')[1].split('```')[0].trim();
       }
       
       analysis = JSON.parse(jsonContent);
-      console.log('Successfully parsed JSON analysis');
+      console.log('✅ Successfully parsed product analysis:', JSON.stringify(analysis, null, 2));
+      
+      // Validate required fields
+      if (!analysis.productName || !analysis.category || !analysis.suggestedIdea) {
+        throw new Error('Missing required fields in analysis');
+      }
+      
     } catch (e) {
-      console.error('Failed to parse JSON, error:', e);
-      console.error('Content that failed to parse:', content);
-      // If not valid JSON, try to extract information from text
-      analysis = {
-        productName: 'Analyzed Product',
-        category: 'General',
-        targetCustomers: ['Indian consumers', 'Small business owners'],
-        features: ['Quality craftsmanship', 'Locally sourced materials'],
-        suggestedIdea: content.length > 200 ? content.substring(0, 200) : content,
-        marketInsights: content
-      };
+      console.error('❌ JSON parsing failed:', e.message);
+      console.error('Raw content that failed:', content);
+      throw new Error(`Failed to parse AI response as JSON: ${e.message}`);
     }
-
-    console.log('Final product analysis:', JSON.stringify(analysis, null, 2));
 
     return new Response(
       JSON.stringify({ analysis }),
