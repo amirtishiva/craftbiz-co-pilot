@@ -47,8 +47,10 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onProductAnalyzed }) => {
     setProgress(50);
     
     try {
+      console.log('Sending image to analyze-product-image function, preview length:', imagePreview?.length);
+      
       const { data, error } = await supabase.functions.invoke('analyze-product-image', {
-        body: { imageData: imagePreview }
+        body: { imageUrl: imagePreview }
       });
 
       if (error) {
