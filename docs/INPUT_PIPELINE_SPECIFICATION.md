@@ -838,7 +838,7 @@ serve(async (req) => {
 - Detect the actual product type (e.g., tea, apparel, electronics, jewelry, food, décor, etc.)
 - Remain neutral — do not assume the product is handcrafted, artisan, or traditional unless clearly visible.
 - Provide commercially relevant insights and ideas that align with the visual content and modern Indian market potential.
-- Maintain professional, realistic tone suitable for business planning.'';
+- Maintain professional, realistic tone suitable for business planning.`;
 
     const userPrompt = `Analyze the uploaded product image and extract accurate business-relevant insights.
 
@@ -856,7 +856,7 @@ Guidelines:
 - Base your analysis strictly on the product in the image.
 - Avoid generic artisanal or handicraft assumptions unless visually evident.
 - Ensure the business idea aligns with the product shown and uses natural, fluent English.
-;
+``;
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
