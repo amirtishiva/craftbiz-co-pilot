@@ -38,7 +38,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onProductAnalyzed }) => {
   const [productAnalysis, setProductAnalysis] = useState<ProductAnalysis | null>(null);
   const { toast } = useToast();
 
-  const simulateImageAnalysis = async (): Promise<ProductAnalysis> => {
+  const simulateImageAnalysis = async (imageData: string): Promise<ProductAnalysis> => {
     setAnalysisStep('Analyzing product image...');
     setProgress(20);
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -47,10 +47,10 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onProductAnalyzed }) => {
     setProgress(50);
     
     try {
-      console.log('Sending image to analyze-product-image function, preview length:', imagePreview?.length);
+      console.log('Sending image to analyze-product-image function, image data length:', imageData?.length);
       
       const { data, error } = await supabase.functions.invoke('analyze-product-image', {
-        body: { imageUrl: imagePreview }
+        body: { imageUrl: imageData }
       });
 
       if (error) {
@@ -81,24 +81,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onProductAnalyzed }) => {
       return analysis;
     } catch (error) {
       console.error('API analysis error:', error);
-      toast({
-        title: "Using AI Fallback",
-        description: "Live API unavailable, generating analysis...",
-        variant: "default",
-      });
-      
-      // Fallback to mock data only if API fails
-      const analysis: ProductAnalysis = {
-        productType: 'Handcrafted Product',
-        materials: ['Natural materials', 'Traditional techniques'],
-        style: 'Traditional Indian Craftsmanship',
-        colors: ['Natural tones'],
-        targetAudience: 'Urban customers who value authentic crafts',
-        businessContext: 'Handicrafts & Traditional Arts',
-        suggestedBusinessIdea: 'A business selling handcrafted traditional products, targeting urban customers who value sustainable living and authentic craftsmanship.'
-      };
-      setProgress(100);
-      return analysis;
+      throw new Error('Failed to analyze product image. Please try again.');
     }
   };
 
@@ -118,39 +101,40 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onProductAnalyzed }) => {
     }
 
     setUploadedImage(file);
-    
-    // Create preview
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setImagePreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-
-    // Start analysis
     setIsAnalyzing(true);
     setProgress(0);
+    
+    // Create preview and wait for it to load
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const imageData = reader.result as string;
+      setImagePreview(imageData);
 
-    try {
-      const analysis = await simulateImageAnalysis();
-      setProductAnalysis(analysis);
-      
-      toast({
-        title: "Product Analysis Complete!",
-        description: `Identified as ${analysis.productType}. Ready to generate business plan.`,
-      });
+      try {
+        // Pass the image data directly to analysis
+        const analysis = await simulateImageAnalysis(imageData);
+        setProductAnalysis(analysis);
+        
+        toast({
+          title: "Product Analysis Complete!",
+          description: `Identified as ${analysis.productType}. Ready to generate business plan.`,
+        });
 
-    } catch (error) {
-      toast({
-        title: "Analysis Failed",
-        description: "Failed to analyze the product image. Please try again.",
-        variant: "destructive",
-      });
-      console.error('Analysis error:', error);
-    } finally {
-      setIsAnalyzing(false);
-      setProgress(0);
-      setAnalysisStep('');
-    }
+      } catch (error) {
+        toast({
+          title: "Analysis Failed",
+          description: "Failed to analyze the product image. Please try again.",
+          variant: "destructive",
+        });
+        console.error('Analysis error:', error);
+      } finally {
+        setIsAnalyzing(false);
+        setProgress(0);
+        setAnalysisStep('');
+      }
+    };
+    
+    reader.readAsDataURL(file);
   }, [toast]);
 
   const resetUpload = () => {
