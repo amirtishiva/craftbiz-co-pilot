@@ -4,13 +4,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   FileText, 
   Download,
   Edit,
   Save,
   Calculator,
-  TrendingUp
+  TrendingUp,
+  Languages
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -26,6 +28,9 @@ const BusinessPlan: React.FC<BusinessPlanProps> = ({ ideaData }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState<string>('');
   const [businessName, setBusinessName] = useState('');
+  const [selectedLanguage, setSelectedLanguage] = useState('en');
+  const [translatedContent, setTranslatedContent] = useState<{ [key: string]: string }>({});
+  const [isTranslating, setIsTranslating] = useState(false);
   const [financialData, setFinancialData] = useState({
     startupCost: '',
     monthlyExpenses: '',
@@ -34,11 +39,38 @@ const BusinessPlan: React.FC<BusinessPlanProps> = ({ ideaData }) => {
   });
   const { toast } = useToast();
 
+  const languages = [
+    { code: 'en', name: 'English' },
+    { code: 'hi', name: 'हिन्दी (Hindi)' },
+    { code: 'te', name: 'తెలుగు (Telugu)' },
+    { code: 'ta', name: 'தமிழ் (Tamil)' },
+    { code: 'bn', name: 'বাংলা (Bengali)' },
+    { code: 'mr', name: 'मराठी (Marathi)' },
+    { code: 'gu', name: 'ગુજરાતી (Gujarati)' },
+    { code: 'kn', name: 'ಕನ್ನಡ (Kannada)' },
+    { code: 'ml', name: 'മലയാളം (Malayalam)' },
+    { code: 'pa', name: 'ਪੰਜਾਬੀ (Punjabi)' },
+    { code: 'or', name: 'ଓଡ଼ିଆ (Odia)' },
+  ];
+
   useEffect(() => {
     if (ideaData?.id) {
       loadExistingPlan(ideaData.id);
     }
   }, [ideaData]);
+
+  // Load language preference from session storage
+  useEffect(() => {
+    const savedLanguage = sessionStorage.getItem('businessPlanLanguage');
+    if (savedLanguage) {
+      setSelectedLanguage(savedLanguage);
+    }
+  }, []);
+
+  // Save language preference to session storage
+  useEffect(() => {
+    sessionStorage.setItem('businessPlanLanguage', selectedLanguage);
+  }, [selectedLanguage]);
 
   const loadExistingPlan = async (ideaId: string) => {
     try {
@@ -304,6 +336,56 @@ Yearly Revenue: ₹${projections.yearlyRevenue.toLocaleString()}
     URL.revokeObjectURL(url);
   };
 
+  const translateBusinessPlan = async (targetLanguage: string) => {
+    if (targetLanguage === 'en') {
+      // Reset to original English content
+      setSelectedLanguage('en');
+      return;
+    }
+
+    // Check if translation is already cached
+    if (translatedContent[targetLanguage]) {
+      setSelectedLanguage(targetLanguage);
+      return;
+    }
+
+    setIsTranslating(true);
+    try {
+      const contentToTranslate = businessPlan;
+
+      const { data, error } = await supabase.functions.invoke('translate-business-plan', {
+        body: { 
+          content: contentToTranslate,
+          targetLanguage 
+        }
+      });
+
+      if (error) throw error;
+
+      // Cache the translation
+      setTranslatedContent(prev => ({
+        ...prev,
+        [targetLanguage]: data.translatedContent
+      }));
+
+      setSelectedLanguage(targetLanguage);
+
+      toast({
+        title: "Translation completed",
+        description: "Your business plan has been translated successfully.",
+      });
+    } catch (error) {
+      console.error('Translation error:', error);
+      toast({
+        title: "Translation failed",
+        description: "Failed to translate business plan. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
   const calculateProjections = () => {
     const startup = parseFloat(financialData.startupCost) || 0;
     const monthly = parseFloat(financialData.monthlyExpenses) || 0;
@@ -323,6 +405,11 @@ Yearly Revenue: ₹${projections.yearlyRevenue.toLocaleString()}
   };
 
   const projections = calculateProjections();
+
+  // Get the content to display based on selected language
+  const displayContent = selectedLanguage === 'en' 
+    ? businessPlan 
+    : (translatedContent[selectedLanguage] || businessPlan);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -421,7 +508,24 @@ Yearly Revenue: ₹${projections.yearlyRevenue.toLocaleString()}
                       <FileText className="h-5 w-5 text-primary" />
                       Complete Business Plan
                     </CardTitle>
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={selectedLanguage}
+                        onValueChange={translateBusinessPlan}
+                        disabled={isTranslating || isEditing}
+                      >
+                        <SelectTrigger className="w-[200px]">
+                          <Languages className="h-4 w-4 mr-2" />
+                          <SelectValue placeholder="Select language" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {languages.map((lang) => (
+                            <SelectItem key={lang.code} value={lang.code}>
+                              {lang.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       {isEditing ? (
                         <>
                           <Button
@@ -443,6 +547,8 @@ Yearly Revenue: ₹${projections.yearlyRevenue.toLocaleString()}
                           variant="outline"
                           onClick={toggleEdit}
                           className="gap-2"
+                          disabled={selectedLanguage !== 'en'}
+                          title={selectedLanguage !== 'en' ? 'Switch to English to edit' : ''}
                         >
                           <Edit className="h-4 w-4" />
                           Edit Plan
@@ -453,12 +559,21 @@ Yearly Revenue: ₹${projections.yearlyRevenue.toLocaleString()}
                   <CardDescription>
                     {isEditing 
                       ? "Edit your business plan. Section headers are marked with ━━━ separators."
-                      : "Your comprehensive business plan with all sections in one view."
+                      : selectedLanguage !== 'en'
+                        ? `Your comprehensive business plan translated to ${languages.find(l => l.code === selectedLanguage)?.name}.`
+                        : "Your comprehensive business plan with all sections in one view."
                     }
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {isEditing ? (
+                  {isTranslating ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="flex flex-col items-center gap-4">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                        <p className="text-muted-foreground">Translating your business plan...</p>
+                      </div>
+                    </div>
+                  ) : isEditing ? (
                     <Textarea
                       className="w-full min-h-[600px] font-mono text-sm leading-relaxed"
                       value={editedContent}
@@ -468,7 +583,7 @@ Yearly Revenue: ₹${projections.yearlyRevenue.toLocaleString()}
                   ) : (
                     <div className="prose prose-sm max-w-none">
                       <pre className="whitespace-pre-wrap font-sans text-sm text-foreground leading-relaxed">
-                        {businessPlan}
+                        {displayContent}
                       </pre>
                     </div>
                   )}
