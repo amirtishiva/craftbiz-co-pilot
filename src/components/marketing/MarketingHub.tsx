@@ -21,6 +21,7 @@ const MarketingHub: React.FC = () => {
   const { toast } = useToast();
   const { content: generatedContent, loading: contentLoading, setContent } = useMarketingContent();
   const [contentType, setContentType] = useState('social-post');
+  const [socialMediaType, setSocialMediaType] = useState('facebook');
   const [audienceType, setAudienceType] = useState('general');
   const [contentPrompt, setContentPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -47,27 +48,32 @@ const MarketingHub: React.FC = () => {
         body: { 
           prompt: contentPrompt,
           contentType,
-          audienceType
+          audienceType,
+          socialMediaType
         }
       });
 
       if (error) throw error;
 
-      // Save to database
-      const { data: savedContent, error: saveError } = await supabase
-        .from('marketing_content')
-        .insert({
-          user_id: user.id,
-          platform: contentType,
-          content_text: data.content,
-          hashtags: data.hashtags || []
-        })
-        .select()
-        .single();
+      // Check if content was saved in the backend
+      if (data.savedContent) {
+        setContent(prev => [data.savedContent, ...prev]);
+      } else {
+        // Save to database if not saved in backend
+        const { data: savedContent, error: saveError } = await supabase
+          .from('marketing_content')
+          .insert({
+            user_id: user.id,
+            platform: socialMediaType,
+            content_text: data.content,
+            hashtags: data.hashtags || []
+          })
+          .select()
+          .single();
 
-      if (saveError) throw saveError;
-
-      setContent(prev => [savedContent, ...prev]);
+        if (saveError) throw saveError;
+        setContent(prev => [savedContent, ...prev]);
+      }
       toast({
         title: "Content Generated!",
         description: "Your marketing content has been created.",
@@ -122,15 +128,27 @@ const MarketingHub: React.FC = () => {
 
     setIsRefining(true);
     try {
+      console.log('Starting content refinement...', { contentPrompt, contentType, audienceType, socialMediaType });
+      
       const { data, error } = await supabase.functions.invoke('refine-marketing-content', {
         body: { 
           content: contentPrompt,
           contentType,
-          audienceType
+          audienceType,
+          socialMediaType
         }
       });
 
-      if (error) throw error;
+      console.log('Refinement response:', { data, error });
+
+      if (error) {
+        console.error('Refinement error:', error);
+        throw error;
+      }
+
+      if (!data || !data.refinedContent) {
+        throw new Error('No refined content returned from API');
+      }
 
       setContentPrompt(data.refinedContent);
       toast({
@@ -141,7 +159,7 @@ const MarketingHub: React.FC = () => {
       console.error('Content refinement error:', error);
       toast({
         title: "Refinement Failed",
-        description: "Failed to refine content. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to refine content. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -227,6 +245,19 @@ const MarketingHub: React.FC = () => {
                     <option value="conscious">Conscious Consumers</option>
                     <option value="local">Local Community</option>
                     <option value="business">Business Owners</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Social Media Type</label>
+                  <select 
+                    className="w-full px-3 py-2 border border-input rounded-md"
+                    value={socialMediaType}
+                    onChange={(e) => setSocialMediaType(e.target.value)}
+                  >
+                    <option value="facebook">Facebook</option>
+                    <option value="instagram">Instagram</option>
+                    <option value="linkedin">LinkedIn</option>
+                    <option value="x">X (formerly Twitter)</option>
                   </select>
                 </div>
                 <div className="space-y-2">

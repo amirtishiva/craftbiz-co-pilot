@@ -13,26 +13,23 @@ serve(async (req) => {
   }
 
   try {
-    const { platform, businessName, targetAudience, productDescription } = await req.json();
+    const { prompt, contentType, audienceType, socialMediaType } = await req.json();
 
-    if (!platform || !businessName) {
-      throw new Error('Platform and business name are required');
-    }
-
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('Authorization header required');
+    if (!prompt) {
+      throw new Error('Campaign focus/prompt is required');
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    
-    if (userError || !user) {
-      throw new Error('Invalid authentication');
+    // Get user from auth header
+    const authHeader = req.headers.get('Authorization');
+    let user = null;
+    if (authHeader) {
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user: authUser } } = await supabase.auth.getUser(token);
+      user = authUser;
     }
 
     const OPENAI_API_KEY = Deno.env.get('Open_API');
@@ -40,17 +37,54 @@ serve(async (req) => {
       throw new Error('OpenAI API key is not configured');
     }
 
-    const systemPrompt = `You are a social media marketing expert for Indian businesses. Create engaging, culturally relevant content. Format your response as JSON with keys: contentText, hashtags (array), cta`;
+    // Platform-specific style guidelines
+    const platformStyles: Record<string, string> = {
+      facebook: 'Conversational and community-oriented. Use warm, inclusive language. Length: 150-250 words. Include emojis sparingly.',
+      instagram: 'Visual and emotional. Use storytelling, evocative language, and relevant emojis. Length: 125-150 words. Hashtag-friendly.',
+      linkedin: 'Professional and insightful. Use industry terminology, data-driven language. Length: 150-300 words. Formal tone.',
+      x: 'Short, witty, and impactful. Use punchy language, emojis, and hashtags. Length: 200-280 characters. Highly engaging.'
+    };
 
-    const userPrompt = `Create ${platform} marketing content for:
-Business: ${businessName}
-Target Audience: ${targetAudience || 'Indian consumers'}
-Product: ${productDescription || 'Not specified'}
+    const audienceDescriptions: Record<string, string> = {
+      general: 'Indian consumers',
+      millennials: 'Millennials aged 25-40 in India',
+      conscious: 'Conscious consumers who value sustainability and ethics',
+      local: 'Local community members',
+      business: 'Business owners and entrepreneurs'
+    };
 
-Provide:
-1. Engaging post text (appropriate length for ${platform})
-2. 5-7 relevant hashtags for Indian market
-3. Call-to-action`;
+    const contentTypeDescriptions: Record<string, string> = {
+      'social-post': 'social media post',
+      'ad-copy': 'advertisement copy',
+      'email': 'email newsletter',
+      'blog-intro': 'blog introduction'
+    };
+
+    const platformStyle = platformStyles[socialMediaType || 'facebook'] || platformStyles.facebook;
+    const audience = audienceDescriptions[audienceType || 'general'] || audienceDescriptions.general;
+    const contentTypeDesc = contentTypeDescriptions[contentType || 'social-post'] || contentTypeDescriptions['social-post'];
+
+    const systemPrompt = `You are an expert marketing copywriter specializing in Indian market campaigns for ${socialMediaType || 'social media'}. 
+You create culturally relevant, engaging content that resonates with Indian audiences. 
+You understand local cultural nuances, festivals, values, and communication styles.
+Always maintain authenticity and emotional connection while being professional.`;
+
+    const userPrompt = `Create compelling ${contentTypeDesc} content for ${socialMediaType || 'social media'} with these specifications:
+
+PLATFORM: ${socialMediaType || 'Facebook'}
+STYLE GUIDE: ${platformStyle}
+TARGET AUDIENCE: ${audience}
+CAMPAIGN FOCUS: ${prompt}
+
+Requirements:
+1. Write engaging, culturally appropriate content for Indian market
+2. Incorporate emotional appeal and storytelling where relevant
+3. Use appropriate tone and length for the platform
+4. Include strong call-to-action
+5. Make it actionable and inspiring
+6. Use inclusive language that resonates with Indian values
+
+Return ONLY the marketing content text, no explanations or additional formatting.`;
 
     console.log('Generating marketing content with OpenAI GPT-5');
 
@@ -77,42 +111,49 @@ Provide:
     }
 
     const data = await response.json();
-    const responseContent = data.choices[0].message.content.trim();
+    const generatedContent = data.choices[0].message.content.trim();
     
-    // Try to parse JSON from the response
-    let content;
-    try {
-      content = JSON.parse(responseContent);
-    } catch (e) {
-      // If not valid JSON, create structured content
-      content = {
-        contentText: responseContent,
-        hashtags: ['#MadeInIndia', '#SmallBusiness', '#LocalBusiness', '#SupportLocal', '#IndianEntrepreneur'],
-        cta: 'Contact us to learn more!'
-      };
+    console.log('Marketing content generated successfully');
+
+    // Generate relevant hashtags based on platform and content type
+    const defaultHashtags = ['#MadeInIndia', '#SmallBusiness', '#LocalBusiness', '#SupportLocal', '#IndianEntrepreneur'];
+
+    // Save to database if user is authenticated
+    if (user) {
+      const { data: marketingContent, error: contentError } = await supabase
+        .from('marketing_content')
+        .insert({
+          user_id: user.id,
+          platform: socialMediaType || 'facebook',
+          content_text: generatedContent,
+          hashtags: defaultHashtags
+        })
+        .select()
+        .single();
+
+      if (contentError) {
+        console.error('Error saving marketing content:', contentError);
+      } else {
+        console.log('Marketing content saved:', marketingContent.id);
+        return new Response(
+          JSON.stringify({ 
+            content: generatedContent,
+            hashtags: defaultHashtags,
+            savedContent: marketingContent
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
     }
 
-    // Save to database
-    const { data: marketingContent, error: contentError } = await supabase
-      .from('marketing_content')
-      .insert({
-        user_id: user.id,
-        platform,
-        content_text: content.contentText,
-        hashtags: content.hashtags
-      })
-      .select()
-      .single();
-
-    if (contentError) {
-      console.error('Error saving marketing content:', contentError);
-      throw new Error('Failed to save marketing content');
-    }
-
-    console.log('Marketing content generated:', marketingContent.id);
-
+    // Return generated content without saving if no user
     return new Response(
-      JSON.stringify({ content: marketingContent }),
+      JSON.stringify({ 
+        content: generatedContent,
+        hashtags: defaultHashtags
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
