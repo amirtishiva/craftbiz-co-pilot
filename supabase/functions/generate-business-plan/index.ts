@@ -39,9 +39,9 @@ serve(async (req) => {
       throw new Error('Idea not found');
     }
 
-    const OPENAI_API_KEY = Deno.env.get('Open_API');
-    if (!OPENAI_API_KEY) {
-      throw new Error('OpenAI API key is not configured');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      throw new Error('LOVABLE_API_KEY is not configured');
     }
 
     const systemPrompt = `You are an expert business consultant specializing in helping Indian entrepreneurs create comprehensive, detailed business plans. You understand the Indian market, local challenges, and opportunities for small businesses.
@@ -51,7 +51,8 @@ CRITICAL INSTRUCTIONS:
 - Each section must be 3-5 paragraphs with specific, actionable information
 - Use concrete numbers, examples, and market data relevant to India
 - Avoid generic statements - be specific to the business idea
-- Format response as valid JSON with complete, detailed content for each field`;
+- You MUST return valid JSON ONLY - no markdown, no code blocks, no explanatory text
+- Use the tool call to return structured data`;
 
     const userPrompt = `Business Idea: ${idea.refined_idea || idea.original_text}
 Business Name: ${businessName || 'Not specified'}
@@ -122,60 +123,87 @@ Generate a comprehensive business plan with detailed content for each section:
     - Detailed 6-month roadmap with specific milestones
     - Month-by-month action items and deliverables
     - Key metrics and success indicators
-    - Resource allocation timeline
-
-Return ONLY valid JSON with these exact keys: executiveSummary, marketAnalysis, targetCustomers, competitiveAdvantage, revenueModel, marketingStrategy, operationsPlan, financialProjections, riskAnalysis, implementationTimeline
-
-Each value must be a detailed, multi-paragraph string with all the information requested above.`;
+    - Resource allocation timeline`;
 
     console.log('Generating business plan for idea:', ideaId);
 
-    console.log('Generating business plan with OpenAI GPT-5');
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-2025-08-07',
+        model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        max_completion_tokens: 4000,
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "create_business_plan",
+              description: "Create a comprehensive business plan with all required sections",
+              parameters: {
+                type: "object",
+                properties: {
+                  executiveSummary: { type: "string", description: "3-4 paragraphs executive summary" },
+                  marketAnalysis: { type: "string", description: "4-5 paragraphs market analysis" },
+                  targetCustomers: { type: "string", description: "3-4 paragraphs target customers" },
+                  competitiveAdvantage: { type: "string", description: "3-4 paragraphs competitive advantage" },
+                  revenueModel: { type: "string", description: "3-4 paragraphs revenue model" },
+                  marketingStrategy: { type: "string", description: "4-5 paragraphs marketing strategy" },
+                  operationsPlan: { type: "string", description: "4-5 paragraphs operations plan" },
+                  financialProjections: { type: "string", description: "4-5 paragraphs financial projections" },
+                  riskAnalysis: { type: "string", description: "3-4 paragraphs risk analysis" },
+                  implementationTimeline: { type: "string", description: "3-4 paragraphs implementation timeline" }
+                },
+                required: [
+                  "executiveSummary", "marketAnalysis", "targetCustomers", 
+                  "competitiveAdvantage", "revenueModel", "marketingStrategy",
+                  "operationsPlan", "financialProjections", "riskAnalysis", 
+                  "implementationTimeline"
+                ],
+                additionalProperties: false
+              }
+            }
+          }
+        ],
+        tool_choice: { type: "function", function: { name: "create_business_plan" } }
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenAI API error:', response.status, errorText);
-      throw new Error(`OpenAI API error: ${response.status}`);
+      console.error('Lovable AI API error:', response.status, errorText);
+      throw new Error(`Lovable AI API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-    const content = data.choices[0].message.content.trim();
+    console.log('AI Response received');
     
-    // Try to parse JSON from the response
+    // Extract tool call result
     let planContent;
-    try {
-      planContent = JSON.parse(content);
-    } catch (e) {
-      // If not valid JSON, create structured plan from text
-      console.log('Response not JSON, structuring data from text');
-      planContent = {
-        executiveSummary: content.substring(0, 500),
-        marketAnalysis: content.substring(500, 1000) || 'Market analysis pending',
-        targetCustomers: content.substring(1000, 1500) || 'Target customers to be defined',
-        competitiveAdvantage: content.substring(1500, 2000) || 'Competitive advantages to be identified',
-        revenueModel: content.substring(2000, 2500) || 'Revenue model to be developed',
-        marketingStrategy: content.substring(2500, 3000) || 'Marketing strategy to be planned',
-        operationsPlan: content.substring(3000, 3500) || 'Operations plan to be detailed',
-        financialProjections: content.substring(3500, 4000) || 'Financial projections to be calculated',
-        riskAnalysis: content.substring(4000, 4500) || 'Risk analysis to be completed',
-        implementationTimeline: content.substring(4500) || '6-month timeline to be created'
-      };
+    const toolCalls = data.choices[0].message.tool_calls;
+    
+    if (toolCalls && toolCalls.length > 0) {
+      const toolCall = toolCalls[0];
+      planContent = JSON.parse(toolCall.function.arguments);
+      console.log('Successfully extracted business plan from tool call');
+    } else {
+      // Fallback: try to parse content directly
+      const content = data.choices[0].message.content?.trim();
+      if (content) {
+        try {
+          planContent = JSON.parse(content);
+        } catch (e) {
+          console.error('Failed to parse AI response:', e);
+          throw new Error('AI did not return valid business plan data');
+        }
+      } else {
+        throw new Error('No content received from AI');
+      }
     }
 
     // Save business plan to database
