@@ -11,7 +11,8 @@ import {
   Share2,
   Eye,
   Loader2,
-  Sparkles
+  Sparkles,
+  Pencil
 } from 'lucide-react';
 import { useMarketingContent } from '@/hooks/useMarketingContent';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,6 +29,8 @@ const MarketingHub: React.FC = () => {
   const [isRefining, setIsRefining] = useState(false);
   const [previewContent, setPreviewContent] = useState<any>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [editingContentId, setEditingContentId] = useState<string | null>(null);
+  const [editedContent, setEditedContent] = useState<string>('');
 
   const generateContent = async () => {
     if (!contentPrompt.trim()) {
@@ -44,13 +47,19 @@ const MarketingHub: React.FC = () => {
       const user = (await supabase.auth.getUser()).data.user;
       if (!user) throw new Error('Not authenticated');
 
+      const requestBody: any = { 
+        prompt: contentPrompt,
+        contentType,
+        audienceType
+      };
+
+      // Only include socialMediaType if contentType is social-post
+      if (contentType === 'social-post') {
+        requestBody.socialMediaType = socialMediaType;
+      }
+
       const { data, error } = await supabase.functions.invoke('generate-marketing-content', {
-        body: { 
-          prompt: contentPrompt,
-          contentType,
-          audienceType,
-          socialMediaType
-        }
+        body: requestBody
       });
 
       if (error) throw error;
@@ -64,9 +73,9 @@ const MarketingHub: React.FC = () => {
           .from('marketing_content')
           .insert({
             user_id: user.id,
-            platform: socialMediaType,
+            platform: contentType === 'social-post' ? socialMediaType : null,
             content_text: data.content,
-            hashtags: data.hashtags || []
+            hashtags: []
           })
           .select()
           .single();
@@ -78,6 +87,7 @@ const MarketingHub: React.FC = () => {
         title: "Content Generated!",
         description: "Your marketing content has been created.",
       });
+      setContentPrompt('');
     } catch (error) {
       console.error('Content generation error:', error);
       toast({
@@ -101,8 +111,27 @@ const MarketingHub: React.FC = () => {
   };
 
   const handleEditContent = (content: any) => {
-    setContentPrompt(content.content);
-    setShowPreview(false);
+    setEditingContentId(content.id);
+    setEditedContent(content.content_text);
+  };
+
+  const handleSaveEdit = (contentId: string) => {
+    setContent(prev => prev.map(item => 
+      item.id === contentId 
+        ? { ...item, content_text: editedContent }
+        : item
+    ));
+    setEditingContentId(null);
+    setEditedContent('');
+    toast({
+      title: "Content Updated!",
+      description: "Your changes have been saved.",
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingContentId(null);
+    setEditedContent('');
   };
 
   const handleShareContent = (content: any) => {
@@ -130,13 +159,19 @@ const MarketingHub: React.FC = () => {
     try {
       console.log('Starting content refinement...', { contentPrompt, contentType, audienceType, socialMediaType });
       
+      const requestBody: any = { 
+        content: contentPrompt,
+        contentType,
+        audienceType
+      };
+
+      // Only include socialMediaType if contentType is social-post
+      if (contentType === 'social-post') {
+        requestBody.socialMediaType = socialMediaType;
+      }
+
       const { data, error } = await supabase.functions.invoke('refine-marketing-content', {
-        body: { 
-          content: contentPrompt,
-          contentType,
-          audienceType,
-          socialMediaType
-        }
+        body: requestBody
       });
 
       console.log('Refinement response:', { data, error });
@@ -247,19 +282,21 @@ const MarketingHub: React.FC = () => {
                     <option value="business">Business Owners</option>
                   </select>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Social Media Type</label>
-                  <select 
-                    className="w-full px-3 py-2 border border-input rounded-md"
-                    value={socialMediaType}
-                    onChange={(e) => setSocialMediaType(e.target.value)}
-                  >
-                    <option value="facebook">Facebook</option>
-                    <option value="instagram">Instagram</option>
-                    <option value="linkedin">LinkedIn</option>
-                    <option value="x">X (formerly Twitter)</option>
-                  </select>
-                </div>
+                {contentType === 'social-post' && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Social Media Type</label>
+                    <select 
+                      className="w-full px-3 py-2 border border-input rounded-md"
+                      value={socialMediaType}
+                      onChange={(e) => setSocialMediaType(e.target.value)}
+                    >
+                      <option value="facebook">Facebook</option>
+                      <option value="instagram">Instagram</option>
+                      <option value="linkedin">LinkedIn</option>
+                      <option value="x">X (formerly Twitter)</option>
+                    </select>
+                  </div>
+                )}
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Campaign Focus</label>
                   <div className="relative">
@@ -354,38 +391,66 @@ const MarketingHub: React.FC = () => {
                     <div key={content.id} className="border border-border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold">{content.platform}</span>
-                          {content.hashtags && content.hashtags.length > 0 && (
-                            <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700">
-                              {content.hashtags.length} hashtags
-                            </span>
-                          )}
+                          {content.platform && <span className="font-semibold">{content.platform}</span>}
                         </div>
                         <div className="flex gap-2">
-                          <Button 
-                            size="sm" 
-                            variant="ghost"
-                            onClick={() => handleCopyContent(content.content_text)}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="ghost"
-                            onClick={() => handleShareContent(content)}
-                          >
-                            <Share2 className="h-4 w-4" />
-                          </Button>
+                          {editingContentId === content.id ? (
+                            <>
+                              <Button 
+                                size="sm" 
+                                variant="ghost"
+                                onClick={() => handleSaveEdit(content.id)}
+                              >
+                                Save
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="ghost"
+                                onClick={handleCancelEdit}
+                              >
+                                Cancel
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button 
+                                size="sm" 
+                                variant="ghost"
+                                onClick={() => handleEditContent(content)}
+                                title="Edit content"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="ghost"
+                                onClick={() => handleCopyContent(content.content_text)}
+                                title="Copy to clipboard"
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="ghost"
+                                onClick={() => handleShareContent(content)}
+                                title="Share content"
+                              >
+                                <Share2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </div>
-                      <div className="whitespace-pre-line text-sm text-muted-foreground leading-relaxed mb-3">
-                        {content.content_text}
-                      </div>
-                      {content.hashtags && content.hashtags.length > 0 && (
-                        <div className="flex flex-wrap gap-2 pt-3 border-t">
-                          {content.hashtags.map((tag: string, idx: number) => (
-                            <span key={idx} className="text-xs text-primary">#{tag}</span>
-                          ))}
+                      {editingContentId === content.id ? (
+                        <Textarea
+                          value={editedContent}
+                          onChange={(e) => setEditedContent(e.target.value)}
+                          className="min-h-[200px] w-full"
+                          placeholder="Edit your content..."
+                        />
+                      ) : (
+                        <div className="whitespace-pre-line text-sm text-muted-foreground leading-relaxed">
+                          {content.content_text}
                         </div>
                       )}
                     </div>

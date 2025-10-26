@@ -39,10 +39,10 @@ serve(async (req) => {
 
     // Platform-specific style guidelines
     const platformStyles: Record<string, string> = {
-      facebook: 'Conversational and community-oriented. Use warm, inclusive language. Length: 150-250 words. Include emojis sparingly.',
-      instagram: 'Visual and emotional. Use storytelling, evocative language, and relevant emojis. Length: 125-150 words. Hashtag-friendly.',
-      linkedin: 'Professional and insightful. Use industry terminology, data-driven language. Length: 150-300 words. Formal tone.',
-      x: 'Short, witty, and impactful. Use punchy language, emojis, and hashtags. Length: 200-280 characters. Highly engaging.'
+      facebook: 'Conversational and community-oriented. Use warm, inclusive language. Length: 150-250 words. Include emojis sparingly. Generate 3-5 contextual hashtags based on the campaign focus.',
+      instagram: 'Visual and emotional. Use storytelling, evocative language, and relevant emojis. Length: 125-150 words. Generate 5-10 trending, contextual hashtags that match the content theme.',
+      linkedin: 'Professional and insightful. Use industry terminology, data-driven language. Length: 150-300 words. Formal tone. Generate 3-5 professional hashtags relevant to the industry and content.',
+      x: 'Short, witty, and impactful. Use punchy language, emojis. Length: 200-280 characters. Highly engaging. Generate 2-4 trending hashtags that complement the message.'
     };
 
     const audienceDescriptions: Record<string, string> = {
@@ -83,8 +83,10 @@ Requirements:
 4. Include strong call-to-action
 5. Make it actionable and inspiring
 6. Use inclusive language that resonates with Indian values
+7. Generate relevant, contextual hashtags based on the campaign theme (DO NOT use generic hashtags like #MadeInIndia unless specifically relevant)
+8. Place hashtags naturally within or at the end of the content
 
-Return ONLY the marketing content text, no explanations or additional formatting.`;
+Return ONLY the marketing content text with hashtags, no explanations or additional formatting.`;
 
     console.log('Generating marketing content with OpenAI GPT-5');
     console.log('System prompt:', systemPrompt);
@@ -126,8 +128,6 @@ Return ONLY the marketing content text, no explanations or additional formatting
     console.log('Marketing content generated successfully. Length:', generatedContent.length);
     console.log('Generated content preview:', generatedContent.substring(0, 200));
 
-    
-
     // Save to database if user is authenticated
     if (user) {
       const { data: marketingContent, error: contentError } = await supabase
@@ -136,7 +136,7 @@ Return ONLY the marketing content text, no explanations or additional formatting
           user_id: user.id,
           platform: socialMediaType || 'facebook',
           content_text: generatedContent,
-          hashtags: defaultHashtags
+          hashtags: [] // Hashtags are now included in the content_text
         })
         .select()
         .single();
@@ -148,7 +148,6 @@ Return ONLY the marketing content text, no explanations or additional formatting
         return new Response(
           JSON.stringify({ 
             content: generatedContent,
-            hashtags: defaultHashtags,
             savedContent: marketingContent
           }),
           {
@@ -161,8 +160,7 @@ Return ONLY the marketing content text, no explanations or additional formatting
     // Return generated content without saving if no user
     return new Response(
       JSON.stringify({ 
-        content: generatedContent,
-        hashtags: defaultHashtags
+        content: generatedContent
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
