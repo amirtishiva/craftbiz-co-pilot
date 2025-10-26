@@ -7,13 +7,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Megaphone, 
   Copy, 
-  Hash,
   Image,
   Share2,
-  Download,
   Eye,
-  Edit,
-  Loader2
+  Loader2,
+  Sparkles
 } from 'lucide-react';
 import { useMarketingContent } from '@/hooks/useMarketingContent';
 import { supabase } from '@/integrations/supabase/client';
@@ -26,6 +24,7 @@ const MarketingHub: React.FC = () => {
   const [audienceType, setAudienceType] = useState('general');
   const [contentPrompt, setContentPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isRefining, setIsRefining] = useState(false);
   const [previewContent, setPreviewContent] = useState<any>(null);
   const [showPreview, setShowPreview] = useState(false);
 
@@ -111,6 +110,45 @@ const MarketingHub: React.FC = () => {
     }
   };
 
+  const refineContent = async () => {
+    if (!contentPrompt.trim()) {
+      toast({
+        title: "Nothing to Refine",
+        description: "Please enter some text to refine",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsRefining(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('refine-marketing-content', {
+        body: { 
+          content: contentPrompt,
+          contentType,
+          audienceType
+        }
+      });
+
+      if (error) throw error;
+
+      setContentPrompt(data.refinedContent);
+      toast({
+        title: "Content Refined!",
+        description: "Your content has been polished and optimized.",
+      });
+    } catch (error) {
+      console.error('Content refinement error:', error);
+      toast({
+        title: "Refinement Failed",
+        description: "Failed to refine content. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefining(false);
+    }
+  };
+
   const marketingTools = [
     {
       id: 'content',
@@ -121,14 +159,6 @@ const MarketingHub: React.FC = () => {
       bgColor: 'bg-blue-50'
     },
     {
-      id: 'hashtags',
-      title: 'Hashtag Research',
-      description: 'Trending hashtags for your niche',
-      icon: Hash,
-      color: 'text-green-600',
-      bgColor: 'bg-green-50'
-    },
-    {
       id: 'visuals',
       title: 'Visual Assets',
       description: 'Marketing graphics and posters',
@@ -136,18 +166,6 @@ const MarketingHub: React.FC = () => {
       color: 'text-orange-600',
       bgColor: 'bg-orange-50'
     }
-  ];
-
-
-  const hashtagSuggestions = [
-    { tag: '#HandmadeCrafts', popularity: 'High', posts: '2.1M' },
-    { tag: '#LocalArtisans', popularity: 'Medium', posts: '450K' },
-    { tag: '#AuthenticIndia', popularity: 'Medium', posts: '320K' },
-    { tag: '#SupportLocal', popularity: 'High', posts: '1.8M' },
-    { tag: '#HandcraftedWithLove', popularity: 'Medium', posts: '680K' },
-    { tag: '#IndianHandicrafts', popularity: 'Low', posts: '125K' },
-    { tag: '#ArtisanMade', popularity: 'Medium', posts: '290K' },
-    { tag: '#CraftBusiness', popularity: 'Low', posts: '85K' }
   ];
 
   return (
@@ -164,9 +182,8 @@ const MarketingHub: React.FC = () => {
       </div>
 
       <Tabs defaultValue="content" className="space-y-6">
-        <TabsList className="grid grid-cols-3 w-full max-w-2xl mx-auto">
+        <TabsList className="grid grid-cols-2 w-full max-w-2xl mx-auto">
           <TabsTrigger value="content">Content</TabsTrigger>
-          <TabsTrigger value="hashtags">Hashtags</TabsTrigger>
           <TabsTrigger value="visuals">Visuals</TabsTrigger>
         </TabsList>
 
@@ -214,12 +231,28 @@ const MarketingHub: React.FC = () => {
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Campaign Focus</label>
-                  <Textarea
-                    placeholder="What message do you want to convey? (e.g., supporting local artisans, product quality, cultural heritage)"
-                    value={contentPrompt}
-                    onChange={(e) => setContentPrompt(e.target.value)}
-                    className="min-h-[100px]"
-                  />
+                  <div className="relative">
+                    <Textarea
+                      placeholder="What message do you want to convey? (e.g., supporting local artisans, product quality, cultural heritage)"
+                      value={contentPrompt}
+                      onChange={(e) => setContentPrompt(e.target.value)}
+                      className="min-h-[100px] pr-10"
+                    />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="absolute bottom-2 right-2 h-8 w-8 p-0"
+                      onClick={refineContent}
+                      disabled={isRefining || !contentPrompt.trim()}
+                      title="Refine content with AI"
+                    >
+                      {isRefining ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-4 w-4 text-primary" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
                 <Button 
                   variant="craft" 
@@ -331,46 +364,6 @@ const MarketingHub: React.FC = () => {
             </Card>
           )}
         </TabsContent>
-
-        {/* Hashtags Tab */}
-        <TabsContent value="hashtags" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Hash className="h-5 w-5" />
-                Hashtag Research
-              </CardTitle>
-              <CardDescription>
-                Trending hashtags for your niche and industry
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {hashtagSuggestions.map((hashtag, index) => (
-                  <div key={index} className="p-4 border border-border rounded-lg hover:shadow-soft transition-smooth">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-semibold text-sm">{hashtag.tag}</span>
-                      <Button size="sm" variant="ghost">
-                        <Copy className="h-3 w-3" />
-                      </Button>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      <div>{hashtag.posts} posts</div>
-                      <div className={`mt-1 ${
-                        hashtag.popularity === 'High' ? 'text-green-600' :
-                        hashtag.popularity === 'Medium' ? 'text-yellow-600' :
-                        'text-blue-600'
-                      }`}>
-                        {hashtag.popularity} popularity
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
 
         {/* Visuals Tab */}
         <TabsContent value="visuals" className="space-y-6">

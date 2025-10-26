@@ -17,3 +17,6 @@ verify_jwt = true
 
 [functions.generate-marketing-content]
 verify_jwt = true
+
+[functions.refine-marketing-content]
+verify_jwt = false
