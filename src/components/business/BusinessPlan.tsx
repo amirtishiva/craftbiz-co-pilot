@@ -2,18 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { 
   FileText, 
-  TrendingUp, 
-  Users, 
-  DollarSign, 
-  Target, 
-  BarChart,
   Download,
   Edit,
+  Save,
   Calculator,
-  Globe
+  TrendingUp
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -24,10 +21,10 @@ interface BusinessPlanProps {
 
 const BusinessPlan: React.FC<BusinessPlanProps> = ({ ideaData }) => {
   const [isGenerating, setIsGenerating] = useState(false);
-  const [businessPlan, setBusinessPlan] = useState<any>(null);
+  const [businessPlan, setBusinessPlan] = useState<string>('');
   const [planId, setPlanId] = useState<string | null>(null);
-  const [isEditing, setIsEditing] = useState<{[key: string]: boolean}>({});
-  const [editedContent, setEditedContent] = useState<{[key: string]: string}>({});
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedContent, setEditedContent] = useState<string>('');
   const [businessName, setBusinessName] = useState('');
   const [financialData, setFinancialData] = useState({
     startupCost: '',
@@ -55,19 +52,67 @@ const BusinessPlan: React.FC<BusinessPlanProps> = ({ ideaData }) => {
 
       if (data) {
         setPlanId(data.id);
-        setBusinessPlan({
+        // Combine all sections into unified content
+        const unifiedPlan = formatUnifiedPlan({
           executiveSummary: data.executive_summary || '',
           marketAnalysis: data.market_analysis || '',
-          businessModel: data.competitive_advantage || '',
+          targetCustomers: data.target_customers || '',
+          competitiveAdvantage: data.competitive_advantage || '',
+          revenueModel: data.revenue_model || '',
           marketingStrategy: data.marketing_strategy || '',
-          operationsPlanning: data.operations_plan || '',
-          financialProjections: data.financial_projections || ''
+          operationsPlan: data.operations_plan || '',
+          financialProjections: data.financial_projections || '',
+          riskAnalysis: data.risk_analysis || '',
+          implementationTimeline: data.implementation_timeline || ''
         });
+        setBusinessPlan(unifiedPlan);
         setBusinessName(data.business_name || '');
       }
     } catch (error) {
       console.error('Error loading plan:', error);
     }
+  };
+
+  const formatUnifiedPlan = (sections: any): string => {
+    return `EXECUTIVE SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${sections.executiveSummary}
+
+MARKET ANALYSIS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${sections.marketAnalysis}
+
+TARGET CUSTOMERS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${sections.targetCustomers}
+
+COMPETITIVE ADVANTAGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${sections.competitiveAdvantage}
+
+REVENUE MODEL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${sections.revenueModel}
+
+MARKETING STRATEGY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${sections.marketingStrategy}
+
+OPERATIONS PLAN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${sections.operationsPlan}
+
+FINANCIAL PROJECTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${sections.financialProjections}
+
+RISK ANALYSIS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${sections.riskAnalysis}
+
+IMPLEMENTATION TIMELINE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${sections.implementationTimeline}`;
   };
 
   const generateBusinessPlan = async () => {
@@ -94,15 +139,23 @@ const BusinessPlan: React.FC<BusinessPlanProps> = ({ ideaData }) => {
       if (error) throw error;
 
       const planData = data.businessPlan;
-      setPlanId(data.planId || null);
-      setBusinessPlan({
-        executiveSummary: planData.executive_summary,
-        marketAnalysis: planData.market_analysis,
-        businessModel: planData.competitive_advantage,
-        marketingStrategy: planData.marketing_strategy,
-        operationsPlanning: planData.operations_plan,
-        financialProjections: planData.financial_projections
+      setPlanId(planData.id);
+      
+      // Format unified plan from backend response
+      const unifiedPlan = formatUnifiedPlan({
+        executiveSummary: planData.executive_summary || '',
+        marketAnalysis: planData.market_analysis || '',
+        targetCustomers: planData.target_customers || '',
+        competitiveAdvantage: planData.competitive_advantage || '',
+        revenueModel: planData.revenue_model || '',
+        marketingStrategy: planData.marketing_strategy || '',
+        operationsPlan: planData.operations_plan || '',
+        financialProjections: planData.financial_projections || '',
+        riskAnalysis: planData.risk_analysis || '',
+        implementationTimeline: planData.implementation_timeline || ''
       });
+      
+      setBusinessPlan(unifiedPlan);
       setBusinessName(planData.business_name);
       
       toast({
@@ -121,27 +174,72 @@ const BusinessPlan: React.FC<BusinessPlanProps> = ({ ideaData }) => {
     }
   };
 
-  const toggleEdit = (section: string) => {
-    setIsEditing(prev => ({ ...prev, [section]: !prev[section] }));
-    if (!editedContent[section] && businessPlan) {
-      const content = getSectionContent(section);
-      setEditedContent(prev => ({ ...prev, [section]: content }));
+  const toggleEdit = () => {
+    if (!isEditing) {
+      setEditedContent(businessPlan);
     }
+    setIsEditing(!isEditing);
   };
 
-  const getSectionContent = (sectionId: string): string => {
-    switch(sectionId) {
-      case 'executive': return businessPlan.executiveSummary;
-      case 'market': return businessPlan.marketAnalysis;
-      case 'business': return businessPlan.businessModel;
-      case 'marketing': return businessPlan.marketingStrategy;
-      case 'operations': return businessPlan.operationsPlanning;
-      case 'financial': return businessPlan.financialProjections;
-      default: return '';
+  const parseUnifiedPlanToSections = (unifiedPlan: string) => {
+    const sections = {
+      executive_summary: '',
+      market_analysis: '',
+      target_customers: '',
+      competitive_advantage: '',
+      revenue_model: '',
+      marketing_strategy: '',
+      operations_plan: '',
+      financial_projections: '',
+      risk_analysis: '',
+      implementation_timeline: ''
+    };
+
+    const sectionRegex = /^([A-Z\s]+)\n━+\n([\s\S]*?)(?=\n\n[A-Z\s]+\n━+|$)/gm;
+    let match;
+
+    while ((match = sectionRegex.exec(unifiedPlan)) !== null) {
+      const title = match[1].trim();
+      const content = match[2].trim();
+      
+      switch(title) {
+        case 'EXECUTIVE SUMMARY':
+          sections.executive_summary = content;
+          break;
+        case 'MARKET ANALYSIS':
+          sections.market_analysis = content;
+          break;
+        case 'TARGET CUSTOMERS':
+          sections.target_customers = content;
+          break;
+        case 'COMPETITIVE ADVANTAGE':
+          sections.competitive_advantage = content;
+          break;
+        case 'REVENUE MODEL':
+          sections.revenue_model = content;
+          break;
+        case 'MARKETING STRATEGY':
+          sections.marketing_strategy = content;
+          break;
+        case 'OPERATIONS PLAN':
+          sections.operations_plan = content;
+          break;
+        case 'FINANCIAL PROJECTIONS':
+          sections.financial_projections = content;
+          break;
+        case 'RISK ANALYSIS':
+          sections.risk_analysis = content;
+          break;
+        case 'IMPLEMENTATION TIMELINE':
+          sections.implementation_timeline = content;
+          break;
+      }
     }
+
+    return sections;
   };
 
-  const handleSaveSection = async (sectionId: string) => {
+  const handleSavePlan = async () => {
     if (!planId) {
       toast({
         title: "Save Failed",
@@ -152,36 +250,20 @@ const BusinessPlan: React.FC<BusinessPlanProps> = ({ ideaData }) => {
     }
 
     try {
-      const fieldMap: {[key: string]: string} = {
-        'executive': 'executive_summary',
-        'market': 'market_analysis',
-        'business': 'competitive_advantage',
-        'marketing': 'marketing_strategy',
-        'operations': 'operations_plan',
-        'financial': 'financial_projections'
-      };
-
+      const sections = parseUnifiedPlanToSections(editedContent);
+      
       const { error } = await supabase
         .from('business_plans')
-        .update({ [fieldMap[sectionId]]: editedContent[sectionId] })
+        .update(sections)
         .eq('id', planId);
 
       if (error) throw error;
 
-      // Update local state
-      setBusinessPlan((prev: any) => {
-        const key = sectionId === 'executive' ? 'executiveSummary' :
-                    sectionId === 'market' ? 'marketAnalysis' :
-                    sectionId === 'business' ? 'businessModel' :
-                    sectionId === 'marketing' ? 'marketingStrategy' :
-                    sectionId === 'operations' ? 'operationsPlanning' :
-                    'financialProjections';
-        return { ...prev, [key]: editedContent[sectionId] };
-      });
-
-      toggleEdit(sectionId);
+      setBusinessPlan(editedContent);
+      setIsEditing(false);
+      
       toast({
-        title: "Section Updated",
+        title: "Business Plan Updated",
         description: "Your changes have been saved successfully.",
       });
     } catch (error) {
@@ -195,41 +277,27 @@ const BusinessPlan: React.FC<BusinessPlanProps> = ({ ideaData }) => {
   };
 
   const handleDownloadPDF = () => {
-    // Create a simple text version for download
-    const planText = `
-BUSINESS PLAN
+    const planText = `BUSINESS PLAN
 =============
+Business Name: ${businessName}
 
-Executive Summary:
-${businessPlan.executiveSummary}
+${businessPlan}
 
-Market Analysis:
-${businessPlan.marketAnalysis}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Business Model:
-${businessPlan.businessModel}
-
-Marketing Strategy:
-${businessPlan.marketingStrategy}
-
-Operations Planning:
-${businessPlan.operationsPlanning}
-
-Financial Projections:
-${businessPlan.financialProjections}
-
-Financial Calculator Results:
-- Monthly Revenue: ₹${projections.monthlyRevenue.toLocaleString()}
-- Monthly Profit: ₹${projections.monthlyProfit.toLocaleString()}
-- Break-even Period: ${projections.breakEvenMonths} months
-- Yearly Revenue: ₹${projections.yearlyRevenue.toLocaleString()}
+FINANCIAL CALCULATOR RESULTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Monthly Revenue: ₹${projections.monthlyRevenue.toLocaleString()}
+Monthly Profit: ₹${projections.monthlyProfit.toLocaleString()}
+Break-even Period: ${projections.breakEvenMonths} months
+Yearly Revenue: ₹${projections.yearlyRevenue.toLocaleString()}
     `;
 
     const blob = new Blob([planText], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'business-plan.txt';
+    a.download = `${businessName.replace(/\s+/g, '-')}-business-plan.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -256,21 +324,12 @@ Financial Calculator Results:
 
   const projections = calculateProjections();
 
-  const planSections = [
-    { id: 'executive', title: 'Executive Summary', icon: FileText },
-    { id: 'market', title: 'Market Analysis', icon: TrendingUp },
-    { id: 'business', title: 'Business Model', icon: Target },
-    { id: 'marketing', title: 'Marketing Strategy', icon: Users },
-    { id: 'operations', title: 'Operations', icon: BarChart },
-    { id: 'financial', title: 'Financial Projections', icon: DollarSign },
-  ];
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="text-center mb-8">
         <div className="flex items-center justify-center gap-2 mb-4">
-          <FileText className="h-8 w-8 text-blue-600" />
+          <FileText className="h-8 w-8 text-primary" />
           <h1 className="text-3xl font-bold text-foreground">AI Business Plan Generator</h1>
         </div>
         <p className="text-lg text-muted-foreground">
@@ -354,71 +413,67 @@ Financial Calculator Results:
             </TabsList>
 
             <TabsContent value="plan" className="space-y-6">
-              {/* Business Plan Sections */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {planSections.map((section) => {
-                  const Icon = section.icon;
-                  let content = '';
-                  
-                  switch(section.id) {
-                    case 'executive': content = businessPlan.executiveSummary; break;
-                    case 'market': content = businessPlan.marketAnalysis; break;
-                    case 'business': content = businessPlan.businessModel; break;
-                    case 'marketing': content = businessPlan.marketingStrategy; break;
-                    case 'operations': content = businessPlan.operationsPlanning; break;
-                    case 'financial': content = businessPlan.financialProjections; break;
-                  }
-                  
-                  const isEditingSection = isEditing[section.id];
-                  
-                  return (
-                    <Card key={section.id} className="h-full">
-                      <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="flex items-center gap-2 text-lg">
-                            <Icon className="h-5 w-5 text-accent-orange" />
-                            {section.title}
-                          </CardTitle>
-                          <div className="flex gap-2">
-                            {isEditingSection && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => toggleEdit(section.id)}
-                              >
-                                Cancel
-                              </Button>
-                            )}
-                            <Button
-                              size="sm"
-                              variant={isEditingSection ? "default" : "outline"}
-                              onClick={() => isEditingSection ? handleSaveSection(section.id) : toggleEdit(section.id)}
-                              aria-label={isEditingSection ? `Save ${section.title}` : `Edit ${section.title}`}
-                            >
-                              <Edit className="h-4 w-4 mr-1" />
-                              {isEditingSection ? 'Save' : 'Edit'}
-                            </Button>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        {isEditingSection ? (
-                          <textarea
-                            className="w-full min-h-[200px] p-2 border rounded-md text-sm"
-                            value={editedContent[section.id] || content}
-                            onChange={(e) => setEditedContent(prev => ({ ...prev, [section.id]: e.target.value }))}
-                            aria-label={`Edit ${section.title} content`}
-                          />
-                        ) : (
-                          <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                            {content}
-                          </p>
-                        )}
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
+              {/* Unified Business Plan Editor */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-primary" />
+                      Complete Business Plan
+                    </CardTitle>
+                    <div className="flex gap-2">
+                      {isEditing ? (
+                        <>
+                          <Button
+                            variant="outline"
+                            onClick={toggleEdit}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={handleSavePlan}
+                            className="gap-2"
+                          >
+                            <Save className="h-4 w-4" />
+                            Save Changes
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          onClick={toggleEdit}
+                          className="gap-2"
+                        >
+                          <Edit className="h-4 w-4" />
+                          Edit Plan
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <CardDescription>
+                    {isEditing 
+                      ? "Edit your business plan. Section headers are marked with ━━━ separators."
+                      : "Your comprehensive business plan with all sections in one view."
+                    }
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {isEditing ? (
+                    <Textarea
+                      className="w-full min-h-[600px] font-mono text-sm leading-relaxed"
+                      value={editedContent}
+                      onChange={(e) => setEditedContent(e.target.value)}
+                      aria-label="Edit complete business plan"
+                    />
+                  ) : (
+                    <div className="prose prose-sm max-w-none">
+                      <pre className="whitespace-pre-wrap font-sans text-sm text-foreground leading-relaxed">
+                        {businessPlan}
+                      </pre>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </TabsContent>
 
             <TabsContent value="calculator" className="space-y-6">
