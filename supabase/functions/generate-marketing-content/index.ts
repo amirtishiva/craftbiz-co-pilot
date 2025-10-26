@@ -126,8 +126,7 @@ Return ONLY the marketing content text, no explanations or additional formatting
     console.log('Marketing content generated successfully. Length:', generatedContent.length);
     console.log('Generated content preview:', generatedContent.substring(0, 200));
 
-    // Generate relevant hashtags based on platform and content type
-    const defaultHashtags = ['#MadeInIndia', '#SmallBusiness', '#LocalBusiness', '#SupportLocal', '#IndianEntrepreneur'];
+    
 
     // Save to database if user is authenticated
     if (user) {
