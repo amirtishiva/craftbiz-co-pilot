@@ -128,7 +128,7 @@ Provide every Indian entrepreneur, regardless of educational background or techn
 
 ### Secondary Personas
 
-#### 4. **The Student Entrepreneur**
+#### 4. **The Women Entrepreneur**
 - University students exploring startup ideas
 - High tech literacy, low capital
 - Needs rapid prototyping of business concepts

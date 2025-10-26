@@ -174,7 +174,7 @@ sequenceDiagram
 
 **Context**:
 - User Input: {{rawIdea}}
-- Target Audience: Indian entrepreneurs and artisans
+- Target Audience: The Women Entrepreneur,The Women Entrepreneur,The Micro-Entrepreneur,The First-Time Business Owner,The Artisan Entrepreneur
 - Output Purpose: Input for business plan generation
 
 **Instruction**: 
