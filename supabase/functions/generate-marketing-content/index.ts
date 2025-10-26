@@ -87,6 +87,8 @@ Requirements:
 Return ONLY the marketing content text, no explanations or additional formatting.`;
 
     console.log('Generating marketing content with OpenAI GPT-5');
+    console.log('System prompt:', systemPrompt);
+    console.log('User prompt:', userPrompt);
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -95,25 +97,34 @@ Return ONLY the marketing content text, no explanations or additional formatting
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-2025-08-07',
+        model: 'gpt-4o',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        max_completion_tokens: 800,
+        max_tokens: 800,
+        temperature: 0.7,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error('OpenAI API error:', response.status, errorText);
-      throw new Error(`OpenAI API error: ${response.status}`);
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
+    console.log('OpenAI response:', JSON.stringify(data, null, 2));
+    
+    if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
+      console.error('Invalid OpenAI response structure:', data);
+      throw new Error('Invalid response from OpenAI API');
+    }
+    
     const generatedContent = data.choices[0].message.content.trim();
     
-    console.log('Marketing content generated successfully');
+    console.log('Marketing content generated successfully. Length:', generatedContent.length);
+    console.log('Generated content preview:', generatedContent.substring(0, 200));
 
     // Generate relevant hashtags based on platform and content type
     const defaultHashtags = ['#MadeInIndia', '#SmallBusiness', '#LocalBusiness', '#SupportLocal', '#IndianEntrepreneur'];

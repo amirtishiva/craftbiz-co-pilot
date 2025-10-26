@@ -73,6 +73,8 @@ Make it:
 CRITICAL: Return ONLY the refined content text. No explanations, no meta-commentary, no formatting markers.`;
 
     console.log('Refining marketing content with OpenAI GPT-5');
+    console.log('System prompt:', systemPrompt);
+    console.log('User prompt:', userPrompt);
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -81,25 +83,34 @@ CRITICAL: Return ONLY the refined content text. No explanations, no meta-comment
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-2025-08-07',
+        model: 'gpt-4o',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        max_completion_tokens: 500,
+        max_tokens: 500,
+        temperature: 0.7,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error('OpenAI API error:', response.status, errorText);
-      throw new Error(`OpenAI API error: ${response.status}`);
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
+    console.log('OpenAI response:', JSON.stringify(data, null, 2));
+    
+    if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
+      console.error('Invalid OpenAI response structure:', data);
+      throw new Error('Invalid response from OpenAI API');
+    }
+    
     const refinedContent = data.choices[0].message.content.trim();
 
-    console.log('Content refined successfully');
+    console.log('Content refined successfully. Length:', refinedContent.length);
+    console.log('Refined content preview:', refinedContent.substring(0, 200));
 
     return new Response(
       JSON.stringify({ refinedContent }),
