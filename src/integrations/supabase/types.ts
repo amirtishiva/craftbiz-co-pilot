@@ -170,7 +170,7 @@ export type Database = {
           hashtags: string[] | null
           id: string
           plan_id: string | null
-          platform: string
+          platform: string | null
           user_id: string
         }
         Insert: {
@@ -180,7 +180,7 @@ export type Database = {
           hashtags?: string[] | null
           id?: string
           plan_id?: string | null
-          platform: string
+          platform?: string | null
           user_id: string
         }
         Update: {
@@ -190,7 +190,7 @@ export type Database = {
           hashtags?: string[] | null
           id?: string
           plan_id?: string | null
-          platform?: string
+          platform?: string | null
           user_id?: string
         }
         Relationships: [
