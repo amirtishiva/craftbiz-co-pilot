@@ -174,7 +174,7 @@ Return ONLY the marketing content text, no explanations or additional formatting
         .from('marketing_content')
         .insert({
           user_id: user.id,
-          platform: socialMediaType || 'facebook',
+          platform: contentType === 'social-post' ? (socialMediaType || null) : null,
           content_text: generatedContent,
           hashtags: [] // Hashtags are now included in the content_text
         })
