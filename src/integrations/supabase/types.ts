@@ -165,6 +165,7 @@ export type Database = {
       marketing_content: {
         Row: {
           content_text: string
+          content_type: string | null
           created_at: string
           hashtags: string[] | null
           id: string
@@ -174,6 +175,7 @@ export type Database = {
         }
         Insert: {
           content_text: string
+          content_type?: string | null
           created_at?: string
           hashtags?: string[] | null
           id?: string
@@ -183,6 +185,7 @@ export type Database = {
         }
         Update: {
           content_text?: string
+          content_type?: string | null
           created_at?: string
           hashtags?: string[] | null
           id?: string

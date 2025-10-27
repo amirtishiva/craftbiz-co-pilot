@@ -74,6 +74,7 @@ const MarketingHub: React.FC = () => {
           .insert({
             user_id: user.id,
             platform: contentType === 'social-post' ? socialMediaType : null,
+            content_type: contentType,
             content_text: data.content,
             hashtags: []
           })
@@ -166,7 +167,31 @@ const MarketingHub: React.FC = () => {
   };
 
   const getContentHeading = (content: any) => {
-    // If it's a social media post with a platform, show the platform name
+    // First check if content has a stored content_type
+    if (content.content_type) {
+      const contentTypeNames: Record<string, string> = {
+        'ad-copy': 'Advertisement Copy',
+        'email': 'Email Newsletter',
+        'blog-intro': 'Blog Introduction',
+        'social-post': 'Social Media Post'
+      };
+      
+      // If it's a social post with a platform, show the platform name
+      if (content.content_type === 'social-post' && content.platform) {
+        const platformNames: Record<string, string> = {
+          facebook: 'Facebook',
+          instagram: 'Instagram',
+          linkedin: 'LinkedIn',
+          x: 'X'
+        };
+        return platformNames[content.platform] || content.platform;
+      }
+      
+      // Otherwise show the content type
+      return contentTypeNames[content.content_type] || 'Marketing Content';
+    }
+    
+    // Fallback for old content without content_type field
     if (content.platform) {
       const platformNames: Record<string, string> = {
         facebook: 'Facebook',
@@ -177,27 +202,7 @@ const MarketingHub: React.FC = () => {
       return platformNames[content.platform] || content.platform;
     }
     
-    // For non-social media content, determine type from metadata or default patterns
-    // Check content characteristics to infer type
-    const text = content.content_text || '';
-    
-    // If content has email-like structure (Subject:)
-    if (text.toLowerCase().includes('subject:')) {
-      return 'Email Newsletter';
-    }
-    
-    // If content is short and punchy (likely ad copy)
-    if (text.length < 300 && !text.includes('\n\n')) {
-      return 'Advertisement Copy';
-    }
-    
-    // If content starts with intro-like patterns
-    if (text.toLowerCase().match(/^(introduction|welcome|discover|explore)/)) {
-      return 'Blog Introduction';
-    }
-    
-    // Default fallback
-    return 'Social Media Post';
+    return 'Marketing Content';
   };
 
 
