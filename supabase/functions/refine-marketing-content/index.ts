@@ -55,22 +55,25 @@ Your task is to refine and elevate marketing content while preserving the core m
 You understand Indian cultural nuances, values, communication styles, and emotional triggers.
 You create content that is authentic, engaging, and culturally appropriate.`;
 
-    const userPrompt = `Refine and polish this ${contentType || 'marketing'} content for ${audience} on ${socialMediaType || 'social media'}:
+    const userPrompt = `Refine and polish this ${contentType || 'marketing'} content for ${audience}:
 
 "${content}"
 
 REFINEMENT GUIDELINES:
-${platformGuideline}
-
 Make it:
 ✓ More engaging and emotionally compelling
 ✓ Culturally appropriate for Indian market
 ✓ Clear, concise, and impactful
 ✓ Action-oriented with strong call-to-action
 ✓ Professional yet relatable and authentic
-✓ Optimized for ${socialMediaType || 'social media'} platform
+✓ Polish the language and grammar
 
-CRITICAL: Return ONLY the refined content text. No explanations, no meta-commentary, no formatting markers, no hashtags.`;
+CRITICAL RULES:
+- Return ONLY the refined content text
+- NO explanations, NO meta-commentary, NO formatting markers
+- NO hashtags - remove any existing hashtags
+- NO emojis - remove any existing emojis
+- Professional polish only - make the text read smoothly and professionally`;
 
     console.log('Refining marketing content with OpenAI GPT-5');
     console.log('System prompt:', systemPrompt);

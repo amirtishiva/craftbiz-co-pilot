@@ -37,12 +37,20 @@ serve(async (req) => {
       throw new Error('OpenAI API key is not configured');
     }
 
-    // Platform-specific style guidelines
+    // Platform-specific style guidelines for SOCIAL MEDIA POSTS ONLY
     const platformStyles: Record<string, string> = {
       facebook: 'Conversational and community-oriented. Use warm, inclusive language. Length: 150-250 words. Include emojis sparingly. Generate 3-5 contextual hashtags based on the campaign focus.',
       instagram: 'Visual and emotional. Use storytelling, evocative language, and relevant emojis. Length: 125-150 words. Generate 5-10 trending, contextual hashtags that match the content theme.',
       linkedin: 'Professional and insightful. Use industry terminology, data-driven language. Length: 150-300 words. Formal tone. Generate 3-5 professional hashtags relevant to the industry and content.',
       x: 'Short, witty, and impactful. Use punchy language, emojis. Length: 200-280 characters. Highly engaging. Generate 2-4 trending hashtags that complement the message.'
+    };
+
+    // Content type specific guidelines (NO hashtags or emojis for non-social posts)
+    const contentTypeGuidelines: Record<string, string> = {
+      'social-post': 'Create engaging social media content with emojis and hashtags.',
+      'ad-copy': 'Create persuasive advertisement copy. Professional tone. No hashtags or emojis. Focus on benefits and call-to-action. Length: 100-200 words.',
+      'email': 'Create engaging email newsletter content. Professional yet warm tone. No hashtags or emojis. Include subject line suggestion. Length: 200-300 words.',
+      'blog-intro': 'Create compelling blog introduction. Informative and engaging tone. No hashtags or emojis. Hook the reader and set up the topic. Length: 150-250 words.'
     };
 
     const audienceDescriptions: Record<string, string> = {
@@ -60,16 +68,23 @@ serve(async (req) => {
       'blog-intro': 'blog introduction'
     };
 
-    const platformStyle = platformStyles[socialMediaType || 'facebook'] || platformStyles.facebook;
     const audience = audienceDescriptions[audienceType || 'general'] || audienceDescriptions.general;
     const contentTypeDesc = contentTypeDescriptions[contentType || 'social-post'] || contentTypeDescriptions['social-post'];
+    const contentGuideline = contentTypeGuidelines[contentType || 'social-post'] || contentTypeGuidelines['social-post'];
 
-    const systemPrompt = `You are an expert marketing copywriter specializing in Indian market campaigns for ${socialMediaType || 'social media'}. 
+    let systemPrompt = '';
+    let userPrompt = '';
+
+    if (contentType === 'social-post') {
+      // Social media post - use platform-specific styling with hashtags and emojis
+      const platformStyle = platformStyles[socialMediaType || 'facebook'] || platformStyles.facebook;
+      
+      systemPrompt = `You are an expert marketing copywriter specializing in Indian market campaigns for ${socialMediaType || 'social media'}. 
 You create culturally relevant, engaging content that resonates with Indian audiences. 
 You understand local cultural nuances, festivals, values, and communication styles.
 Always maintain authenticity and emotional connection while being professional.`;
 
-    const userPrompt = `Create compelling ${contentTypeDesc} content for ${socialMediaType || 'social media'} with these specifications:
+      userPrompt = `Create compelling ${contentTypeDesc} content for ${socialMediaType || 'social media'} with these specifications:
 
 PLATFORM: ${socialMediaType || 'Facebook'}
 STYLE GUIDE: ${platformStyle}
@@ -85,8 +100,33 @@ Requirements:
 6. Use inclusive language that resonates with Indian values
 7. Generate relevant, contextual hashtags based on the campaign theme (DO NOT use generic hashtags like #MadeInIndia unless specifically relevant)
 8. Place hashtags naturally within or at the end of the content
+9. Use emojis appropriately for the platform
 
-Return ONLY the marketing content text with hashtags, no explanations or additional formatting.`;
+Return ONLY the marketing content text with hashtags and emojis, no explanations or additional formatting.`;
+    } else {
+      // Non-social content - NO hashtags, NO emojis
+      systemPrompt = `You are an expert marketing copywriter specializing in Indian market campaigns. 
+You create culturally relevant, professional content that resonates with Indian audiences. 
+You understand local cultural nuances, festivals, values, and communication styles.
+Always maintain authenticity and emotional connection while being professional.`;
+
+      userPrompt = `Create compelling ${contentTypeDesc} with these specifications:
+
+CONTENT TYPE: ${contentType}
+GUIDELINE: ${contentGuideline}
+TARGET AUDIENCE: ${audience}
+CAMPAIGN FOCUS: ${prompt}
+
+Requirements:
+1. Write engaging, culturally appropriate content for Indian market
+2. Incorporate emotional appeal and storytelling where relevant
+3. Professional tone - NO hashtags, NO emojis
+4. Include strong call-to-action
+5. Make it actionable and inspiring
+6. Use inclusive language that resonates with Indian values
+
+Return ONLY the marketing content text, no explanations or additional formatting.`;
+    }
 
     console.log('Generating marketing content with OpenAI GPT-5');
     console.log('System prompt:', systemPrompt);

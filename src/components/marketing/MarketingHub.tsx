@@ -12,7 +12,8 @@ import {
   Eye,
   Loader2,
   Sparkles,
-  Pencil
+  Pencil,
+  Trash2
 } from 'lucide-react';
 import { useMarketingContent } from '@/hooks/useMarketingContent';
 import { supabase } from '@/integrations/supabase/client';
@@ -107,7 +108,10 @@ const MarketingHub: React.FC = () => {
 
   const handleCopyContent = (content: string) => {
     navigator.clipboard.writeText(content);
-    alert('Content copied to clipboard!');
+    toast({
+      title: "Copied!",
+      description: "Content copied to clipboard",
+    });
   };
 
   const handleEditContent = (content: any) => {
@@ -134,14 +138,72 @@ const MarketingHub: React.FC = () => {
     setEditedContent('');
   };
 
+  const handleDeleteContent = async (contentId: string) => {
+    if (!confirm('Are you sure you want to delete this content?')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('marketing_content')
+        .delete()
+        .eq('id', contentId);
+
+      if (error) throw error;
+
+      setContent(prev => prev.filter(item => item.id !== contentId));
+      toast({
+        title: "Content Deleted",
+        description: "The content has been removed successfully.",
+      });
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast({
+        title: "Delete Failed",
+        description: "Failed to delete content. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getContentHeading = (content: any) => {
+    // If it's a social media post, show the platform name
+    if (content.platform) {
+      const platformNames: Record<string, string> = {
+        facebook: 'Facebook',
+        instagram: 'Instagram',
+        linkedin: 'LinkedIn',
+        x: 'X'
+      };
+      return platformNames[content.platform] || content.platform;
+    }
+    
+    // Otherwise, show the content type
+    const contentTypeNames: Record<string, string> = {
+      'ad-copy': 'Advertisement Copy',
+      'email': 'Email Newsletter',
+      'blog-intro': 'Blog Introduction',
+      'social-post': 'Social Media Post'
+    };
+    return contentTypeNames[contentType] || 'Marketing Content';
+  };
+
   const handleShareContent = (content: any) => {
+    const textToShare = content.content_text || content.content || '';
     if (navigator.share) {
       navigator.share({
-        title: `${content.type} Content`,
-        text: content.content,
+        title: `Marketing Content`,
+        text: textToShare,
+      }).catch((err) => {
+        console.error('Share failed:', err);
+        handleCopyContent(textToShare);
       });
     } else {
-      handleCopyContent(content.content);
+      handleCopyContent(textToShare);
+      toast({
+        title: "Copied!",
+        description: "Content copied to clipboard (sharing not supported on this device)",
+      });
     }
   };
 
@@ -391,7 +453,7 @@ const MarketingHub: React.FC = () => {
                     <div key={content.id} className="border border-border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          {content.platform && <span className="font-semibold">{content.platform}</span>}
+                          <span className="font-semibold text-lg">{getContentHeading(content)}</span>
                         </div>
                         <div className="flex gap-2">
                           {editingContentId === content.id ? (
@@ -436,6 +498,15 @@ const MarketingHub: React.FC = () => {
                                 title="Share content"
                               >
                                 <Share2 className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="ghost"
+                                onClick={() => handleDeleteContent(content.id)}
+                                title="Delete content"
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             </>
                           )}
@@ -509,21 +580,18 @@ const MarketingHub: React.FC = () => {
                     </div>
                     <div className="mb-4">
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="font-medium">{previewContent.type}</span>
-                        <span className="text-sm bg-blue-100 text-blue-700 px-2 py-1 rounded">
-                          {previewContent.platform}
-                        </span>
+                        <span className="font-medium text-lg">{getContentHeading(previewContent)}</span>
                       </div>
                       <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                        <div className="whitespace-pre-line text-sm">
-                          {previewContent.content}
+                        <div className="whitespace-pre-line text-sm leading-relaxed">
+                          {previewContent.content_text || previewContent.content || ''}
                         </div>
                       </div>
                     </div>
                     <div className="flex gap-2 justify-end">
                       <Button 
                         variant="outline"
-                        onClick={() => handleCopyContent(previewContent.content)}
+                        onClick={() => handleCopyContent(previewContent.content_text || previewContent.content || '')}
                       >
                         <Copy className="h-4 w-4 mr-2" />
                         Copy
