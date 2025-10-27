@@ -8,7 +8,6 @@ import {
   Megaphone, 
   Copy, 
   Image,
-  Share2,
   Eye,
   Loader2,
   Sparkles,
@@ -167,7 +166,7 @@ const MarketingHub: React.FC = () => {
   };
 
   const getContentHeading = (content: any) => {
-    // If it's a social media post, show the platform name
+    // If it's a social media post with a platform, show the platform name
     if (content.platform) {
       const platformNames: Record<string, string> = {
         facebook: 'Facebook',
@@ -178,34 +177,29 @@ const MarketingHub: React.FC = () => {
       return platformNames[content.platform] || content.platform;
     }
     
-    // Otherwise, show the content type
-    const contentTypeNames: Record<string, string> = {
-      'ad-copy': 'Advertisement Copy',
-      'email': 'Email Newsletter',
-      'blog-intro': 'Blog Introduction',
-      'social-post': 'Social Media Post'
-    };
-    return contentTypeNames[contentType] || 'Marketing Content';
+    // For non-social media content, determine type from metadata or default patterns
+    // Check content characteristics to infer type
+    const text = content.content_text || '';
+    
+    // If content has email-like structure (Subject:)
+    if (text.toLowerCase().includes('subject:')) {
+      return 'Email Newsletter';
+    }
+    
+    // If content is short and punchy (likely ad copy)
+    if (text.length < 300 && !text.includes('\n\n')) {
+      return 'Advertisement Copy';
+    }
+    
+    // If content starts with intro-like patterns
+    if (text.toLowerCase().match(/^(introduction|welcome|discover|explore)/)) {
+      return 'Blog Introduction';
+    }
+    
+    // Default fallback
+    return 'Social Media Post';
   };
 
-  const handleShareContent = (content: any) => {
-    const textToShare = content.content_text || content.content || '';
-    if (navigator.share) {
-      navigator.share({
-        title: `Marketing Content`,
-        text: textToShare,
-      }).catch((err) => {
-        console.error('Share failed:', err);
-        handleCopyContent(textToShare);
-      });
-    } else {
-      handleCopyContent(textToShare);
-      toast({
-        title: "Copied!",
-        description: "Content copied to clipboard (sharing not supported on this device)",
-      });
-    }
-  };
 
   const refineContent = async () => {
     if (!contentPrompt.trim()) {
@@ -486,22 +480,6 @@ const MarketingHub: React.FC = () => {
                               <Button 
                                 size="sm" 
                                 variant="ghost"
-                                onClick={() => handleCopyContent(content.content_text)}
-                                title="Copy to clipboard"
-                              >
-                                <Copy className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="ghost"
-                                onClick={() => handleShareContent(content)}
-                                title="Share content"
-                              >
-                                <Share2 className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="ghost"
                                 onClick={() => handleDeleteContent(content.id)}
                                 title="Delete content"
                                 className="text-destructive hover:text-destructive"
@@ -595,13 +573,6 @@ const MarketingHub: React.FC = () => {
                       >
                         <Copy className="h-4 w-4 mr-2" />
                         Copy
-                      </Button>
-                      <Button 
-                        variant="craft"
-                        onClick={() => handleShareContent(previewContent)}
-                      >
-                        <Share2 className="h-4 w-4 mr-2" />
-                        Share
                       </Button>
                     </div>
                   </div>
