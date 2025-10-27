@@ -70,7 +70,7 @@ Make it:
 ✓ Professional yet relatable and authentic
 ✓ Optimized for ${socialMediaType || 'social media'} platform
 
-CRITICAL: Return ONLY the refined content text. No explanations, no meta-commentary, no formatting markers.`;
+CRITICAL: Return ONLY the refined content text. No explanations, no meta-commentary, no formatting markers, no hashtags.`;
 
     console.log('Refining marketing content with OpenAI GPT-5');
     console.log('System prompt:', systemPrompt);
