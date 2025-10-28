@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { 
   Truck, 
   MapPin, 
@@ -11,21 +13,63 @@ import {
   Phone,
   Mail,
   Building,
-  Route
+  Route,
+  Loader2,
+  Navigation
 } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useEffect } from 'react';
+import LocationPermissionPrompt from './LocationPermissionPrompt';
+import NoResultsFound from './NoResultsFound';
+import OfflineIndicator from './OfflineIndicator';
+import { cache, isOnline } from '@/utils/cache';
+
+type Libraries = ("places" | "geometry" | "drawing" | "visualization")[];
+const GOOGLE_MAPS_LIBRARIES: Libraries = ['places'];
+
+interface SupplierData {
+  id: string;
+  name: string;
+  category: string;
+  city: string;
+  address: string;
+  phone: string;
+  email: string;
+  rating: number;
+  reviews: number;
+  verified: boolean;
+  distance: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  specialties: string[];
+  minOrder: string;
+  deliveryTime: string;
+  website_url?: string;
+}
+
+const mapContainerStyle = {
+  width: '100%',
+  height: '600px'
+};
 
 const SuppliersList: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all-categories');
   const [selectedCity, setSelectedCity] = useState('all-cities');
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
-  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [suppliers, setSuppliers] = useState<SupplierData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [selectedSupplier, setSelectedSupplier] = useState<SupplierData | null>(null);
+  const [map, setMap] = useState<google.maps.Map | null>(null);
   const { toast } = useToast();
+
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
+    libraries: GOOGLE_MAPS_LIBRARIES
+  });
 
   const categories = [
     'Textiles & Fabrics',
@@ -49,14 +93,45 @@ const SuppliersList: React.FC = () => {
     'Ahmedabad'
   ];
 
+  // Detect user location
+  useEffect(() => {
+    if (navigator.geolocation && viewMode === 'map') {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.log('Location access denied:', error);
+        }
+      );
+    }
+  }, [viewMode]);
+
   // Fetch suppliers from database
   useEffect(() => {
     const fetchSuppliers = async () => {
+      // Try to load from cache first if offline
+      if (!isOnline()) {
+        const cachedSuppliers = cache.get<SupplierData[]>('suppliers');
+        if (cachedSuppliers) {
+          setSuppliers(cachedSuppliers);
+          setLoading(false);
+          toast({
+            title: "Offline Mode",
+            description: "Showing cached supplier data.",
+          });
+          return;
+        }
+      }
+
       try {
         const { data, error } = await supabase
           .from('suppliers')
           .select('*')
-          .order('name');
+          .order('rating', { ascending: false });
 
         if (error) throw error;
 
@@ -75,10 +150,15 @@ const SuppliersList: React.FC = () => {
           deliveryTime: '5-7 days',
           specialties: [supplier.description || supplier.category],
           verified: supplier.rating && supplier.rating >= 4.5,
-          distance: 'N/A'
+          distance: null,
+          latitude: supplier.latitude,
+          longitude: supplier.longitude
         })) || [];
 
         setSuppliers(transformedSuppliers);
+        
+        // Cache the suppliers for offline use
+        cache.set('suppliers', transformedSuppliers);
       } catch (error) {
         console.error('Error fetching suppliers:', error);
         toast({
@@ -94,6 +174,72 @@ const SuppliersList: React.FC = () => {
     fetchSuppliers();
   }, [toast]);
 
+  // Fit map bounds when suppliers or map changes
+  useEffect(() => {
+    if (map && suppliers.length > 0 && viewMode === 'map') {
+      const bounds = new google.maps.LatLngBounds();
+      suppliers.forEach(supplier => {
+        if (supplier.latitude && supplier.longitude) {
+          bounds.extend({ lat: supplier.latitude, lng: supplier.longitude });
+        }
+      });
+      if (userLocation) {
+        bounds.extend(userLocation);
+      }
+      map.fitBounds(bounds);
+    }
+  }, [map, suppliers, viewMode, userLocation]);
+
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setSelectedCategory('all-categories');
+    setSelectedCity('all-cities');
+  };
+
+  const handleCitySelect = async (city: string) => {
+    setSelectedCity(city);
+    
+    // Try to geocode the city for map centering
+    try {
+      const { data } = await supabase.functions.invoke('geocode-address', {
+        body: { address: `${city}, India` }
+      });
+      
+      if (data?.success && data.data) {
+        setUserLocation({
+          lat: data.data.latitude,
+          lng: data.data.longitude
+        });
+      }
+    } catch (error) {
+      console.error('Failed to geocode city:', error);
+    }
+  };
+
+  const requestLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+          toast({
+            title: "Location detected",
+            description: "Your location has been successfully detected.",
+          });
+        },
+        (error) => {
+          toast({
+            title: "Location access denied",
+            description: "Please enable location or select your city manually.",
+            variant: "destructive",
+          });
+        }
+      );
+    }
+  };
+
   const filteredSuppliers = suppliers.filter(supplier => {
     const matchesSearch = supplier.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          supplier.specialties.some(spec => spec.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -105,6 +251,8 @@ const SuppliersList: React.FC = () => {
 
   return (
     <div>
+      <OfflineIndicator />
+      
       {/* Search and Filters */}
       <Card className="mb-6">
         <CardContent className="pt-6">
@@ -176,25 +324,27 @@ const SuppliersList: React.FC = () => {
               </CardContent>
             </Card>
           ) : filteredSuppliers.length === 0 ? (
-            <Card>
-              <CardContent className="pt-6 text-center py-8">
-                <Search className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-semibold mb-2">No Suppliers Found</h3>
-                <p className="text-muted-foreground">
-                  Try adjusting your search criteria or browse all suppliers
-                </p>
-              </CardContent>
-            </Card>
+            <NoResultsFound
+              searchQuery={searchQuery}
+              category={selectedCategory !== 'all-categories' ? selectedCategory : undefined}
+              city={selectedCity !== 'all-cities' ? selectedCity : undefined}
+              onClearFilters={handleClearFilters}
+            />
           ) : (
             filteredSuppliers.map((supplier) => (
               <Card key={supplier.id} className="hover:shadow-medium transition-smooth">
                 <CardContent className="pt-6">
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Supplier Info */}
+                     {/* Supplier Info */}
                     <div className="lg:col-span-2">
                       <div className="mb-4">
                         <div className="flex items-center gap-2 mb-2">
                           <h3 className="text-xl font-bold text-foreground">{supplier.name}</h3>
+                          {supplier.verified && (
+                            <Badge variant="secondary" className="bg-green-100 text-green-800">
+                              Verified
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-muted-foreground mb-2">{supplier.category}</p>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -206,6 +356,12 @@ const SuppliersList: React.FC = () => {
                             <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                             {supplier.rating} ({supplier.reviews} reviews)
                           </div>
+                          {supplier.distance && (
+                            <div className="flex items-center gap-1 text-blue-600">
+                              <Navigation className="h-4 w-4" />
+                              {supplier.distance} km away
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -266,23 +422,132 @@ const SuppliersList: React.FC = () => {
         </div>
       ) : (
         /* Map View */
-        <Card>
-          <CardContent className="pt-6">
-            <div className="h-96 bg-muted rounded-lg flex items-center justify-center">
-              <div className="text-center">
-                <MapPin className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-semibold mb-2">Interactive Map</h3>
-                <p className="text-muted-foreground mb-4">
-                  Map view showing supplier locations will be displayed here
-                </p>
-                <Button variant="warm">
-                  <Route className="mr-2 h-4 w-4" />
-                  Enable Location Services
-                </Button>
+        !userLocation && viewMode === 'map' ? (
+          <LocationPermissionPrompt
+            onEnableLocation={requestLocation}
+            onCitySelect={handleCitySelect}
+          />
+        ) : (
+          <Card>
+            <CardContent className="pt-6">
+              {!isLoaded ? (
+                <div className="h-[600px] bg-muted rounded-lg flex items-center justify-center">
+                  <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                </div>
+              ) : filteredSuppliers.filter(s => s.latitude && s.longitude).length === 0 ? (
+              <div className="h-[600px] bg-muted rounded-lg flex items-center justify-center">
+                <div className="text-center">
+                  <MapPin className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-lg font-semibold mb-2">No Locations Available</h3>
+                  <p className="text-muted-foreground">
+                    No suppliers with location data match your filters
+                  </p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            ) : (
+              <GoogleMap
+                mapContainerStyle={mapContainerStyle}
+                center={userLocation || { lat: 20.5937, lng: 78.9629 }} // India center as fallback
+                zoom={5}
+                onLoad={(map) => setMap(map)}
+                options={{
+                  disableDefaultUI: false,
+                  zoomControl: true,
+                  streetViewControl: false,
+                  mapTypeControl: false,
+                  fullscreenControl: true,
+                }}
+              >
+                {/* User Location Marker */}
+                {userLocation && (
+                  <Marker
+                    position={userLocation}
+                    icon={{
+                      path: google.maps.SymbolPath.CIRCLE,
+                      scale: 8,
+                      fillColor: '#3B82F6',
+                      fillOpacity: 1,
+                      strokeColor: '#FFFFFF',
+                      strokeWeight: 2,
+                    }}
+                    title="Your Location"
+                  />
+                )}
+
+                {/* Supplier Markers */}
+                {filteredSuppliers
+                  .filter(supplier => supplier.latitude && supplier.longitude)
+                  .map((supplier) => (
+                    <Marker
+                      key={supplier.id}
+                      position={{ lat: supplier.latitude!, lng: supplier.longitude! }}
+                      onClick={() => setSelectedSupplier(supplier)}
+                      icon={{
+                        path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
+                        scale: 6,
+                        fillColor: selectedSupplier?.id === supplier.id ? '#DC2626' : '#EF4444',
+                        fillOpacity: 1,
+                        strokeColor: '#FFFFFF',
+                        strokeWeight: 2,
+                        rotation: 180,
+                      }}
+                      title={supplier.name}
+                    />
+                  ))}
+
+                {/* Info Window for Selected Supplier */}
+                {selectedSupplier && selectedSupplier.latitude && selectedSupplier.longitude && (
+                  <InfoWindow
+                    position={{ lat: selectedSupplier.latitude, lng: selectedSupplier.longitude }}
+                    onCloseClick={() => setSelectedSupplier(null)}
+                  >
+                    <div className="p-2 max-w-xs">
+                      <h4 className="font-bold text-sm mb-1">{selectedSupplier.name}</h4>
+                      <p className="text-xs text-gray-600 mb-2">{selectedSupplier.category}</p>
+                      
+                      <div className="flex items-center gap-1 mb-2">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={`h-3 w-3 ${
+                              star <= selectedSupplier.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
+                            }`}
+                          />
+                        ))}
+                        <span className="text-xs text-gray-600 ml-1">
+                          ({selectedSupplier.reviews})
+                        </span>
+                      </div>
+                      
+                      <p className="text-xs text-gray-700 mb-2">{selectedSupplier.address}</p>
+                      
+                      <div className="flex gap-2 mt-3">
+                        <a
+                          href={`https://www.google.com/maps/dir/?api=1&destination=${selectedSupplier.latitude},${selectedSupplier.longitude}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 bg-primary text-white text-xs px-3 py-1.5 rounded hover:bg-primary/90 flex items-center justify-center gap-1"
+                        >
+                          <Navigation className="h-3 w-3" />
+                          Directions
+                        </a>
+                        {selectedSupplier.phone && (
+                          <a
+                            href={`tel:${selectedSupplier.phone}`}
+                            className="bg-gray-100 text-gray-700 text-xs px-3 py-1.5 rounded hover:bg-gray-200 flex items-center justify-center"
+                          >
+                            <Phone className="h-3 w-3" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </InfoWindow>
+                )}
+              </GoogleMap>
+              )}
+            </CardContent>
+          </Card>
+        )
       )}
 
       {/* Quick Stats */}

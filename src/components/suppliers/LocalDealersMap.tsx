@@ -19,6 +19,8 @@ import {
   ShoppingBag
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import OfflineIndicator from './OfflineIndicator';
+import { cache, isOnline } from '@/utils/cache';
 
 type Libraries = ("places" | "geometry" | "drawing" | "visualization")[];
 
@@ -218,6 +220,26 @@ const LocalDealersMap: React.FC = () => {
       return;
     }
 
+    // Check if offline and try to use cached results
+    if (!isOnline()) {
+      const cachedDealers = cache.get<Dealer[]>(`dealers_${query}_${selectedRadius}`);
+      if (cachedDealers) {
+        setDealers(cachedDealers);
+        toast({
+          title: "Offline Mode",
+          description: "Showing cached search results.",
+        });
+        return;
+      } else {
+        toast({
+          title: "Offline",
+          description: "No cached results available. Please connect to the internet.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     if (!placesServiceRef.current) {
       toast({
         title: "Maps not ready",
@@ -242,6 +264,9 @@ const LocalDealersMap: React.FC = () => {
         setDealers(dealersWithDistances);
         setIsSearching(false);
 
+        // Cache the results for offline use
+        cache.set(`dealers_${query}_${selectedRadius}`, dealersWithDistances);
+
         if (dealersWithDistances.length === 0) {
           toast({
             title: "No results found",
@@ -253,6 +278,20 @@ const LocalDealersMap: React.FC = () => {
             description: `Found ${dealersWithDistances.length} nearby locations.`,
           });
         }
+      } else if (status === google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT) {
+        setIsSearching(false);
+        toast({
+          title: "Rate limit exceeded",
+          description: "Too many requests. Please wait a moment and try again.",
+          variant: "destructive",
+        });
+      } else if (status === google.maps.places.PlacesServiceStatus.REQUEST_DENIED) {
+        setIsSearching(false);
+        toast({
+          title: "API Key Error",
+          description: "There's an issue with the Google Maps configuration.",
+          variant: "destructive",
+        });
       } else {
         setIsSearching(false);
         setDealers([]);
@@ -350,6 +389,8 @@ const LocalDealersMap: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <OfflineIndicator />
+      
       {/* Search Interface */}
       <Card>
         <CardContent className="pt-6 space-y-4">
