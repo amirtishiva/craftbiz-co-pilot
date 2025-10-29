@@ -35,3 +35,6 @@ verify_jwt = true
 
 [functions.generate-scene]
 verify_jwt = true
+
+[functions.refine-prompt]
+verify_jwt = true

@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, businessName, industry, style } = await req.json();
+    const { prompt, businessName, industry, style, count = 1 } = await req.json();
 
     // Support both prompt-based and structured requests
     const finalPrompt = prompt || `Create a modern, professional logo for "${businessName}", a ${industry || 'business'}. Style: ${style || 'minimalist and professional'}. The logo should be clean, memorable, and suitable for digital and print use. Use vibrant colors suitable for Indian market.`;
@@ -44,37 +44,39 @@ serve(async (req) => {
       throw new Error('OpenAI API key is not configured');
     }
 
-    console.log('Generating logo with DALL-E:', finalPrompt);
+    console.log('Generating', count, 'logo(s) with DALL-E:', finalPrompt);
 
-    // Generate logo using DALL-E
-    const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'dall-e-3',
-        prompt: finalPrompt,
-        n: 1,
-        size: '1024x1024',
-        quality: 'standard',
-      }),
-    });
+    // Generate multiple logos if requested
+    const logoUrls = [];
+    for (let i = 0; i < count; i++) {
+      const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'dall-e-3',
+          prompt: finalPrompt + ` (variation ${i + 1})`,
+          n: 1,
+          size: '1024x1024',
+          quality: 'standard',
+        }),
+      });
 
-    if (!imageResponse.ok) {
-      const errorText = await imageResponse.text();
-      console.error('DALL-E API error:', imageResponse.status, errorText);
-      throw new Error(`DALL-E API error: ${imageResponse.status}`);
+      if (!imageResponse.ok) {
+        const errorText = await imageResponse.text();
+        console.error('DALL-E API error:', imageResponse.status, errorText);
+        throw new Error(`DALL-E API error: ${imageResponse.status}`);
+      }
+
+      const imageData = await imageResponse.json();
+      logoUrls.push(imageData.data[0].url);
+      console.log(`Logo ${i + 1} generated successfully`);
     }
 
-    const imageData = await imageResponse.json();
-    const logoUrl = imageData.data[0].url;
-
-    console.log('Logo generated successfully:', logoUrl);
-
     return new Response(
-      JSON.stringify({ logoUrl, prompt: finalPrompt }),
+      JSON.stringify({ logoUrls, prompt: finalPrompt }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }

@@ -14,9 +14,9 @@ import {
   Wand2,
   Upload,
   Eye,
-  Heart,
-  Share2,
-  Loader2
+  ShoppingBag,
+  Loader2,
+  Sparkles
 } from 'lucide-react';
 import { useDesignAssets } from '@/hooks/useDesignAssets';
 import { supabase } from '@/integrations/supabase/client';
@@ -25,19 +25,60 @@ import { useToast } from '@/hooks/use-toast';
 const DesignStudio: React.FC = () => {
   const { toast } = useToast();
   const { assets, loading: assetsLoading, setAssets } = useDesignAssets();
+  const [businessName, setBusinessName] = useState('');
   const [logoPrompt, setLogoPrompt] = useState('');
   const [isGeneratingLogo, setIsGeneratingLogo] = useState(false);
+  const [isRefiningPrompt, setIsRefiningPrompt] = useState(false);
   const [selectedLogo, setSelectedLogo] = useState<any>(null);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [uploadedLogoUrl, setUploadedLogoUrl] = useState<string>('');
   const [activeTab, setActiveTab] = useState('logo');
   const [customSceneDescription, setCustomSceneDescription] = useState('');
   const [customSceneStyle, setCustomSceneStyle] = useState('Photographic');
   const [customSceneRatio, setCustomSceneRatio] = useState('16:9 (Landscape)');
   const [isGeneratingScene, setIsGeneratingScene] = useState(false);
+  const [mockupCustomText, setMockupCustomText] = useState('');
+  const [isRefiningMockupText, setIsRefiningMockupText] = useState(false);
+  const [activeMockupGeneration, setActiveMockupGeneration] = useState<string | null>(null);
 
   // Filter assets by type
   const generatedLogos = assets.filter(asset => asset.asset_type === 'logo');
+  const generatedMockups = assets.filter(asset => asset.asset_type === 'mockup');
   const generatedScenes = assets.filter(asset => asset.asset_type === 'scene');
+
+  const refinePrompt = async (promptType: 'logo' | 'mockup') => {
+    const currentPrompt = promptType === 'logo' ? logoPrompt : mockupCustomText;
+    if (!currentPrompt.trim()) return;
+
+    const setRefining = promptType === 'logo' ? setIsRefiningPrompt : setIsRefiningMockupText;
+    const setPrompt = promptType === 'logo' ? setLogoPrompt : setMockupCustomText;
+
+    setRefining(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('refine-prompt', {
+        body: { prompt: currentPrompt, type: promptType }
+      });
+
+      if (error) throw error;
+
+      if (data?.refinedPrompt) {
+        setPrompt(data.refinedPrompt);
+        toast({
+          title: "Prompt Enhanced!",
+          description: "Your description has been refined with AI.",
+        });
+      }
+    } catch (error: any) {
+      console.error('Prompt refinement error:', error);
+      toast({
+        title: "Refinement Failed",
+        description: error.message || "Failed to refine prompt. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setRefining(false);
+    }
+  };
 
   const generateLogo = async () => {
     if (!logoPrompt.trim()) {
@@ -55,45 +96,54 @@ const DesignStudio: React.FC = () => {
       if (!user) throw new Error('Not authenticated');
 
       toast({
-        title: "Generating Logo",
-        description: "Creating your logo with AI... This may take 10-15 seconds.",
+        title: "Generating Logos",
+        description: "Creating 4 unique logo variations... This may take 30-40 seconds.",
       });
 
+      const fullPrompt = businessName 
+        ? `Create a professional logo for "${businessName}". ${logoPrompt}` 
+        : logoPrompt;
+
       const { data, error } = await supabase.functions.invoke('generate-logo', {
-        body: { prompt: logoPrompt }
+        body: { prompt: fullPrompt, count: 4 }
       });
 
       if (error) throw error;
 
-      if (!data?.logoUrl) {
-        throw new Error('No logo URL returned from API');
+      if (!data?.logoUrls || data.logoUrls.length === 0) {
+        throw new Error('No logo URLs returned from API');
       }
 
-      // Save to database
-      const { data: savedAsset, error: saveError } = await supabase
-        .from('design_assets')
-        .insert({
-          user_id: user.id,
-          asset_type: 'logo',
-          asset_url: data.logoUrl,
-          prompt_used: logoPrompt
-        })
-        .select()
-        .single();
+      // Save all logos to database
+      const savedAssets = [];
+      for (let i = 0; i < data.logoUrls.length; i++) {
+        const { data: savedAsset, error: saveError } = await supabase
+          .from('design_assets')
+          .insert({
+            user_id: user.id,
+            asset_type: 'logo',
+            asset_url: data.logoUrls[i],
+            prompt_used: fullPrompt
+          })
+          .select()
+          .single();
 
-      if (saveError) throw saveError;
+        if (saveError) throw saveError;
+        savedAssets.push(savedAsset);
+      }
 
-      setAssets(prev => [savedAsset, ...prev]);
+      setAssets(prev => [...savedAssets, ...prev]);
       setLogoPrompt('');
+      setBusinessName('');
       toast({
-        title: "Logo Generated!",
-        description: "Your logo has been created successfully.",
+        title: "Logos Generated!",
+        description: `${savedAssets.length} unique logos have been created successfully.`,
       });
     } catch (error: any) {
       console.error('Logo generation error:', error);
       toast({
         title: "Generation Failed",
-        description: error.message || "Failed to generate logo. Please try again.",
+        description: error.message || "Failed to generate logos. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -101,16 +151,37 @@ const DesignStudio: React.FC = () => {
     }
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
+    if (!file) return;
+
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) throw new Error('Not authenticated');
+
+      // Create object URL for preview
+      const objectUrl = URL.createObjectURL(file);
       setUploadedFile(file);
+      setUploadedLogoUrl(objectUrl);
+      
       // Set as selected logo for mockups
       setSelectedLogo({
         id: 'uploaded',
-        style: 'Uploaded Design',
-        description: 'Your uploaded logo',
-        file: file
+        asset_url: objectUrl,
+        asset_type: 'logo',
+        prompt_used: 'Uploaded logo'
+      });
+
+      toast({
+        title: "Logo Uploaded",
+        description: "Your logo is ready to use for mockups!",
+      });
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast({
+        title: "Upload Failed",
+        description: error.message || "Failed to upload logo.",
+        variant: "destructive",
       });
     }
   };
@@ -194,34 +265,35 @@ const DesignStudio: React.FC = () => {
     }
   };
 
-  const [isGeneratingMockup, setIsGeneratingMockup] = useState(false);
-  const [generatedMockups, setGeneratedMockups] = useState<any[]>([]);
-
-  const createMockup = async (templateId: string) => {
+  const createMockup = async (productType: string) => {
     if (!selectedLogo) {
       toast({
         title: "No Logo Selected",
-        description: "Please select a logo first",
+        description: "Please select or upload a logo first",
         variant: "destructive",
       });
       return;
     }
 
-    setIsGeneratingMockup(true);
+    setActiveMockupGeneration(productType);
     try {
       const user = (await supabase.auth.getUser()).data.user;
       if (!user) throw new Error('Not authenticated');
 
       toast({
         title: "Generating Mockup",
-        description: "Creating your product mockup... This may take 15-20 seconds.",
+        description: `Creating your ${productType} mockup... This may take 15-20 seconds.`,
       });
+
+      const styleAddition = mockupCustomText.trim() 
+        ? `Additional customization: ${mockupCustomText}` 
+        : 'Professional product photography';
 
       const { data, error } = await supabase.functions.invoke('generate-mockup', {
         body: { 
-          logoUrl: selectedLogo.asset_url || '',
-          productType: templateId,
-          style: 'Professional product photography'
+          logoUrl: selectedLogo.asset_url,
+          productType: productType,
+          style: styleAddition
         }
       });
 
@@ -238,17 +310,17 @@ const DesignStudio: React.FC = () => {
           user_id: user.id,
           asset_type: 'mockup',
           asset_url: data.mockupUrl,
-          prompt_used: `${templateId} mockup`
+          prompt_used: `${productType} mockup with ${styleAddition}`
         })
         .select()
         .single();
 
       if (saveError) throw saveError;
 
-      setGeneratedMockups(prev => [savedAsset, ...prev]);
+      setAssets(prev => [savedAsset, ...prev]);
       toast({
         title: "Mockup Generated!",
-        description: "Your product mockup has been created.",
+        description: `Your ${productType} mockup has been created.`,
       });
     } catch (error: any) {
       console.error('Mockup generation error:', error);
@@ -258,7 +330,34 @@ const DesignStudio: React.FC = () => {
         variant: "destructive",
       });
     } finally {
-      setIsGeneratingMockup(false);
+      setActiveMockupGeneration(null);
+    }
+  };
+
+  const downloadAsset = async (url: string, filename: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+      
+      toast({
+        title: "Download Started",
+        description: `${filename} is being downloaded.`,
+      });
+    } catch (error) {
+      console.error('Download error:', error);
+      toast({
+        title: "Download Failed",
+        description: "Failed to download the asset. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -266,7 +365,7 @@ const DesignStudio: React.FC = () => {
     { id: 'tshirt', name: 'T-Shirt', icon: Shirt, category: 'Apparel' },
     { id: 'mug', name: 'Coffee Mug', icon: Coffee, category: 'Accessories' },
     { id: 'phone', name: 'Phone Case', icon: Smartphone, category: 'Tech' },
-    { id: 'bag', name: 'Tote Bag', icon: Upload, category: 'Accessories' },
+    { id: 'bag', name: 'Tote Bag', icon: ShoppingBag, category: 'Accessories' },
   ];
 
   const sceneTemplates = [
@@ -281,7 +380,7 @@ const DesignStudio: React.FC = () => {
       {/* Header */}
       <div className="text-center mb-8">
         <div className="flex items-center justify-center gap-2 mb-4">
-          <Palette className="h-8 w-8 text-purple-600" />
+          <Palette className="h-8 w-8 text-primary" />
           <h1 className="text-3xl font-bold text-foreground">Design Studio</h1>
         </div>
         <p className="text-lg text-muted-foreground">
@@ -313,7 +412,11 @@ const DesignStudio: React.FC = () => {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Business Name</label>
-                  <Input placeholder="CraftBiz" />
+                  <Input 
+                    placeholder="CraftBiz" 
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2 relative">
                   <label className="text-sm font-medium">Brand Description</label>
@@ -327,14 +430,16 @@ const DesignStudio: React.FC = () => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="absolute bottom-2 left-2 h-8 px-2"
-                      onClick={() => {
-                        const refined = `${logoPrompt}\n\nEnhanced: Create a modern, professional logo that represents innovation and trust.`;
-                        setLogoPrompt(refined);
-                      }}
+                      className="absolute bottom-2 right-2 h-8 px-2"
+                      onClick={() => refinePrompt('logo')}
+                      disabled={isRefiningPrompt}
                       title="Refine description with AI"
                     >
-                      <Wand2 className="h-4 w-4 text-purple-600" />
+                      {isRefiningPrompt ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      ) : (
+                        <Sparkles className="h-4 w-4 text-primary" />
+                      )}
                     </Button>
                   )}
                 </div>
@@ -346,8 +451,8 @@ const DesignStudio: React.FC = () => {
                 >
                   {isGeneratingLogo ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Generating Logos...
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generating 4 Logos...
                     </>
                   ) : (
                     <>
@@ -372,11 +477,36 @@ const DesignStudio: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
-                  <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-semibold mb-2">Upload Your Logo</h3>
-                  <p className="text-muted-foreground mb-4">
-                    {uploadedFile ? `Uploaded: ${uploadedFile.name}` : 'Drag and drop your logo file here'}
-                  </p>
+                  {uploadedLogoUrl ? (
+                    <div className="space-y-4">
+                      <img 
+                        src={uploadedLogoUrl} 
+                        alt="Uploaded logo" 
+                        className="max-h-32 mx-auto rounded-lg"
+                      />
+                      <p className="text-sm text-muted-foreground">{uploadedFile?.name}</p>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => document.getElementById('logo-upload')?.click()}
+                      >
+                        Change File
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                      <h3 className="text-lg font-semibold mb-2">Upload Your Logo</h3>
+                      <p className="text-muted-foreground mb-4">
+                        Drag and drop your logo file here
+                      </p>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => document.getElementById('logo-upload')?.click()}
+                      >
+                        Choose File
+                      </Button>
+                    </>
+                  )}
                   <input
                     type="file"
                     id="logo-upload"
@@ -384,12 +514,6 @@ const DesignStudio: React.FC = () => {
                     onChange={handleFileUpload}
                     className="hidden"
                   />
-                  <Button 
-                    variant="outline" 
-                    onClick={() => document.getElementById('logo-upload')?.click()}
-                  >
-                    Choose File
-                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -413,21 +537,37 @@ const DesignStudio: React.FC = () => {
                   {generatedLogos.map((logo) => (
                     <div
                       key={logo.id}
-                      className={`cursor-pointer rounded-lg border p-4 transition-smooth hover:shadow-medium ${
-                        selectedLogo?.id === logo.id ? 'ring-2 ring-accent-orange bg-accent/20' : ''
+                      className={`cursor-pointer rounded-lg border p-4 transition-smooth hover:shadow-lg ${
+                        selectedLogo?.id === logo.id ? 'ring-2 ring-primary bg-accent/20' : ''
                       }`}
                       onClick={() => setSelectedLogo(logo)}
                     >
-                      <div className="aspect-square bg-gray-100 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
-                        <img src={logo.asset_url} alt="Generated logo" className="w-full h-full object-cover" />
+                      <div className="aspect-square bg-muted rounded-lg mb-3 flex items-center justify-center overflow-hidden">
+                        <img src={logo.asset_url} alt="Generated logo" className="w-full h-full object-contain p-2" />
                       </div>
                       <h4 className="font-semibold text-sm">Generated Logo</h4>
                       <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{logo.prompt_used}</p>
                       <div className="flex gap-1 mt-2">
-                        <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => window.open(logo.asset_url, '_blank')}>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="h-8 px-2" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(logo.asset_url, '_blank');
+                          }}
+                        >
                           <Eye className="h-3 w-3" />
                         </Button>
-                        <Button size="sm" variant="ghost" className="h-8 px-2">
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="h-8 px-2"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            downloadAsset(logo.asset_url, `${businessName || 'Logo'}_${logo.id}.png`);
+                          }}
+                        >
                           <Download className="h-3 w-3" />
                         </Button>
                       </div>
@@ -448,7 +588,7 @@ const DesignStudio: React.FC = () => {
                 Apply your logo to various products and merchandise
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-6">
               {!selectedLogo ? (
                 <div className="text-center py-8">
                   <Shirt className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
@@ -461,184 +601,233 @@ const DesignStudio: React.FC = () => {
                   </Button>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {mockupTemplates.map((template) => {
-                    const Icon = template.icon;
-                    return (
-                      <Card key={template.id} className="cursor-pointer hover:shadow-medium transition-smooth">
-                        <CardContent className="pt-6 text-center">
-                          <Icon className="h-12 w-12 mx-auto mb-3 text-accent-orange" />
-                          <h4 className="font-semibold mb-1">{template.name}</h4>
-                          <p className="text-xs text-muted-foreground mb-3">{template.category}</p>
-                          <Button 
-                            size="sm" 
-                            variant="warm" 
-                            className="w-full"
-                            onClick={() => createMockup(template.id)}
-                            disabled={isGeneratingMockup}
-                          >
-                            {isGeneratingMockup ? (
-                              <>
-                                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                                Generating...
-                              </>
-                            ) : (
-                              'Create Mockup'
-                            )}
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
+                <>
+                  {/* Custom Text Input */}
+                  <div className="space-y-2 relative">
+                    <label className="text-sm font-medium">Custom Mockup Text (Optional)</label>
+                    <Textarea
+                      placeholder="Add custom text or styling preferences for your mockup..."
+                      value={mockupCustomText}
+                      onChange={(e) => setMockupCustomText(e.target.value)}
+                      className="min-h-[80px] pr-12"
+                    />
+                    {mockupCustomText.trim() && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute bottom-2 right-2 h-8 px-2"
+                        onClick={() => refinePrompt('mockup')}
+                        disabled={isRefiningMockupText}
+                        title="Refine text with AI"
+                      >
+                        {isRefiningMockupText ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                        ) : (
+                          <Sparkles className="h-4 w-4 text-primary" />
+                        )}
+                      </Button>
+                    )}
+                  </div>
 
-              {/* Generated Mockups Display */}
-              {generatedMockups.length > 0 && (
-                <Card className="mt-6">
-                  <CardHeader>
-                    <CardTitle>Generated Mockups</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {generatedMockups.map((mockup) => (
-                        <div key={mockup.id} className="border border-border rounded-lg p-3">
-                          <div className="aspect-square bg-gray-100 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
-                            <img src={mockup.asset_url} alt="Mockup" className="w-full h-full object-cover" />
-                          </div>
-                          <p className="text-xs text-muted-foreground mb-2">{mockup.prompt_used}</p>
-                          <div className="flex gap-1">
-                            <Button size="sm" variant="ghost" className="h-8 px-2 flex-1" onClick={() => window.open(mockup.asset_url, '_blank')}>
-                              <Eye className="h-3 w-3 mr-1" />
-                              View
+                  {/* Quick Mockup Suggestions */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {mockupTemplates.map((template) => {
+                      const Icon = template.icon;
+                      const isGenerating = activeMockupGeneration === template.id;
+                      return (
+                        <Card key={template.id} className="cursor-pointer hover:shadow-lg transition-smooth">
+                          <CardContent className="pt-6 text-center">
+                            <Icon className="h-12 w-12 mx-auto mb-3 text-primary" />
+                            <h4 className="font-semibold mb-1">{template.name}</h4>
+                            <p className="text-xs text-muted-foreground mb-3">{template.category}</p>
+                            <Button 
+                              size="sm" 
+                              variant="warm" 
+                              className="w-full"
+                              onClick={() => createMockup(template.id)}
+                              disabled={!!activeMockupGeneration}
+                            >
+                              {isGenerating ? (
+                                <>
+                                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                                  Generating...
+                                </>
+                              ) : (
+                                'Create Mockup'
+                              )}
                             </Button>
-                            <Button size="sm" variant="ghost" className="h-8 px-2 flex-1">
-                              <Download className="h-3 w-3 mr-1" />
-                              Save
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
+
+          {/* Generated Mockups */}
+          {generatedMockups.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Generated Mockups</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {generatedMockups.map((mockup) => (
+                    <div key={mockup.id} className="rounded-lg border overflow-hidden">
+                      <div className="aspect-square bg-muted flex items-center justify-center">
+                        <img src={mockup.asset_url} alt="Mockup" className="w-full h-full object-cover" />
+                      </div>
+                      <div className="p-4">
+                        <p className="text-sm font-medium mb-2">{mockup.prompt_used}</p>
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="flex-1"
+                            onClick={() => window.open(mockup.asset_url, '_blank')}
+                          >
+                            <Eye className="mr-1 h-3 w-3" /> View
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="flex-1"
+                            onClick={() => downloadAsset(mockup.asset_url, `Mockup_${mockup.id}.png`)}
+                          >
+                            <Download className="mr-1 h-3 w-3" /> Save
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* Scenes Tab */}
         <TabsContent value="scenes" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Image className="h-5 w-5" />
-                AI Scene Creator
-              </CardTitle>
+              <CardTitle>Marketing Scenes</CardTitle>
               <CardDescription>
-                Generate custom marketing scenes and lifestyle photos
+                Create professional photography and lifestyle scenes
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {sceneTemplates.map((scene) => (
-                  <Card key={scene.id} className="cursor-pointer hover:shadow-medium transition-smooth">
-                    <CardContent className="pt-6">
-                      <h4 className="font-semibold mb-2">{scene.name}</h4>
-                      <p className="text-sm text-muted-foreground mb-4">{scene.description}</p>
-                      <Button 
-                        variant="warm" 
-                        size="sm" 
-                        className="w-full"
-                        onClick={() => generateScene(scene.id)}
-                        disabled={isGeneratingScene}
-                      >
-                        {isGeneratingScene ? 'Generating...' : 'Generate Scene'}
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-              
-              <div className="border-t pt-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium">Custom Scene Description</label>
-                    <Textarea
-                      placeholder="Describe the scene you want to create (e.g., 'A cozy coffee shop with customers using handmade ceramic mugs')"
-                      className="mt-2"
-                      value={customSceneDescription}
-                      onChange={(e) => setCustomSceneDescription(e.target.value)}
+              {/* Custom Scene Generator */}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Scene Description</label>
+                  <Textarea
+                    placeholder="Describe the scene you want to create..."
+                    value={customSceneDescription}
+                    onChange={(e) => setCustomSceneDescription(e.target.value)}
+                    className="min-h-[100px]"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Style</label>
+                    <Input
+                      value={customSceneStyle}
+                      onChange={(e) => setCustomSceneStyle(e.target.value)}
+                      placeholder="Photographic, Minimalist, etc."
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium">Style</label>
-                      <select 
-                        className="w-full mt-1 px-3 py-2 border border-input rounded-md"
-                        value={customSceneStyle}
-                        onChange={(e) => setCustomSceneStyle(e.target.value)}
-                      >
-                        <option>Photographic</option>
-                        <option>Artistic</option>
-                        <option>Minimalist</option>
-                        <option>Vintage</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium">Aspect Ratio</label>
-                      <select 
-                        className="w-full mt-1 px-3 py-2 border border-input rounded-md"
-                        value={customSceneRatio}
-                        onChange={(e) => setCustomSceneRatio(e.target.value)}
-                      >
-                        <option>16:9 (Landscape)</option>
-                        <option>1:1 (Square)</option>
-                        <option>9:16 (Portrait)</option>
-                        <option>4:3 (Classic)</option>
-                      </select>
-                    </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Aspect Ratio</label>
+                    <Input
+                      value={customSceneRatio}
+                      onChange={(e) => setCustomSceneRatio(e.target.value)}
+                      placeholder="16:9, 1:1, etc."
+                    />
                   </div>
-                  <Button 
-                    variant="craft" 
-                    className="w-full"
-                    onClick={handleCustomSceneGenerate}
-                    disabled={isGeneratingScene || !customSceneDescription.trim()}
-                  >
-                    <Wand2 className="mr-2 h-4 w-4" />
-                    {isGeneratingScene ? 'Generating Scene...' : 'Generate Custom Scene'}
-                  </Button>
-                  
-                  {/* Generated Scenes Display */}
-                  {generatedScenes.length > 0 && (
-                    <div className="mt-6 pt-6 border-t">
-                      <h4 className="font-semibold mb-4">Generated Scenes</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {generatedScenes.map((scene) => (
-                          <div key={scene.id} className="border border-border rounded-lg p-4">
-                            <div className="aspect-video bg-gray-100 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
-                              <img src={scene.asset_url} alt="Scene" className="w-full h-full object-cover" />
-                            </div>
-                            <p className="text-xs text-muted-foreground mb-2 line-clamp-2">{scene.prompt_used}</p>
-                            <div className="flex gap-2">
-                              <Button size="sm" variant="outline" className="flex-1" onClick={() => window.open(scene.asset_url, '_blank')}>
-                                <Eye className="h-3 w-3 mr-1" />
-                                View
-                              </Button>
-                              <Button size="sm" variant="outline" className="flex-1">
-                                <Download className="h-3 w-3 mr-1" />
-                                Save
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                </div>
+                <Button 
+                  variant="craft" 
+                  onClick={handleCustomSceneGenerate}
+                  disabled={isGeneratingScene || !customSceneDescription.trim()}
+                  className="w-full"
+                >
+                  {isGeneratingScene ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generating Scene...
+                    </>
+                  ) : (
+                    <>
+                      <Image className="mr-2 h-4 w-4" />
+                      Generate Scene
+                    </>
                   )}
+                </Button>
+              </div>
+
+              {/* Quick Scene Templates */}
+              <div>
+                <h3 className="text-sm font-medium mb-3">Quick Scene Templates</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {sceneTemplates.map((template) => (
+                    <Button
+                      key={template.id}
+                      variant="outline"
+                      className="h-auto py-3 px-4 flex flex-col items-start"
+                      onClick={() => generateScene(template.description)}
+                      disabled={isGeneratingScene}
+                    >
+                      <span className="font-semibold text-sm">{template.name}</span>
+                      <span className="text-xs text-muted-foreground mt-1">{template.description}</span>
+                    </Button>
+                  ))}
                 </div>
               </div>
             </CardContent>
           </Card>
+
+          {/* Generated Scenes */}
+          {generatedScenes.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Generated Scenes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {generatedScenes.map((scene) => (
+                    <div key={scene.id} className="rounded-lg border overflow-hidden">
+                      <div className="aspect-video bg-muted flex items-center justify-center">
+                        <img src={scene.asset_url} alt="Scene" className="w-full h-full object-cover" />
+                      </div>
+                      <div className="p-4">
+                        <p className="text-sm font-medium mb-2 line-clamp-2">{scene.prompt_used}</p>
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="flex-1"
+                            onClick={() => window.open(scene.asset_url, '_blank')}
+                          >
+                            <Eye className="mr-1 h-3 w-3" /> View
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="flex-1"
+                            onClick={() => downloadAsset(scene.asset_url, `Scene_${scene.id}.png`)}
+                          >
+                            <Download className="mr-1 h-3 w-3" /> Save
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>
