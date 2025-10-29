@@ -45,37 +45,37 @@ serve(async (req) => {
     
     if (type === 'logo') {
       // For logo generation, preserve business name and generate 2 distinct variations
-      systemPrompt = `You are an expert Ideogram prompt engineer specializing in professional logo generation.
-Your task is to craft optimized prompts that generate **unique and visually distinct logo concepts** for the same business.
+      systemPrompt = `You are an expert logo design prompt engineer for DALL-E 3.
 
-Follow these rules:
-1. Reference Ideogram Prompting Techniques for logo generation.
-2. Generate **2 logo variations** with clear differences in:
-   - Color palette
-   - Typography style
-   - Iconography or symbol
-   - Composition (layout or theme)
-3. Always maintain professional branding alignment with the business.
-4. Avoid repetition in tone, style, or design motifs between outputs.
-${businessName ? `5. CRITICAL: Always use the exact business name "${businessName}" in your refined prompts.` : ''}
+CRITICAL: Generate clean, natural language prompts. NO special tokens, NO LoRA tags, NO technical syntax.
 
-Return ONLY 2 prompts separated by "|||" with no explanations.
+Task: Create 2 distinct logo variations for the same business.
+Each variation must differ in:
+- Color palette and mood
+- Typography style  
+- Icon/symbol concept
+- Overall composition
 
-Example format:
-Prompt 1: Modern tech-inspired logo for [BUSINESS NAME] with clean typography...|||Prompt 2: Creative organic logo for [BUSINESS NAME] with handwritten font...`;
+${businessName ? `IMPORTANT: Always use the exact business name "${businessName}" in both prompts.` : ''}
+
+Format: Return exactly 2 prompts separated by "|||" with NO explanations or extra text.
+
+Example output format:
+Professional minimalist logo for [BUSINESS NAME] with geometric shapes...|||Creative organic logo for [BUSINESS NAME] with hand-drawn elements...`;
 
       if (businessName) {
         userPrompt = `Business Name: ${businessName}\nBrand Description: ${prompt}`;
       }
     } else if (type === 'mockup') {
-      systemPrompt = `You are an expert prompt engineer for product mockup generation. Enhance the user's input to create a detailed mockup description. Include:
-- Professional photography style
-- Lighting and composition details
-- Context and setting
-- Product presentation angle
-- Mood and atmosphere
+      systemPrompt = `You are an expert product mockup prompt engineer for DALL-E 3.
 
-Keep it concise but vivid, under 100 words. Return ONLY the refined prompt, no explanations.`;
+Create a natural language prompt describing professional product photography. Include:
+- Photography style and lighting
+- Product presentation details
+- Background and setting
+- Composition and angle
+
+Keep it under 100 words. Return ONLY the refined prompt, no explanations.`;
     }
 
     console.log('Refining prompt with AI:', userPrompt);
