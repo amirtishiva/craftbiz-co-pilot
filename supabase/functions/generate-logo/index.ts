@@ -52,31 +52,63 @@ serve(async (req) => {
     
     for (let i = 0; i < numToGenerate; i++) {
       const currentPrompt = prompts[i] || prompts[0];
+      let attemptCount = 0;
+      let success = false;
+      let logoUrl = null;
       
-      const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'dall-e-3',
-          prompt: currentPrompt,
-          n: 1,
-          size: '1024x1024',
-          quality: 'standard',
-        }),
-      });
+      // Try up to 2 times with simplified prompt on retry
+      while (attemptCount < 2 && !success) {
+        try {
+          // On retry, use a simplified safe prompt
+          const finalPrompt = attemptCount === 0 
+            ? currentPrompt 
+            : `Professional minimalist logo design for ${businessName || 'business'}, clean and modern style, simple geometric shapes, solid colors, vector art quality`;
+          
+          const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${OPENAI_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'dall-e-3',
+              prompt: finalPrompt,
+              n: 1,
+              size: '1024x1024',
+              quality: 'standard',
+            }),
+          });
 
-      if (!imageResponse.ok) {
-        const errorText = await imageResponse.text();
-        console.error('DALL-E API error:', imageResponse.status, errorText);
-        throw new Error(`DALL-E API error: ${imageResponse.status}`);
+          if (!imageResponse.ok) {
+            const errorText = await imageResponse.text();
+            console.error('DALL-E API error:', imageResponse.status, errorText);
+            attemptCount++;
+            if (attemptCount >= 2) {
+              throw new Error(`DALL-E API error: ${imageResponse.status}`);
+            }
+            continue;
+          }
+
+          const imageData = await imageResponse.json();
+          logoUrl = imageData.data[0].url;
+          success = true;
+          console.log(`Logo ${i + 1} generated successfully${attemptCount > 0 ? ' (retry)' : ''}`);
+        } catch (error) {
+          attemptCount++;
+          if (attemptCount >= 2) {
+            throw error;
+          }
+          console.log(`Retrying logo ${i + 1} with simplified prompt...`);
+        }
       }
+      
+      if (logoUrl) {
+        logoUrls.push(logoUrl);
+      }
+    }
 
-      const imageData = await imageResponse.json();
-      logoUrls.push(imageData.data[0].url);
-      console.log(`Logo ${i + 1} generated successfully`);
+    if (logoUrls.length === 0) {
+      throw new Error('Failed to generate any logos');
     }
 
     return new Response(
