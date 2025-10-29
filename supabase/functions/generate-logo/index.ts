@@ -13,14 +13,14 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, businessName, industry, style, count = 1 } = await req.json();
-
-    // Support both prompt-based and structured requests
-    const finalPrompt = prompt || `Create a modern, professional logo for "${businessName}", a ${industry || 'business'}. Style: ${style || 'minimalist and professional'}. The logo should be clean, memorable, and suitable for digital and print use. Use vibrant colors suitable for Indian market.`;
+    const { prompt, businessName, count = 1 } = await req.json();
     
-    if (!finalPrompt) {
-      throw new Error('Prompt or business name is required');
+    if (!prompt) {
+      throw new Error('Prompt is required');
     }
+    
+    // Parse prompts if multiple variations are provided (separated by |||)
+    const prompts = prompt.includes('|||') ? prompt.split('|||').map((p: string) => p.trim()) : [prompt];
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -44,11 +44,15 @@ serve(async (req) => {
       throw new Error('OpenAI API key is not configured');
     }
 
-    console.log('Generating', count, 'logo(s) with DALL-E:', finalPrompt);
+    console.log('Generating', count, 'logo(s) with DALL-E using', prompts.length, 'prompt variations');
 
-    // Generate multiple logos if requested
+    // Generate logos using available prompts
     const logoUrls = [];
-    for (let i = 0; i < count; i++) {
+    const numToGenerate = Math.min(count, prompts.length);
+    
+    for (let i = 0; i < numToGenerate; i++) {
+      const currentPrompt = prompts[i] || prompts[0];
+      
       const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST',
         headers: {
@@ -57,7 +61,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           model: 'dall-e-3',
-          prompt: finalPrompt + ` (variation ${i + 1})`,
+          prompt: currentPrompt,
           n: 1,
           size: '1024x1024',
           quality: 'standard',
@@ -76,7 +80,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ logoUrls, prompt: finalPrompt }),
+      JSON.stringify({ logoUrls }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }

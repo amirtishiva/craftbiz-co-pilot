@@ -12,7 +12,6 @@ import {
   Smartphone,
   Download,
   Wand2,
-  Upload,
   Eye,
   ShoppingBag,
   Loader2,
@@ -30,8 +29,6 @@ const DesignStudio: React.FC = () => {
   const [isGeneratingLogo, setIsGeneratingLogo] = useState(false);
   const [isRefiningPrompt, setIsRefiningPrompt] = useState(false);
   const [selectedLogo, setSelectedLogo] = useState<any>(null);
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [uploadedLogoUrl, setUploadedLogoUrl] = useState<string>('');
   const [activeTab, setActiveTab] = useState('logo');
   const [customSceneDescription, setCustomSceneDescription] = useState('');
   const [customSceneStyle, setCustomSceneStyle] = useState('Photographic');
@@ -56,7 +53,11 @@ const DesignStudio: React.FC = () => {
     setRefining(true);
     try {
       const { data, error } = await supabase.functions.invoke('refine-prompt', {
-        body: { prompt: currentPrompt, type: promptType }
+        body: { 
+          prompt: currentPrompt, 
+          type: promptType,
+          businessName: promptType === 'logo' ? businessName : undefined
+        }
       });
 
       if (error) throw error;
@@ -97,7 +98,7 @@ const DesignStudio: React.FC = () => {
 
       toast({
         title: "Generating Logos",
-        description: "Creating 4 unique logo variations... This may take 30-40 seconds.",
+        description: "Creating 2 unique logo variations... This may take 20-30 seconds.",
       });
 
       const fullPrompt = businessName 
@@ -105,7 +106,7 @@ const DesignStudio: React.FC = () => {
         : logoPrompt;
 
       const { data, error } = await supabase.functions.invoke('generate-logo', {
-        body: { prompt: fullPrompt, count: 4 }
+        body: { prompt: fullPrompt, businessName, count: 2 }
       });
 
       if (error) throw error;
@@ -117,13 +118,14 @@ const DesignStudio: React.FC = () => {
       // Save all logos to database
       const savedAssets = [];
       for (let i = 0; i < data.logoUrls.length; i++) {
+        const logoName = businessName || 'Logo';
         const { data: savedAsset, error: saveError } = await supabase
           .from('design_assets')
           .insert({
             user_id: user.id,
             asset_type: 'logo',
             asset_url: data.logoUrls[i],
-            prompt_used: fullPrompt
+            prompt_used: `${logoName} - Variation ${i + 1}`
           })
           .select()
           .single();
@@ -148,41 +150,6 @@ const DesignStudio: React.FC = () => {
       });
     } finally {
       setIsGeneratingLogo(false);
-    }
-  };
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const user = (await supabase.auth.getUser()).data.user;
-      if (!user) throw new Error('Not authenticated');
-
-      // Create object URL for preview
-      const objectUrl = URL.createObjectURL(file);
-      setUploadedFile(file);
-      setUploadedLogoUrl(objectUrl);
-      
-      // Set as selected logo for mockups
-      setSelectedLogo({
-        id: 'uploaded',
-        asset_url: objectUrl,
-        asset_type: 'logo',
-        prompt_used: 'Uploaded logo'
-      });
-
-      toast({
-        title: "Logo Uploaded",
-        description: "Your logo is ready to use for mockups!",
-      });
-    } catch (error: any) {
-      console.error('Upload error:', error);
-      toast({
-        title: "Upload Failed",
-        description: error.message || "Failed to upload logo.",
-        variant: "destructive",
-      });
     }
   };
 
@@ -336,16 +303,32 @@ const DesignStudio: React.FC = () => {
 
   const downloadAsset = async (url: string, filename: string) => {
     try {
-      const response = await fetch(url);
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
+      // Use a proxy approach to handle CORS issues with OpenAI URLs
       const link = document.createElement('a');
-      link.href = blobUrl;
+      link.href = url;
       link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      
+      // Try to fetch and download
+      try {
+        const response = await fetch(url, { mode: 'cors' });
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        link.href = blobUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+      } catch (fetchError) {
+        // Fallback: open in new tab for user to save manually
+        window.open(url, '_blank');
+        toast({
+          title: "Opening in New Tab",
+          description: "Please right-click and save the image from the new tab.",
+        });
+        return;
+      }
       
       toast({
         title: "Download Started",
@@ -355,9 +338,10 @@ const DesignStudio: React.FC = () => {
       console.error('Download error:', error);
       toast({
         title: "Download Failed",
-        description: "Failed to download the asset. Please try again.",
+        description: "Opening in new tab for manual save.",
         variant: "destructive",
       });
+      window.open(url, '_blank');
     }
   };
 
@@ -397,127 +381,70 @@ const DesignStudio: React.FC = () => {
 
         {/* Logo Design Tab */}
         <TabsContent value="logo" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Logo Generator */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Wand2 className="h-5 w-5" />
-                  AI Logo Generator
-                </CardTitle>
-                <CardDescription>
-                  Describe your brand and we'll create unique logos
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Business Name</label>
-                  <Input 
-                    placeholder="CraftBiz" 
-                    value={businessName}
-                    onChange={(e) => setBusinessName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2 relative">
-                  <label className="text-sm font-medium">Brand Description</label>
-                  <Textarea
-                    placeholder="Describe your brand personality, colors you like, style preferences..."
-                    value={logoPrompt}
-                    onChange={(e) => setLogoPrompt(e.target.value)}
-                    className="min-h-[100px] pr-12"
-                  />
-                  {logoPrompt.trim() && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="absolute bottom-2 right-2 h-8 px-2"
-                      onClick={() => refinePrompt('logo')}
-                      disabled={isRefiningPrompt}
-                      title="Refine description with AI"
-                    >
-                      {isRefiningPrompt ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                      ) : (
-                        <Sparkles className="h-4 w-4 text-primary" />
-                      )}
-                    </Button>
-                  )}
-                </div>
-                <Button 
-                  variant="craft" 
-                  onClick={generateLogo}
-                  disabled={isGeneratingLogo || !logoPrompt.trim()}
-                  className="w-full"
-                >
-                  {isGeneratingLogo ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Generating 4 Logos...
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="mr-2 h-4 w-4" />
-                      Generate Logos
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Upload Alternative */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Upload className="h-5 w-5" />
-                  Upload Existing Design
-                </CardTitle>
-                <CardDescription>
-                  Have a logo already? Upload it to create mockups
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
-                  {uploadedLogoUrl ? (
-                    <div className="space-y-4">
-                      <img 
-                        src={uploadedLogoUrl} 
-                        alt="Uploaded logo" 
-                        className="max-h-32 mx-auto rounded-lg"
-                      />
-                      <p className="text-sm text-muted-foreground">{uploadedFile?.name}</p>
-                      <Button 
-                        variant="outline" 
-                        onClick={() => document.getElementById('logo-upload')?.click()}
-                      >
-                        Change File
-                      </Button>
-                    </div>
-                  ) : (
-                    <>
-                      <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                      <h3 className="text-lg font-semibold mb-2">Upload Your Logo</h3>
-                      <p className="text-muted-foreground mb-4">
-                        Drag and drop your logo file here
-                      </p>
-                      <Button 
-                        variant="outline" 
-                        onClick={() => document.getElementById('logo-upload')?.click()}
-                      >
-                        Choose File
-                      </Button>
-                    </>
-                  )}
-                  <input
-                    type="file"
-                    id="logo-upload"
-                    accept="image/*"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <Card className="max-w-2xl mx-auto">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wand2 className="h-5 w-5" />
+                AI Logo Generator
+              </CardTitle>
+              <CardDescription>
+                Describe your brand and we'll create unique logos
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Business Name</label>
+                <Input 
+                  placeholder="CraftBiz" 
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2 relative">
+                <label className="text-sm font-medium">Brand Description</label>
+                <Textarea
+                  placeholder="Describe your brand personality, colors you like, style preferences..."
+                  value={logoPrompt}
+                  onChange={(e) => setLogoPrompt(e.target.value)}
+                  className="min-h-[100px] pr-12"
+                />
+                {logoPrompt.trim() && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute bottom-2 right-2 h-8 px-2"
+                    onClick={() => refinePrompt('logo')}
+                    disabled={isRefiningPrompt}
+                    title="Refine description with AI"
+                  >
+                    {isRefiningPrompt ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    ) : (
+                      <Sparkles className="h-4 w-4 text-primary" />
+                    )}
+                  </Button>
+                )}
+              </div>
+              <Button 
+                variant="craft" 
+                onClick={generateLogo}
+                disabled={isGeneratingLogo || !logoPrompt.trim()}
+                className="w-full"
+              >
+                {isGeneratingLogo ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generating 2 Logos...
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="mr-2 h-4 w-4" />
+                    Generate Logos
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
 
           {/* Generated Logos */}
           {assetsLoading ? (
@@ -565,7 +492,8 @@ const DesignStudio: React.FC = () => {
                           className="h-8 px-2"
                           onClick={(e) => {
                             e.stopPropagation();
-                            downloadAsset(logo.asset_url, `${businessName || 'Logo'}_${logo.id}.png`);
+                            const logoNum = generatedLogos.indexOf(logo) + 1;
+                            downloadAsset(logo.asset_url, `Logo_${logoNum}.png`);
                           }}
                         >
                           <Download className="h-3 w-3" />
@@ -602,64 +530,89 @@ const DesignStudio: React.FC = () => {
                 </div>
               ) : (
                 <>
-                  {/* Custom Text Input */}
-                  <div className="space-y-2 relative">
-                    <label className="text-sm font-medium">Custom Mockup Text (Optional)</label>
-                    <Textarea
-                      placeholder="Add custom text or styling preferences for your mockup..."
-                      value={mockupCustomText}
-                      onChange={(e) => setMockupCustomText(e.target.value)}
-                      className="min-h-[80px] pr-12"
-                    />
+                  {/* Custom Text Input with Generate Button */}
+                  <div className="space-y-4">
+                    <div className="space-y-2 relative">
+                      <label className="text-sm font-medium">Custom Mockup Text (Optional)</label>
+                      <Textarea
+                        placeholder="Add custom text or styling preferences for your mockup..."
+                        value={mockupCustomText}
+                        onChange={(e) => setMockupCustomText(e.target.value)}
+                        className="min-h-[80px] pr-12"
+                      />
+                      {mockupCustomText.trim() && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="absolute bottom-2 right-2 h-8 px-2"
+                          onClick={() => refinePrompt('mockup')}
+                          disabled={isRefiningMockupText}
+                          title="Refine text with AI"
+                        >
+                          {isRefiningMockupText ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                          ) : (
+                            <Sparkles className="h-4 w-4 text-primary" />
+                          )}
+                        </Button>
+                      )}
+                    </div>
                     {mockupCustomText.trim() && (
                       <Button
-                        variant="ghost"
-                        size="sm"
-                        className="absolute bottom-2 right-2 h-8 px-2"
-                        onClick={() => refinePrompt('mockup')}
-                        disabled={isRefiningMockupText}
-                        title="Refine text with AI"
+                        variant="craft"
+                        className="w-full"
+                        onClick={() => createMockup('custom')}
+                        disabled={!!activeMockupGeneration}
                       >
-                        {isRefiningMockupText ? (
-                          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                        {activeMockupGeneration === 'custom' ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Generating Custom Mockup...
+                          </>
                         ) : (
-                          <Sparkles className="h-4 w-4 text-primary" />
+                          <>
+                            <Wand2 className="mr-2 h-4 w-4" />
+                            Generate Custom Mockup
+                          </>
                         )}
                       </Button>
                     )}
                   </div>
 
                   {/* Quick Mockup Suggestions */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {mockupTemplates.map((template) => {
-                      const Icon = template.icon;
-                      const isGenerating = activeMockupGeneration === template.id;
-                      return (
-                        <Card key={template.id} className="cursor-pointer hover:shadow-lg transition-smooth">
-                          <CardContent className="pt-6 text-center">
-                            <Icon className="h-12 w-12 mx-auto mb-3 text-primary" />
-                            <h4 className="font-semibold mb-1">{template.name}</h4>
-                            <p className="text-xs text-muted-foreground mb-3">{template.category}</p>
-                            <Button 
-                              size="sm" 
-                              variant="warm" 
-                              className="w-full"
-                              onClick={() => createMockup(template.id)}
-                              disabled={!!activeMockupGeneration}
-                            >
-                              {isGenerating ? (
-                                <>
-                                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                                  Generating...
-                                </>
-                              ) : (
-                                'Create Mockup'
-                              )}
-                            </Button>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
+                  <div>
+                    <h3 className="text-sm font-medium mb-3">Quick Mockup Templates</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {mockupTemplates.map((template) => {
+                        const Icon = template.icon;
+                        const isGenerating = activeMockupGeneration === template.id;
+                        return (
+                          <Card key={template.id} className="cursor-pointer hover:shadow-lg transition-smooth">
+                            <CardContent className="pt-6 text-center">
+                              <Icon className="h-12 w-12 mx-auto mb-3 text-primary" />
+                              <h4 className="font-semibold mb-1">{template.name}</h4>
+                              <p className="text-xs text-muted-foreground mb-3">{template.category}</p>
+                              <Button 
+                                size="sm" 
+                                variant="warm" 
+                                className="w-full"
+                                onClick={() => createMockup(template.id)}
+                                disabled={!!activeMockupGeneration}
+                              >
+                                {isGenerating ? (
+                                  <>
+                                    <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                                    Generating...
+                                  </>
+                                ) : (
+                                  'Create Mockup'
+                                )}
+                              </Button>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
                   </div>
                 </>
               )}

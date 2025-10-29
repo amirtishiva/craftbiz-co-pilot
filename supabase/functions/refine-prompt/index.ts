@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, type } = await req.json();
+    const { prompt, type, businessName } = await req.json();
 
     if (!prompt) {
       throw new Error('Prompt is required');
@@ -41,15 +41,32 @@ serve(async (req) => {
     }
 
     let systemPrompt = '';
+    let userPrompt = prompt;
+    
     if (type === 'logo') {
-      systemPrompt = `You are an expert prompt engineer for logo design. Enhance the user's input to create a detailed, effective logo generation prompt. Include:
-- Clear visual style and aesthetic direction
-- Specific color preferences and symbolism
-- Brand personality and values
-- Design elements and composition
-- Professional quality requirements
+      // For logo generation, preserve business name and generate 2 distinct variations
+      systemPrompt = `You are an expert Ideogram prompt engineer specializing in professional logo generation.
+Your task is to craft optimized prompts that generate **unique and visually distinct logo concepts** for the same business.
 
-Keep it concise but comprehensive, under 150 words. Return ONLY the refined prompt, no explanations.`;
+Follow these rules:
+1. Reference Ideogram Prompting Techniques for logo generation.
+2. Generate **2 logo variations** with clear differences in:
+   - Color palette
+   - Typography style
+   - Iconography or symbol
+   - Composition (layout or theme)
+3. Always maintain professional branding alignment with the business.
+4. Avoid repetition in tone, style, or design motifs between outputs.
+${businessName ? `5. CRITICAL: Always use the exact business name "${businessName}" in your refined prompts.` : ''}
+
+Return ONLY 2 prompts separated by "|||" with no explanations.
+
+Example format:
+Prompt 1: Modern tech-inspired logo for [BUSINESS NAME] with clean typography...|||Prompt 2: Creative organic logo for [BUSINESS NAME] with handwritten font...`;
+
+      if (businessName) {
+        userPrompt = `Business Name: ${businessName}\nBrand Description: ${prompt}`;
+      }
     } else if (type === 'mockup') {
       systemPrompt = `You are an expert prompt engineer for product mockup generation. Enhance the user's input to create a detailed mockup description. Include:
 - Professional photography style
@@ -61,7 +78,7 @@ Keep it concise but comprehensive, under 150 words. Return ONLY the refined prom
 Keep it concise but vivid, under 100 words. Return ONLY the refined prompt, no explanations.`;
     }
 
-    console.log('Refining prompt with AI:', prompt);
+    console.log('Refining prompt with AI:', userPrompt);
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -73,9 +90,9 @@ Keep it concise but vivid, under 100 words. Return ONLY the refined prompt, no e
         model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: prompt }
+          { role: 'user', content: userPrompt }
         ],
-        max_completion_tokens: 200,
+        max_completion_tokens: 400,
       }),
     });
 
