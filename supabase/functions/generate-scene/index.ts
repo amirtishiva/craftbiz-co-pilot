@@ -13,13 +13,10 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, businessName, industry, style } = await req.json();
+    const { description, style, aspectRatio } = await req.json();
 
-    // Support both prompt-based and structured requests
-    const finalPrompt = prompt || `Create a modern, professional logo for "${businessName}", a ${industry || 'business'}. Style: ${style || 'minimalist and professional'}. The logo should be clean, memorable, and suitable for digital and print use. Use vibrant colors suitable for Indian market.`;
-    
-    if (!finalPrompt) {
-      throw new Error('Prompt or business name is required');
+    if (!description) {
+      throw new Error('Scene description is required');
     }
 
     const authHeader = req.headers.get('Authorization');
@@ -31,7 +28,6 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get user from JWT
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     
@@ -44,9 +40,20 @@ serve(async (req) => {
       throw new Error('OpenAI API key is not configured');
     }
 
-    console.log('Generating logo with DALL-E:', finalPrompt);
+    const sizeMap: Record<string, string> = {
+      '16:9 (Landscape)': '1792x1024',
+      '1:1 (Square)': '1024x1024',
+      '9:16 (Portrait)': '1024x1792',
+      '4:3 (Classic)': '1024x1024'
+    };
 
-    // Generate logo using DALL-E
+    const size = sizeMap[aspectRatio || '16:9 (Landscape)'] || '1792x1024';
+    const styleGuide = style || 'Photographic';
+    
+    const prompt = `${description}. ${styleGuide} style. Professional marketing photography with excellent composition and lighting. High quality, detailed, realistic.`;
+
+    console.log('Generating scene with DALL-E:', prompt);
+
     const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: {
@@ -55,10 +62,10 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: 'dall-e-3',
-        prompt: finalPrompt,
+        prompt: prompt,
         n: 1,
-        size: '1024x1024',
-        quality: 'standard',
+        size: size,
+        quality: 'hd',
       }),
     });
 
@@ -69,18 +76,18 @@ serve(async (req) => {
     }
 
     const imageData = await imageResponse.json();
-    const logoUrl = imageData.data[0].url;
+    const sceneUrl = imageData.data[0].url;
 
-    console.log('Logo generated successfully:', logoUrl);
+    console.log('Scene generated successfully:', sceneUrl);
 
     return new Response(
-      JSON.stringify({ logoUrl, prompt: finalPrompt }),
+      JSON.stringify({ sceneUrl, prompt }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
   } catch (error) {
-    console.error('Error in generate-logo function:', error);
+    console.error('Error in generate-scene function:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {

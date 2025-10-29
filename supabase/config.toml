@@ -29,3 +29,9 @@ verify_jwt = false
 
 [functions.translate-business-plan]
 verify_jwt = false
+
+[functions.generate-mockup]
+verify_jwt = true
+
+[functions.generate-scene]
+verify_jwt = true

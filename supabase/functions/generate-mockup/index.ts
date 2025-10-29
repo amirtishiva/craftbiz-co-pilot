@@ -13,13 +13,10 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, businessName, industry, style } = await req.json();
+    const { logoUrl, productType, style } = await req.json();
 
-    // Support both prompt-based and structured requests
-    const finalPrompt = prompt || `Create a modern, professional logo for "${businessName}", a ${industry || 'business'}. Style: ${style || 'minimalist and professional'}. The logo should be clean, memorable, and suitable for digital and print use. Use vibrant colors suitable for Indian market.`;
-    
-    if (!finalPrompt) {
-      throw new Error('Prompt or business name is required');
+    if (!logoUrl || !productType) {
+      throw new Error('Logo URL and product type are required');
     }
 
     const authHeader = req.headers.get('Authorization');
@@ -31,7 +28,6 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get user from JWT
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     
@@ -44,9 +40,17 @@ serve(async (req) => {
       throw new Error('OpenAI API key is not configured');
     }
 
-    console.log('Generating logo with DALL-E:', finalPrompt);
+    const productDescriptions: Record<string, string> = {
+      'tshirt': 'high-quality t-shirt mockup with the logo on the chest',
+      'mug': 'ceramic coffee mug with the logo prominently displayed',
+      'phone': 'phone case with the logo design elegantly placed',
+      'bag': 'tote bag featuring the logo design'
+    };
 
-    // Generate logo using DALL-E
+    const prompt = `Create a professional product mockup: ${productDescriptions[productType] || productType}. ${style || 'Clean, modern photography with neutral background'}. Professional lighting and composition.`;
+
+    console.log('Generating mockup with DALL-E:', prompt);
+
     const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: {
@@ -55,7 +59,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: 'dall-e-3',
-        prompt: finalPrompt,
+        prompt: prompt,
         n: 1,
         size: '1024x1024',
         quality: 'standard',
@@ -69,18 +73,18 @@ serve(async (req) => {
     }
 
     const imageData = await imageResponse.json();
-    const logoUrl = imageData.data[0].url;
+    const mockupUrl = imageData.data[0].url;
 
-    console.log('Logo generated successfully:', logoUrl);
+    console.log('Mockup generated successfully:', mockupUrl);
 
     return new Response(
-      JSON.stringify({ logoUrl, prompt: finalPrompt }),
+      JSON.stringify({ mockupUrl, productType, prompt }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
   } catch (error) {
-    console.error('Error in generate-logo function:', error);
+    console.error('Error in generate-mockup function:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {

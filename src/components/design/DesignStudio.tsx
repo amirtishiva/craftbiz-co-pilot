@@ -54,11 +54,20 @@ const DesignStudio: React.FC = () => {
       const user = (await supabase.auth.getUser()).data.user;
       if (!user) throw new Error('Not authenticated');
 
+      toast({
+        title: "Generating Logo",
+        description: "Creating your logo with AI... This may take 10-15 seconds.",
+      });
+
       const { data, error } = await supabase.functions.invoke('generate-logo', {
         body: { prompt: logoPrompt }
       });
 
       if (error) throw error;
+
+      if (!data?.logoUrl) {
+        throw new Error('No logo URL returned from API');
+      }
 
       // Save to database
       const { data: savedAsset, error: saveError } = await supabase
@@ -75,15 +84,16 @@ const DesignStudio: React.FC = () => {
       if (saveError) throw saveError;
 
       setAssets(prev => [savedAsset, ...prev]);
+      setLogoPrompt('');
       toast({
         title: "Logo Generated!",
         description: "Your logo has been created successfully.",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Logo generation error:', error);
       toast({
         title: "Generation Failed",
-        description: "Failed to generate logo. Please try again.",
+        description: error.message || "Failed to generate logo. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -110,8 +120,8 @@ const DesignStudio: React.FC = () => {
   };
 
   const generateScene = async (templateId?: string) => {
-    const prompt = templateId || customSceneDescription;
-    if (!prompt.trim()) {
+    const description = templateId || customSceneDescription;
+    if (!description.trim()) {
       toast({
         title: "Missing Information",
         description: "Please enter a scene description",
@@ -125,13 +135,24 @@ const DesignStudio: React.FC = () => {
       const user = (await supabase.auth.getUser()).data.user;
       if (!user) throw new Error('Not authenticated');
 
-      const { data, error } = await supabase.functions.invoke('generate-logo', {
+      toast({
+        title: "Generating Scene",
+        description: "Creating your marketing scene... This may take 15-20 seconds.",
+      });
+
+      const { data, error } = await supabase.functions.invoke('generate-scene', {
         body: { 
-          prompt: `Marketing scene: ${prompt}. Style: ${customSceneStyle}. Aspect ratio: ${customSceneRatio}` 
+          description,
+          style: customSceneStyle,
+          aspectRatio: customSceneRatio
         }
       });
 
       if (error) throw error;
+
+      if (!data?.sceneUrl) {
+        throw new Error('No scene URL returned from API');
+      }
 
       // Save to database
       const { data: savedAsset, error: saveError } = await supabase
@@ -139,8 +160,8 @@ const DesignStudio: React.FC = () => {
         .insert({
           user_id: user.id,
           asset_type: 'scene',
-          asset_url: data.logoUrl,
-          prompt_used: prompt
+          asset_url: data.sceneUrl,
+          prompt_used: description
         })
         .select()
         .single();
@@ -155,11 +176,11 @@ const DesignStudio: React.FC = () => {
         title: "Scene Generated!",
         description: "Your marketing scene has been created.",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Scene generation error:', error);
       toast({
         title: "Generation Failed",
-        description: "Failed to generate scene. Please try again.",
+        description: error.message || "Failed to generate scene. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -173,10 +194,71 @@ const DesignStudio: React.FC = () => {
     }
   };
 
-  const createMockup = (templateId: string) => {
-    if (selectedLogo) {
-      // Simulate mockup creation
-      alert(`Creating ${templateId} mockup with your selected logo!`);
+  const [isGeneratingMockup, setIsGeneratingMockup] = useState(false);
+  const [generatedMockups, setGeneratedMockups] = useState<any[]>([]);
+
+  const createMockup = async (templateId: string) => {
+    if (!selectedLogo) {
+      toast({
+        title: "No Logo Selected",
+        description: "Please select a logo first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingMockup(true);
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) throw new Error('Not authenticated');
+
+      toast({
+        title: "Generating Mockup",
+        description: "Creating your product mockup... This may take 15-20 seconds.",
+      });
+
+      const { data, error } = await supabase.functions.invoke('generate-mockup', {
+        body: { 
+          logoUrl: selectedLogo.asset_url || '',
+          productType: templateId,
+          style: 'Professional product photography'
+        }
+      });
+
+      if (error) throw error;
+
+      if (!data?.mockupUrl) {
+        throw new Error('No mockup URL returned from API');
+      }
+
+      // Save to database
+      const { data: savedAsset, error: saveError } = await supabase
+        .from('design_assets')
+        .insert({
+          user_id: user.id,
+          asset_type: 'mockup',
+          asset_url: data.mockupUrl,
+          prompt_used: `${templateId} mockup`
+        })
+        .select()
+        .single();
+
+      if (saveError) throw saveError;
+
+      setGeneratedMockups(prev => [savedAsset, ...prev]);
+      toast({
+        title: "Mockup Generated!",
+        description: "Your product mockup has been created.",
+      });
+    } catch (error: any) {
+      console.error('Mockup generation error:', error);
+      toast({
+        title: "Generation Failed",
+        description: error.message || "Failed to generate mockup. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingMockup(false);
     }
   };
 
@@ -393,14 +475,53 @@ const DesignStudio: React.FC = () => {
                             variant="warm" 
                             className="w-full"
                             onClick={() => createMockup(template.id)}
+                            disabled={isGeneratingMockup}
                           >
-                            Create Mockup
+                            {isGeneratingMockup ? (
+                              <>
+                                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                                Generating...
+                              </>
+                            ) : (
+                              'Create Mockup'
+                            )}
                           </Button>
                         </CardContent>
                       </Card>
                     );
                   })}
                 </div>
+              )}
+
+              {/* Generated Mockups Display */}
+              {generatedMockups.length > 0 && (
+                <Card className="mt-6">
+                  <CardHeader>
+                    <CardTitle>Generated Mockups</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {generatedMockups.map((mockup) => (
+                        <div key={mockup.id} className="border border-border rounded-lg p-3">
+                          <div className="aspect-square bg-gray-100 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
+                            <img src={mockup.asset_url} alt="Mockup" className="w-full h-full object-cover" />
+                          </div>
+                          <p className="text-xs text-muted-foreground mb-2">{mockup.prompt_used}</p>
+                          <div className="flex gap-1">
+                            <Button size="sm" variant="ghost" className="h-8 px-2 flex-1" onClick={() => window.open(mockup.asset_url, '_blank')}>
+                              <Eye className="h-3 w-3 mr-1" />
+                              View
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-8 px-2 flex-1">
+                              <Download className="h-3 w-3 mr-1" />
+                              Save
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
               )}
             </CardContent>
           </Card>
@@ -495,19 +616,18 @@ const DesignStudio: React.FC = () => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {generatedScenes.map((scene) => (
                           <div key={scene.id} className="border border-border rounded-lg p-4">
-                            <div className="aspect-video bg-gray-100 rounded-lg mb-3 flex items-center justify-center">
-                              <span className="text-gray-500">Scene Preview</span>
+                            <div className="aspect-video bg-gray-100 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
+                              <img src={scene.asset_url} alt="Scene" className="w-full h-full object-cover" />
                             </div>
-                            <h5 className="font-medium mb-1">{scene.type === 'custom' ? 'Custom Scene' : scene.type}</h5>
-                            <p className="text-xs text-muted-foreground mb-2">{scene.description}</p>
+                            <p className="text-xs text-muted-foreground mb-2 line-clamp-2">{scene.prompt_used}</p>
                             <div className="flex gap-2">
-                              <Button size="sm" variant="outline" className="flex-1">
-                                <Download className="h-3 w-3 mr-1" />
-                                Download
-                              </Button>
-                              <Button size="sm" variant="outline" className="flex-1">
+                              <Button size="sm" variant="outline" className="flex-1" onClick={() => window.open(scene.asset_url, '_blank')}>
                                 <Eye className="h-3 w-3 mr-1" />
                                 View
+                              </Button>
+                              <Button size="sm" variant="outline" className="flex-1">
+                                <Download className="h-3 w-3 mr-1" />
+                                Save
                               </Button>
                             </div>
                           </div>
