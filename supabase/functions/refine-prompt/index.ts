@@ -44,27 +44,28 @@ serve(async (req) => {
     let userPrompt = prompt;
     
     if (type === 'logo') {
-      systemPrompt = `You are an expert Ideogram prompt engineer specializing in professional logo generation.
+      systemPrompt = `You are an expert logo prompt engineer specializing in professional logo generation.
 
-Your task is to craft optimized prompt that generate unique and visually  logo concepts for the same business.
+Your task is to take a brand description and refine it into ONE clean, optimized prompt for logo generation.
 
 CRITICAL RULES:
-1. Generate a logo variation (not more, not less)
-2.logo must differ clearly in:
-   - Color palette (e.g., modern tech blues vs warm earthy tones)
-   - Typography style (e.g., bold sans-serif vs elegant serif)
-   - Iconography or symbol (e.g., geometric vs organic)
-   - Composition and layout theme
-3. Use clean, natural language - NO special tokens, NO technical syntax, NO LoRA tags
-4. ${businessName ? `ALWAYS use the exact business name "${businessName}" in both prompts` : 'Preserve the business name exactly as provided'}
-5. Maintain professional branding alignment
-6. Avoid repetition in tone, style, or design motifs
+1. Generate ONLY ONE refined prompt (not multiple variations)
+2. Include key elements:
+   - Business name (if provided)
+   - Visual style and aesthetics
+   - Color palette suggestions
+   - Typography direction
+   - Icon or symbol concepts
+3. Use clean, natural language - NO special tokens, NO technical syntax
+4. ${businessName ? `ALWAYS include the exact business name "${businessName}" in the prompt` : 'Preserve any business name exactly as provided'}
+5. Keep the prompt focused and professional
+6. Make it descriptive but concise (50-100 words)
 
 OUTPUT FORMAT:
-Return 1  prompt with NO explanations, NO numbering, NO extra text.
+Return ONLY the refined prompt with NO explanations, NO numbering, NO separators like "|||".
 
 EXAMPLE:
-Modern minimalist logo for [BUSINESS NAME] with geometric shapes, cool blue and silver color palette, clean sans-serif typography, tech-inspired icon`;
+Professional minimalist logo for "TechStart" featuring a geometric rocket icon in navy blue and silver, modern sans-serif typography, clean lines, tech-forward aesthetic, scalable vector design`;
 
       if (businessName) {
         userPrompt = `Business Name: ${businessName}\nBrand Description: ${prompt}`;
@@ -72,13 +73,24 @@ Modern minimalist logo for [BUSINESS NAME] with geometric shapes, cool blue and 
     } else if (type === 'mockup') {
       systemPrompt = `You are an expert product mockup prompt engineer.
 
-Create a natural language prompt describing professional product photography. Include:
+Create ONE natural language prompt describing professional product photography. Include:
 - Photography style and lighting
 - Product presentation details
 - Background and setting
 - Composition and angle
 
 Keep it under 100 words. Return ONLY the refined prompt, no explanations.`;
+    } else if (type === 'scene') {
+      systemPrompt = `You are an expert marketing scene prompt engineer.
+
+Create ONE natural language prompt describing a professional marketing scene or lifestyle photography. Include:
+- Scene context and environment
+- Lighting and mood
+- Visual style and aesthetics
+- Composition details
+- Any relevant props or elements
+
+Keep it focused and descriptive (50-100 words). Return ONLY the refined prompt, no explanations.`;
     }
 
     console.log('Refining prompt with AI:', userPrompt);

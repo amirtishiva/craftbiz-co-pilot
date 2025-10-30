@@ -17,6 +17,7 @@ import {
   Loader2,
   Sparkles
 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useDesignAssets } from '@/hooks/useDesignAssets';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -32,8 +33,9 @@ const DesignStudio: React.FC = () => {
   const [activeTab, setActiveTab] = useState('logo');
   const [customSceneDescription, setCustomSceneDescription] = useState('');
   const [customSceneStyle, setCustomSceneStyle] = useState('Photographic');
-  const [customSceneRatio, setCustomSceneRatio] = useState('16:9 (Landscape)');
+  const [customSceneRatio, setCustomSceneRatio] = useState('16:9');
   const [isGeneratingScene, setIsGeneratingScene] = useState(false);
+  const [isRefiningScene, setIsRefiningScene] = useState(false);
   const [mockupCustomText, setMockupCustomText] = useState('');
   const [isRefiningMockupText, setIsRefiningMockupText] = useState(false);
   const [activeMockupGeneration, setActiveMockupGeneration] = useState<string | null>(null);
@@ -43,12 +45,26 @@ const DesignStudio: React.FC = () => {
   const generatedMockups = assets.filter(asset => asset.asset_type === 'mockup');
   const generatedScenes = assets.filter(asset => asset.asset_type === 'scene');
 
-  const refinePrompt = async (promptType: 'logo' | 'mockup') => {
-    const currentPrompt = promptType === 'logo' ? logoPrompt : mockupCustomText;
-    if (!currentPrompt.trim()) return;
+  const refinePrompt = async (promptType: 'logo' | 'mockup' | 'scene') => {
+    let currentPrompt = '';
+    let setRefining: (value: boolean) => void;
+    let setPrompt: (value: string) => void;
 
-    const setRefining = promptType === 'logo' ? setIsRefiningPrompt : setIsRefiningMockupText;
-    const setPrompt = promptType === 'logo' ? setLogoPrompt : setMockupCustomText;
+    if (promptType === 'logo') {
+      currentPrompt = logoPrompt;
+      setRefining = setIsRefiningPrompt;
+      setPrompt = setLogoPrompt;
+    } else if (promptType === 'mockup') {
+      currentPrompt = mockupCustomText;
+      setRefining = setIsRefiningMockupText;
+      setPrompt = setMockupCustomText;
+    } else {
+      currentPrompt = customSceneDescription;
+      setRefining = setIsRefiningScene;
+      setPrompt = setCustomSceneDescription;
+    }
+
+    if (!currentPrompt.trim()) return;
 
     setRefining(true);
     try {
@@ -673,31 +689,65 @@ const DesignStudio: React.FC = () => {
             <CardContent className="space-y-6">
               {/* Custom Scene Generator */}
               <div className="space-y-4">
-                <div className="space-y-2">
+                <div className="space-y-2 relative">
                   <label className="text-sm font-medium">Scene Description</label>
                   <Textarea
                     placeholder="Describe the scene you want to create..."
                     value={customSceneDescription}
                     onChange={(e) => setCustomSceneDescription(e.target.value)}
-                    className="min-h-[100px]"
+                    className="min-h-[100px] pr-12"
                   />
+                  {customSceneDescription.trim() && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute bottom-2 right-2 h-8 px-2"
+                      onClick={() => refinePrompt('scene')}
+                      disabled={isRefiningScene}
+                      title="Refine description with AI"
+                    >
+                      {isRefiningScene ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      ) : (
+                        <Sparkles className="h-4 w-4 text-primary" />
+                      )}
+                    </Button>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Style</label>
-                    <Input
-                      value={customSceneStyle}
-                      onChange={(e) => setCustomSceneStyle(e.target.value)}
-                      placeholder="Photographic, Minimalist, etc."
-                    />
+                    <Select value={customSceneStyle} onValueChange={setCustomSceneStyle}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select style" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Photographic">Photographic</SelectItem>
+                        <SelectItem value="Minimalist">Minimalist</SelectItem>
+                        <SelectItem value="Realistic">Realistic</SelectItem>
+                        <SelectItem value="Anime">Anime</SelectItem>
+                        <SelectItem value="3D Render">3D Render</SelectItem>
+                        <SelectItem value="Sketch">Sketch</SelectItem>
+                        <SelectItem value="Digital Art">Digital Art</SelectItem>
+                        <SelectItem value="Cinematic">Cinematic</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Aspect Ratio</label>
-                    <Input
-                      value={customSceneRatio}
-                      onChange={(e) => setCustomSceneRatio(e.target.value)}
-                      placeholder="16:9, 1:1, etc."
-                    />
+                    <Select value={customSceneRatio} onValueChange={setCustomSceneRatio}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select ratio" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1:1">1:1 (Square)</SelectItem>
+                        <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
+                        <SelectItem value="9:16">9:16 (Portrait)</SelectItem>
+                        <SelectItem value="4:3">4:3 (Standard)</SelectItem>
+                        <SelectItem value="21:9">21:9 (Ultrawide)</SelectItem>
+                        <SelectItem value="3:2">3:2 (Photo)</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 <Button 
