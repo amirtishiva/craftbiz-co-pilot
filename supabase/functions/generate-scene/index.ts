@@ -15,8 +15,8 @@ serve(async (req) => {
   try {
     const { description, style, aspectRatio } = await req.json();
 
-    if (!description) {
-      throw new Error('Scene description is required');
+    if (!description || description.trim().length < 10) {
+      throw new Error('Scene description must be at least 10 characters and describe what you want to generate');
     }
 
     const authHeader = req.headers.get('Authorization');
@@ -42,7 +42,8 @@ serve(async (req) => {
 
     const styleGuide = style || 'Photographic';
     
-    const prompt = `${description}. ${styleGuide} style. Professional marketing photography with excellent composition and lighting. High quality, detailed, realistic. ${aspectRatio ? `Aspect ratio: ${aspectRatio}` : ''}`;
+    // Ensure the prompt is specific and detailed enough for image generation
+    const prompt = `Create a detailed ${styleGuide.toLowerCase()} style image: ${description}. Professional composition with excellent lighting. High quality, photorealistic details.${aspectRatio ? ` Aspect ratio: ${aspectRatio}` : ''}`;
 
     console.log('Generating scene with nano-banana:', prompt);
 
