@@ -39,12 +39,12 @@ serve(async (req) => {
       throw new Error('Invalid authentication');
     }
 
-    const OPENAI_API_KEY = Deno.env.get('Open_API');
-    if (!OPENAI_API_KEY) {
-      throw new Error('OpenAI API key is not configured');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      throw new Error('Lovable API key is not configured');
     }
 
-    console.log('Generating', count, 'logo(s) with DALL-E using', prompts.length, 'prompt variations');
+    console.log('Generating', count, 'logo(s) with nano-banana using', prompts.length, 'prompt variations');
 
     // Generate logos using available prompts
     const logoUrls = [];
@@ -64,33 +64,41 @@ serve(async (req) => {
             ? currentPrompt 
             : `Professional minimalist logo design for ${businessName || 'business'}, clean and modern style, simple geometric shapes, solid colors, vector art quality`;
           
-          const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
+          const imageResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${OPENAI_API_KEY}`,
+              'Authorization': `Bearer ${LOVABLE_API_KEY}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              model: 'dall-e-3',
-              prompt: finalPrompt,
-              n: 1,
-              size: '1024x1024',
-              quality: 'standard',
+              model: 'google/gemini-2.5-flash-image-preview',
+              messages: [
+                {
+                  role: 'user',
+                  content: finalPrompt
+                }
+              ],
+              modalities: ['image', 'text']
             }),
           });
 
           if (!imageResponse.ok) {
             const errorText = await imageResponse.text();
-            console.error('DALL-E API error:', imageResponse.status, errorText);
+            console.error('Nano-banana API error:', imageResponse.status, errorText);
             attemptCount++;
             if (attemptCount >= 2) {
-              throw new Error(`DALL-E API error: ${imageResponse.status}`);
+              throw new Error(`Image generation error: ${imageResponse.status}`);
             }
             continue;
           }
 
           const imageData = await imageResponse.json();
-          logoUrl = imageData.data[0].url;
+          logoUrl = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+          
+          if (!logoUrl) {
+            throw new Error('No image generated in response');
+          }
+          
           success = true;
           console.log(`Logo ${i + 1} generated successfully${attemptCount > 0 ? ' (retry)' : ''}`);
         } catch (error) {

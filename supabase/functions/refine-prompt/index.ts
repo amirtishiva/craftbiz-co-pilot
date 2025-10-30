@@ -44,30 +44,33 @@ serve(async (req) => {
     let userPrompt = prompt;
     
     if (type === 'logo') {
-      // For logo generation, preserve business name and generate 2 distinct variations
-      systemPrompt = `You are an expert logo design prompt engineer for DALL-E 3.
+      systemPrompt = `You are an expert Ideogram prompt engineer specializing in professional logo generation.
 
-CRITICAL: Generate clean, natural language prompts. NO special tokens, NO LoRA tags, NO technical syntax.
+Your task is to craft optimized prompts that generate unique and visually distinct logo concepts for the same business.
 
-Task: Create 2 distinct logo variations for the same business.
-Each variation must differ in:
-- Color palette and mood
-- Typography style  
-- Icon/symbol concept
-- Overall composition
+CRITICAL RULES:
+1. Generate ONLY 2 logo variations (not more, not less)
+2. Each logo must differ clearly in:
+   - Color palette (e.g., modern tech blues vs warm earthy tones)
+   - Typography style (e.g., bold sans-serif vs elegant serif)
+   - Iconography or symbol (e.g., geometric vs organic)
+   - Composition and layout theme
+3. Use clean, natural language - NO special tokens, NO technical syntax, NO LoRA tags
+4. ${businessName ? `ALWAYS use the exact business name "${businessName}" in both prompts` : 'Preserve the business name exactly as provided'}
+5. Maintain professional branding alignment
+6. Avoid repetition in tone, style, or design motifs
 
-${businessName ? `IMPORTANT: Always use the exact business name "${businessName}" in both prompts.` : ''}
+OUTPUT FORMAT:
+Return exactly 2 distinct prompts separated by "|||" with NO explanations, NO numbering, NO extra text.
 
-Format: Return exactly 2 prompts separated by "|||" with NO explanations or extra text.
-
-Example output format:
-Professional minimalist logo for [BUSINESS NAME] with geometric shapes...|||Creative organic logo for [BUSINESS NAME] with hand-drawn elements...`;
+EXAMPLE:
+Modern minimalist logo for [BUSINESS NAME] with geometric shapes, cool blue and silver color palette, clean sans-serif typography, tech-inspired icon|||Creative organic logo for [BUSINESS NAME] with hand-drawn elements, warm earthy gradient tones, rounded friendly font, nature-inspired symbol`;
 
       if (businessName) {
         userPrompt = `Business Name: ${businessName}\nBrand Description: ${prompt}`;
       }
     } else if (type === 'mockup') {
-      systemPrompt = `You are an expert product mockup prompt engineer for DALL-E 3.
+      systemPrompt = `You are an expert product mockup prompt engineer.
 
 Create a natural language prompt describing professional product photography. Include:
 - Photography style and lighting

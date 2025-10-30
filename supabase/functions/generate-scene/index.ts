@@ -35,48 +35,47 @@ serve(async (req) => {
       throw new Error('Invalid authentication');
     }
 
-    const OPENAI_API_KEY = Deno.env.get('Open_API');
-    if (!OPENAI_API_KEY) {
-      throw new Error('OpenAI API key is not configured');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      throw new Error('Lovable API key is not configured');
     }
 
-    const sizeMap: Record<string, string> = {
-      '16:9 (Landscape)': '1792x1024',
-      '1:1 (Square)': '1024x1024',
-      '9:16 (Portrait)': '1024x1792',
-      '4:3 (Classic)': '1024x1024'
-    };
-
-    const size = sizeMap[aspectRatio || '16:9 (Landscape)'] || '1792x1024';
     const styleGuide = style || 'Photographic';
     
-    const prompt = `${description}. ${styleGuide} style. Professional marketing photography with excellent composition and lighting. High quality, detailed, realistic.`;
+    const prompt = `${description}. ${styleGuide} style. Professional marketing photography with excellent composition and lighting. High quality, detailed, realistic. ${aspectRatio ? `Aspect ratio: ${aspectRatio}` : ''}`;
 
-    console.log('Generating scene with DALL-E:', prompt);
+    console.log('Generating scene with nano-banana:', prompt);
 
-    const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
+    const imageResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'dall-e-3',
-        prompt: prompt,
-        n: 1,
-        size: size,
-        quality: 'hd',
+        model: 'google/gemini-2.5-flash-image-preview',
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        modalities: ['image', 'text']
       }),
     });
 
     if (!imageResponse.ok) {
       const errorText = await imageResponse.text();
-      console.error('DALL-E API error:', imageResponse.status, errorText);
-      throw new Error(`DALL-E API error: ${imageResponse.status}`);
+      console.error('Nano-banana API error:', imageResponse.status, errorText);
+      throw new Error(`Image generation error: ${imageResponse.status}`);
     }
 
     const imageData = await imageResponse.json();
-    const sceneUrl = imageData.data[0].url;
+    const sceneUrl = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+
+    if (!sceneUrl) {
+      throw new Error('No scene image generated in response');
+    }
 
     console.log('Scene generated successfully:', sceneUrl);
 

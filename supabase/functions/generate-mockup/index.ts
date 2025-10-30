@@ -35,50 +35,69 @@ serve(async (req) => {
       throw new Error('Invalid authentication');
     }
 
-    const OPENAI_API_KEY = Deno.env.get('Open_API');
-    if (!OPENAI_API_KEY) {
-      throw new Error('OpenAI API key is not configured');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      throw new Error('Lovable API key is not configured');
     }
 
     const productDescriptions: Record<string, string> = {
-      'tshirt': 'high-quality t-shirt mockup with the logo on the chest',
-      'mug': 'ceramic coffee mug with the logo prominently displayed',
-      'phone': 'phone case with the logo design elegantly placed',
-      'bag': 'tote bag featuring the logo design'
+      'tshirt': 'Place this logo on a white t-shirt chest area. Professional product photography with clean background, realistic fabric texture, centered composition',
+      'mug': 'Place this logo on a white ceramic coffee mug. Professional product photography with clean background, realistic ceramic texture, front-facing view',
+      'phone': 'Place this logo on a phone case. Professional product photography with clean background, realistic case texture, clear logo visibility',
+      'bag': 'Place this logo on a tote bag. Professional product photography with clean background, realistic fabric texture, logo prominently displayed'
     };
 
-    const prompt = `Create a professional product mockup: ${productDescriptions[productType] || productType}. ${style || 'Clean, modern photography with neutral background'}. Professional lighting and composition.`;
+    const editPrompt = `${productDescriptions[productType] || `Place this logo on a ${productType}`}. ${style || 'Clean, modern photography with neutral background'}. Maintain logo colors and quality. Professional lighting and realistic mockup.`;
 
-    console.log('Generating mockup with DALL-E:', prompt);
+    console.log('Generating mockup with nano-banana (image editing):', editPrompt);
+    console.log('Using logo URL:', logoUrl);
 
-    const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
+    const imageResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'dall-e-3',
-        prompt: prompt,
-        n: 1,
-        size: '1024x1024',
-        quality: 'standard',
+        model: 'google/gemini-2.5-flash-image-preview',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: editPrompt
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: logoUrl
+                }
+              }
+            ]
+          }
+        ],
+        modalities: ['image', 'text']
       }),
     });
 
     if (!imageResponse.ok) {
       const errorText = await imageResponse.text();
-      console.error('DALL-E API error:', imageResponse.status, errorText);
-      throw new Error(`DALL-E API error: ${imageResponse.status}`);
+      console.error('Nano-banana API error:', imageResponse.status, errorText);
+      throw new Error(`Image generation error: ${imageResponse.status}`);
     }
 
     const imageData = await imageResponse.json();
-    const mockupUrl = imageData.data[0].url;
+    const mockupUrl = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
-    console.log('Mockup generated successfully:', mockupUrl);
+    if (!mockupUrl) {
+      throw new Error('No mockup image generated in response');
+    }
+
+    console.log('Mockup generated successfully with selected logo');
 
     return new Response(
-      JSON.stringify({ mockupUrl, productType, prompt }),
+      JSON.stringify({ mockupUrl, productType, prompt: editPrompt }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
