@@ -71,13 +71,17 @@ serve(async (req) => {
     }
 
     const imageData = await imageResponse.json();
+    console.log('Nano-banana response structure:', JSON.stringify(imageData, null, 2));
+    
     const sceneUrl = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
     if (!sceneUrl) {
-      throw new Error('No scene image generated in response');
+      console.error('Failed to extract scene URL. Full response:', JSON.stringify(imageData));
+      console.error('Message object:', JSON.stringify(imageData.choices?.[0]?.message));
+      throw new Error(`No scene image generated in response. Check logs for details.`);
     }
 
-    console.log('Scene generated successfully:', sceneUrl);
+    console.log('Scene generated successfully');
 
     return new Response(
       JSON.stringify({ sceneUrl, prompt }),
