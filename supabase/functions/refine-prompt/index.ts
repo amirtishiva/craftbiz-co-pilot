@@ -61,10 +61,10 @@ CRITICAL RULES:
 6. Avoid repetition in tone, style, or design motifs
 
 OUTPUT FORMAT:
-Return exactly 2 distinct prompts separated by "|||" with NO explanations, NO numbering, NO extra text.
+Return 1  prompt with NO explanations, NO numbering, NO extra text.
 
 EXAMPLE:
-Modern minimalist logo for [BUSINESS NAME] with geometric shapes, cool blue and silver color palette, clean sans-serif typography, tech-inspired icon|||Creative organic logo for [BUSINESS NAME] with hand-drawn elements, warm earthy gradient tones, rounded friendly font, nature-inspired symbol`;
+Modern minimalist logo for [BUSINESS NAME] with geometric shapes, cool blue and silver color palette, clean sans-serif typography, tech-inspired icon`;
 
       if (businessName) {
         userPrompt = `Business Name: ${businessName}\nBrand Description: ${prompt}`;
