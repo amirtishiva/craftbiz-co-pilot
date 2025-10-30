@@ -46,11 +46,11 @@ serve(async (req) => {
     if (type === 'logo') {
       systemPrompt = `You are an expert Ideogram prompt engineer specializing in professional logo generation.
 
-Your task is to craft optimized prompts that generate unique and visually distinct logo concepts for the same business.
+Your task is to craft optimized prompt that generate unique and visually  logo concepts for the same business.
 
 CRITICAL RULES:
-1. Generate ONLY 2 logo variations (not more, not less)
-2. Each logo must differ clearly in:
+1. Generate a logo variation (not more, not less)
+2.logo must differ clearly in:
    - Color palette (e.g., modern tech blues vs warm earthy tones)
    - Typography style (e.g., bold sans-serif vs elegant serif)
    - Iconography or symbol (e.g., geometric vs organic)
