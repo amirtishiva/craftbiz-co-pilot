@@ -122,19 +122,16 @@ const SuppliersList: React.FC = () => {
         }
       }
 
-      console.log('Fetching suppliers via Edge Function:', {
-        searchQuery: searchQuery || undefined,
-        category: selectedCategory !== 'all-categories' ? selectedCategory : undefined,
-        city: selectedCity !== 'all-cities' ? selectedCity : undefined,
-        userLocation
-      });
-
-      const result = await searchSuppliers({
-        searchQuery: searchQuery || undefined,
+      const searchParams = {
+        searchQuery: searchQuery.trim() || undefined,
         category: selectedCategory !== 'all-categories' ? selectedCategory : undefined,
         city: selectedCity !== 'all-cities' ? selectedCity : undefined,
         userLocation: userLocation || undefined
-      });
+      };
+
+      console.log('Fetching suppliers via Edge Function:', searchParams);
+
+      const result = await searchSuppliers(searchParams);
 
       if (result.success && result.data) {
         const suppliersList = result.data.map((supplier: any) => ({
