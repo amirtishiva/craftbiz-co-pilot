@@ -20,6 +20,7 @@ import {
 
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useSupplierSearch } from '@/hooks/useSupplierSearch';
 import LocationPermissionPrompt from './LocationPermissionPrompt';
 import NoResultsFound from './NoResultsFound';
 import OfflineIndicator from './OfflineIndicator';
@@ -54,11 +55,11 @@ const SuppliersList: React.FC = () => {
   const [selectedCity, setSelectedCity] = useState('all-cities');
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [suppliers, setSuppliers] = useState<SupplierData[]>([]);
-  const [loading, setLoading] = useState(true);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [selectedSupplier, setSelectedSupplier] = useState<SupplierData | null>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const { toast } = useToast();
+  const { searchSuppliers, isSearching } = useSupplierSearch();
 
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
@@ -105,7 +106,7 @@ const SuppliersList: React.FC = () => {
     }
   }, [viewMode]);
 
-  // Fetch suppliers from database
+  // Fetch suppliers using Edge Function
   useEffect(() => {
     const fetchSuppliers = async () => {
       // Try to load from cache first if offline
@@ -113,7 +114,6 @@ const SuppliersList: React.FC = () => {
         const cachedSuppliers = cache.get<SupplierData[]>('suppliers');
         if (cachedSuppliers) {
           setSuppliers(cachedSuppliers);
-          setLoading(false);
           toast({
             title: "Offline Mode",
             description: "Showing cached supplier data.",
@@ -122,16 +122,22 @@ const SuppliersList: React.FC = () => {
         }
       }
 
-      try {
-        const { data, error } = await supabase
-          .from('suppliers')
-          .select('*')
-          .order('rating', { ascending: false });
+      console.log('Fetching suppliers via Edge Function:', {
+        searchQuery: searchQuery || undefined,
+        category: selectedCategory !== 'all-categories' ? selectedCategory : undefined,
+        city: selectedCity !== 'all-cities' ? selectedCity : undefined,
+        userLocation
+      });
 
-        if (error) throw error;
+      const result = await searchSuppliers({
+        searchQuery: searchQuery || undefined,
+        category: selectedCategory !== 'all-categories' ? selectedCategory : undefined,
+        city: selectedCity !== 'all-cities' ? selectedCity : undefined,
+        userLocation: userLocation || undefined
+      });
 
-        // Use real data directly from database
-        const suppliersList = data?.map((supplier: any) => ({
+      if (result.success && result.data) {
+        const suppliersList = result.data.map((supplier: any) => ({
           id: supplier.id,
           name: supplier.name,
           category: supplier.category,
@@ -143,27 +149,21 @@ const SuppliersList: React.FC = () => {
           latitude: supplier.latitude,
           longitude: supplier.longitude,
           description: supplier.description || supplier.category,
-          website_url: supplier.website_url
-        })) || [];
+          website_url: supplier.website_url,
+          distance: supplier.distance || null
+        }));
 
         setSuppliers(suppliersList);
         
         // Cache the suppliers for offline use
         cache.set('suppliers', suppliersList);
-      } catch (error) {
-        console.error('Error fetching suppliers:', error);
-        toast({
-          title: "Error loading suppliers",
-          description: "Failed to load supplier data. Please try again.",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
+        
+        console.log(`Fetched ${suppliersList.length} suppliers from Edge Function`);
       }
     };
 
     fetchSuppliers();
-  }, [toast]);
+  }, [searchQuery, selectedCategory, selectedCity, userLocation, searchSuppliers, toast]);
 
   // Fit map bounds when suppliers or map changes
   useEffect(() => {
@@ -231,14 +231,8 @@ const SuppliersList: React.FC = () => {
     }
   };
 
-  const filteredSuppliers = suppliers.filter(supplier => {
-    const matchesSearch = supplier.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         supplier.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = !selectedCategory || selectedCategory === 'all-categories' || supplier.category === selectedCategory;
-    const matchesCity = !selectedCity || selectedCity === 'all-cities' || supplier.city === selectedCity;
-    
-    return matchesSearch && matchesCategory && matchesCity;
-  });
+  // Edge Function handles all filtering server-side, so we just use the suppliers as-is
+  const filteredSuppliers = suppliers;
 
   return (
     <div>
@@ -307,11 +301,11 @@ const SuppliersList: React.FC = () => {
       {viewMode === 'list' ? (
         /* List View */
         <div className="space-y-4">
-          {loading ? (
+          {isSearching ? (
             <Card>
               <CardContent className="pt-6 text-center py-8">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                <p className="text-muted-foreground">Loading suppliers...</p>
+                <p className="text-muted-foreground">Searching suppliers...</p>
               </CardContent>
             </Card>
           ) : filteredSuppliers.length === 0 ? (
