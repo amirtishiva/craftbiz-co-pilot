@@ -34,17 +34,12 @@ interface SupplierData {
   category: string;
   city: string;
   address: string;
-  phone: string;
-  email: string;
+  contact_phone: string;
+  contact_email: string;
   rating: number;
-  reviews: number;
-  verified: boolean;
-  distance: string | null;
   latitude: number | null;
   longitude: number | null;
-  specialties: string[];
-  minOrder: string;
-  deliveryTime: string;
+  description: string;
   website_url?: string;
 }
 
@@ -135,30 +130,26 @@ const SuppliersList: React.FC = () => {
 
         if (error) throw error;
 
-        // Transform database data to match component structure
-        const transformedSuppliers = data?.map((supplier: any) => ({
+        // Use real data directly from database
+        const suppliersList = data?.map((supplier: any) => ({
           id: supplier.id,
           name: supplier.name,
           category: supplier.category,
           city: supplier.city || 'N/A',
           address: supplier.address || 'Address not available',
-          phone: supplier.contact_phone || '',
-          email: supplier.contact_email || '',
+          contact_phone: supplier.contact_phone || 'Not available',
+          contact_email: supplier.contact_email || 'Not available',
           rating: supplier.rating || 0,
-          reviews: Math.floor(Math.random() * 200), // Mock reviews count
-          minOrder: '500 units',
-          deliveryTime: '5-7 days',
-          specialties: [supplier.description || supplier.category],
-          verified: supplier.rating && supplier.rating >= 4.5,
-          distance: null,
           latitude: supplier.latitude,
-          longitude: supplier.longitude
+          longitude: supplier.longitude,
+          description: supplier.description || supplier.category,
+          website_url: supplier.website_url
         })) || [];
 
-        setSuppliers(transformedSuppliers);
+        setSuppliers(suppliersList);
         
         // Cache the suppliers for offline use
-        cache.set('suppliers', transformedSuppliers);
+        cache.set('suppliers', suppliersList);
       } catch (error) {
         console.error('Error fetching suppliers:', error);
         toast({
@@ -242,7 +233,7 @@ const SuppliersList: React.FC = () => {
 
   const filteredSuppliers = suppliers.filter(supplier => {
     const matchesSearch = supplier.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         supplier.specialties.some(spec => spec.toLowerCase().includes(searchQuery.toLowerCase()));
+                         supplier.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = !selectedCategory || selectedCategory === 'all-categories' || supplier.category === selectedCategory;
     const matchesCity = !selectedCity || selectedCity === 'all-cities' || supplier.city === selectedCity;
     
@@ -338,28 +329,17 @@ const SuppliersList: React.FC = () => {
                      {/* Supplier Info */}
                     <div className="lg:col-span-2">
                       <div className="mb-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-xl font-bold text-foreground">{supplier.name}</h3>
-                          {supplier.verified && (
-                            <Badge variant="secondary" className="bg-green-100 text-green-800">
-                              Verified
-                            </Badge>
-                          )}
-                        </div>
+                        <h3 className="text-xl font-bold text-foreground mb-2">{supplier.name}</h3>
                         <p className="text-muted-foreground mb-2">{supplier.category}</p>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <MapPin className="h-4 w-4" />
                             {supplier.city}
                           </div>
-                          <div className="flex items-center gap-1">
-                            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                            {supplier.rating} ({supplier.reviews} reviews)
-                          </div>
-                          {supplier.distance && (
-                            <div className="flex items-center gap-1 text-blue-600">
-                              <Navigation className="h-4 w-4" />
-                              {supplier.distance} km away
+                          {supplier.rating > 0 && (
+                            <div className="flex items-center gap-1">
+                              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                              {supplier.rating.toFixed(1)}
                             </div>
                           )}
                         </div>
@@ -368,45 +348,35 @@ const SuppliersList: React.FC = () => {
 
                     {/* Contact & Actions */}
                     <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Button 
-                          variant="craft" 
-                          className="w-full"
-                          asChild
+                      <Button 
+                        variant="outline" 
+                        className="w-full"
+                        asChild
+                      >
+                        <a 
+                          href={supplier.latitude && supplier.longitude 
+                            ? `https://www.google.com/maps/dir/?api=1&destination=${supplier.latitude},${supplier.longitude}`
+                            : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(supplier.address)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
                         >
-                          <a href={`tel:${supplier.phone}`}>
-                            <Phone className="mr-2 h-4 w-4" />
-                            Contact Supplier
-                          </a>
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          className="w-full"
-                          asChild
-                        >
-                          <a 
-                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(supplier.address)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <Route className="mr-2 h-4 w-4" />
-                            Get Directions
-                          </a>
-                        </Button>
-                      </div>
+                          <Route className="mr-2 h-4 w-4" />
+                          Get Directions
+                        </a>
+                      </Button>
 
                       <div className="p-3 bg-muted rounded-lg space-y-2">
                         <div className="flex items-center gap-2 text-sm">
                           <Phone className="h-4 w-4 text-muted-foreground" />
-                          <a href={`tel:${supplier.phone}`} className="text-muted-foreground hover:text-foreground transition-colors">
-                            {supplier.phone}
-                          </a>
+                          <span className="text-muted-foreground">
+                            {supplier.contact_phone}
+                          </span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                           <Mail className="h-4 w-4 text-muted-foreground" />
-                          <a href={`mailto:${supplier.email}`} className="text-muted-foreground hover:text-foreground transition-colors">
-                            {supplier.email}
-                          </a>
+                          <span className="text-muted-foreground">
+                            {supplier.contact_email}
+                          </span>
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                           <MapPin className="h-4 w-4 text-muted-foreground" />
@@ -505,19 +475,21 @@ const SuppliersList: React.FC = () => {
                       <h4 className="font-bold text-sm mb-1">{selectedSupplier.name}</h4>
                       <p className="text-xs text-gray-600 mb-2">{selectedSupplier.category}</p>
                       
-                      <div className="flex items-center gap-1 mb-2">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Star
-                            key={star}
-                            className={`h-3 w-3 ${
-                              star <= selectedSupplier.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
-                            }`}
-                          />
-                        ))}
-                        <span className="text-xs text-gray-600 ml-1">
-                          ({selectedSupplier.reviews})
-                        </span>
-                      </div>
+                      {selectedSupplier.rating > 0 && (
+                        <div className="flex items-center gap-1 mb-2">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              className={`h-3 w-3 ${
+                                star <= selectedSupplier.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
+                              }`}
+                            />
+                          ))}
+                          <span className="text-xs text-gray-600 ml-1">
+                            {selectedSupplier.rating.toFixed(1)}
+                          </span>
+                        </div>
+                      )}
                       
                       <p className="text-xs text-gray-700 mb-2">{selectedSupplier.address}</p>
                       
@@ -531,9 +503,9 @@ const SuppliersList: React.FC = () => {
                           <Navigation className="h-3 w-3" />
                           Directions
                         </a>
-                        {selectedSupplier.phone && (
+                        {selectedSupplier.contact_phone && selectedSupplier.contact_phone !== 'Not available' && (
                           <a
-                            href={`tel:${selectedSupplier.phone}`}
+                            href={`tel:${selectedSupplier.contact_phone}`}
                             className="bg-gray-100 text-gray-700 text-xs px-3 py-1.5 rounded hover:bg-gray-200 flex items-center justify-center"
                           >
                             <Phone className="h-3 w-3" />
