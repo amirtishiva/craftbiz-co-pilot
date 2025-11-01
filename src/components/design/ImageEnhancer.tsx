@@ -4,6 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Upload, Wand2, Download, Loader2, Sparkles, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 
 interface EnhancedImage {
   id: string;
@@ -23,6 +25,8 @@ export const ImageEnhancer: React.FC = () => {
   const [enhancedImage, setEnhancedImage] = useState<string>('');
   const [generatedScenes, setGeneratedScenes] = useState<string[]>([]);
   const [selectedContext, setSelectedContext] = useState<string>('');
+  const [customSceneDescription, setCustomSceneDescription] = useState<string>('');
+  const [isRefiningPrompt, setIsRefiningPrompt] = useState(false);
 
   const contextOptions = [
     { id: 'studio', name: 'Studio Setup', description: 'Professional studio lighting and background' },
@@ -119,7 +123,7 @@ export const ImageEnhancer: React.FC = () => {
     }
   };
 
-  const generateContextualScene = async (contextType: string) => {
+  const generateContextualScene = async (contextType: string, customDescription?: string) => {
     if (!enhancedImage && !previewUrl) {
       toast({
         title: "No Image",
@@ -137,10 +141,13 @@ export const ImageEnhancer: React.FC = () => {
       if (!user) throw new Error('Not authenticated');
 
       const contextData = contextOptions.find(c => c.id === contextType);
+      const description = customDescription || contextData?.description;
       
       toast({
         title: "Generating Scene",
-        description: `Creating ${contextData?.name} context... This may take 20-30 seconds.`,
+        description: customDescription 
+          ? "Creating your custom scene... This may take 20-30 seconds."
+          : `Creating ${contextData?.name} context... This may take 20-30 seconds.`,
       });
 
       const imageToUse = enhancedImage || previewUrl;
@@ -149,7 +156,7 @@ export const ImageEnhancer: React.FC = () => {
         body: { 
           imageData: imageToUse,
           contextType: contextType,
-          contextDescription: contextData?.description
+          contextDescription: description
         }
       });
 
@@ -166,12 +173,14 @@ export const ImageEnhancer: React.FC = () => {
         user_id: user.id,
         asset_type: 'enhanced_scene',
         asset_url: data.sceneUrl,
-        prompt_used: `${contextType} context scene`
+        prompt_used: customDescription || `${contextType} context scene`
       });
 
       toast({
         title: "Scene Generated!",
-        description: `Your ${contextData?.name} scene is ready.`,
+        description: customDescription 
+          ? "Your custom scene is ready."
+          : `Your ${contextData?.name} scene is ready.`,
       });
     } catch (error: any) {
       console.error('Scene generation error:', error);
@@ -183,6 +192,57 @@ export const ImageEnhancer: React.FC = () => {
     } finally {
       setIsGeneratingScene(false);
       setSelectedContext('');
+    }
+  };
+
+  const generateCustomScene = async () => {
+    if (!customSceneDescription.trim()) {
+      toast({
+        title: "Description Required",
+        description: "Please describe the scene you want to create",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsRefiningPrompt(true);
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) throw new Error('Not authenticated');
+
+      toast({
+        title: "Refining Prompt",
+        description: "AI is optimizing your scene description...",
+      });
+
+      // Refine the custom prompt using AI
+      const { data: refinedData, error: refineError } = await supabase.functions.invoke('refine-prompt', {
+        body: { 
+          userPrompt: customSceneDescription,
+          promptType: 'scene'
+        }
+      });
+
+      if (refineError) throw refineError;
+
+      const refinedPrompt = refinedData?.refinedPrompt || customSceneDescription;
+
+      setIsRefiningPrompt(false);
+      
+      // Generate scene with refined prompt
+      await generateContextualScene('custom', refinedPrompt);
+      
+      // Clear custom input after generation
+      setCustomSceneDescription('');
+
+    } catch (error: any) {
+      console.error('Custom scene generation error:', error);
+      toast({
+        title: "Generation Failed",
+        description: error.message || "Failed to generate custom scene. Please try again.",
+        variant: "destructive",
+      });
+      setIsRefiningPrompt(false);
     }
   };
 
@@ -315,24 +375,63 @@ export const ImageEnhancer: React.FC = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-              {contextOptions.map((context) => (
+            <div className="space-y-6">
+              {/* Quick Suggestions */}
+              <div>
+                <h3 className="text-sm font-medium mb-3">Quick Scene Suggestions</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {contextOptions.map((context) => (
+                    <Button
+                      key={context.id}
+                      variant="outline"
+                      className="h-auto flex-col items-start p-4 text-left"
+                      onClick={() => generateContextualScene(context.id)}
+                      disabled={isGeneratingScene || isRefiningPrompt}
+                    >
+                      {isGeneratingScene && selectedContext === context.id ? (
+                        <Loader2 className="h-4 w-4 mb-2 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-4 w-4 mb-2" />
+                      )}
+                      <div className="font-medium text-sm">{context.name}</div>
+                      <div className="text-xs text-muted-foreground mt-1">{context.description}</div>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom Scene Input */}
+              <div className="space-y-3 pt-4 border-t">
+                <Label htmlFor="custom-scene" className="text-sm font-medium">
+                  Or Describe Your Custom Scene
+                </Label>
+                <Textarea
+                  id="custom-scene"
+                  placeholder="Example: Place the product on a wooden café table with natural morning light and a blurred background..."
+                  value={customSceneDescription}
+                  onChange={(e) => setCustomSceneDescription(e.target.value)}
+                  className="min-h-[100px] resize-none"
+                  disabled={isGeneratingScene || isRefiningPrompt}
+                />
                 <Button
-                  key={context.id}
-                  variant="outline"
-                  className="h-auto flex-col items-start p-4 text-left"
-                  onClick={() => generateContextualScene(context.id)}
-                  disabled={isGeneratingScene}
+                  onClick={generateCustomScene}
+                  disabled={isGeneratingScene || isRefiningPrompt || !customSceneDescription.trim()}
+                  className="w-full"
+                  variant="craft"
                 >
-                  {isGeneratingScene && selectedContext === context.id ? (
-                    <Loader2 className="h-4 w-4 mb-2 animate-spin" />
+                  {isRefiningPrompt ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Refining & Generating...
+                    </>
                   ) : (
-                    <Sparkles className="h-4 w-4 mb-2" />
+                    <>
+                      <Wand2 className="mr-2 h-4 w-4" />
+                      Refine & Generate Scene
+                    </>
                   )}
-                  <div className="font-medium text-sm">{context.name}</div>
-                  <div className="text-xs text-muted-foreground mt-1">{context.description}</div>
                 </Button>
-              ))}
+              </div>
             </div>
 
             {/* Generated Scenes */}
