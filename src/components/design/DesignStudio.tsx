@@ -17,6 +17,7 @@ import {
   Loader2,
   Sparkles
 } from 'lucide-react';
+import { ImageEnhancer } from './ImageEnhancer';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useDesignAssets } from '@/hooks/useDesignAssets';
 import { supabase } from '@/integrations/supabase/client';
@@ -389,10 +390,11 @@ const DesignStudio: React.FC = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid grid-cols-3 w-full max-w-md mx-auto">
+        <TabsList className="grid grid-cols-4 w-full max-w-2xl mx-auto">
           <TabsTrigger value="logo">Logo Design</TabsTrigger>
           <TabsTrigger value="mockups">Mockups</TabsTrigger>
           <TabsTrigger value="scenes">Scenes</TabsTrigger>
+          <TabsTrigger value="enhance">Image Enhance</TabsTrigger>
         </TabsList>
 
         {/* Logo Design Tab */}
@@ -831,6 +833,11 @@ const DesignStudio: React.FC = () => {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* Image Enhance Tab */}
+        <TabsContent value="enhance" className="space-y-6">
+          <ImageEnhancer />
         </TabsContent>
       </Tabs>
     </div>
