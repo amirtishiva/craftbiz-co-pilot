@@ -22,11 +22,58 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    console.log('Enhancing image with Nano Banana model...');
+    console.log('Step 1: Analyzing product image...');
 
-    const enhancementPrompt = enhancementType === 'quality'
-      ? 'Enhance this product image: improve lighting, color balance, sharpness, and overall quality. Make it look professional and marketable. Keep the product exactly as is, only improve the visual quality.'
-      : 'Improve this image quality while maintaining the original composition and subject.';
+    // First, analyze the image to understand product characteristics
+    const analysisResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: 'Analyze this product image and describe: 1) Product type/category, 2) Dominant colors and materials, 3) Current lighting quality, 4) Texture and finish, 5) Brand tone (luxury/casual/artisan/modern). Be concise but detailed.'
+              },
+              {
+                type: 'image_url',
+                image_url: { url: imageData }
+              }
+            ]
+          }
+        ]
+      })
+    });
+
+    if (!analysisResponse.ok) {
+      console.error('Analysis failed:', analysisResponse.status);
+      throw new Error('Image analysis failed');
+    }
+
+    const analysisData = await analysisResponse.json();
+    const productAnalysis = analysisData.choices?.[0]?.message?.content || '';
+    console.log('Product analysis:', productAnalysis);
+
+    console.log('Step 2: Enhancing image based on analysis...');
+
+    // Create adaptive enhancement prompt based on analysis
+    const enhancementPrompt = `Based on this product analysis: ${productAnalysis}
+
+Enhance this product image with the following improvements:
+- Optimize lighting to highlight the product's unique textures and materials
+- Correct color balance to match the product's natural tones and enhance vibrancy
+- Sharpen details while maintaining natural appearance
+- Improve contrast and shadows for professional depth
+- Enhance visual appeal while keeping the product authentic and recognizable
+- Make it look like a high-end product photography shot
+
+CRITICAL: Keep the exact product unchanged - only improve visual quality, lighting, and presentation. Do not alter the product itself, its shape, or core features.`;
 
     // Call Lovable AI with Nano Banana model for image enhancement
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
