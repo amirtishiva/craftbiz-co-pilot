@@ -44,86 +44,35 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    const systemPrompt = `You are an expert business consultant specializing in helping Indian entrepreneurs create comprehensive, detailed business plans. You understand the Indian market, local challenges, and opportunities for small businesses.
+    const systemPrompt = `You are an expert business consultant specializing in helping Indian entrepreneurs create concise, actionable business plans. You understand the Indian market and provide clear, structured insights.
 
 CRITICAL INSTRUCTIONS:
-- Generate DETAILED, COMPREHENSIVE content for each section
-- Each section must be 3-5 bullet points with specific, actionable information
-- Use concrete numbers, examples, and market data relevant to India
-- Avoid generic statements - be specific to the business idea
-- You MUST return valid JSON ONLY - no markdown, no code blocks, no explanatory text
+- Generate CONCISE, ACTIONABLE content for each section
+- Each section must have EXACTLY 3-5 bullet points
+- Each bullet point must be 1-2 sentences maximum
+- Use specific numbers and data relevant to India when possible
+- Avoid lengthy paragraphs - be brief and impactful
+- Focus on key insights and actionable items only
+- You MUST return valid JSON ONLY - no markdown, no code blocks
 - Use the tool call to return structured data`;
 
     const userPrompt = `Business Idea: ${idea.refined_idea || idea.original_text}
 Business Name: ${businessName || 'Not specified'}
 
-Generate a comprehensive business plan with detailed content for each section:
+Generate a concise, actionable business plan. Each section MUST have 3-5 bullet points with 1-2 sentences each:
 
-1. EXECUTIVE SUMMARY (3-4 bullet points):
-   - Compelling overview of the business concept and vision
-   - Problem being solved and solution offered
-   - Target market and unique value proposition
-   - Key financial highlights and growth potential
+1. EXECUTIVE SUMMARY (3-5 bullet points, 1-2 sentences each)
+2. MARKET ANALYSIS (3-5 bullet points, 1-2 sentences each)
+3. TARGET CUSTOMERS (3-5 bullet points, 1-2 sentences each)
+4. COMPETITIVE ADVANTAGE (3-5 bullet points, 1-2 sentences each)
+5. REVENUE MODEL (3-5 bullet points, 1-2 sentences each)
+6. MARKETING STRATEGY (3-5 bullet points, 1-2 sentences each)
+7. OPERATIONS PLAN (3-5 bullet points, 1-2 sentences each)
+8. FINANCIAL PROJECTIONS (3-5 bullet points, 1-2 sentences each)
+9. RISK ANALYSIS (3-5 bullet points, 1-2 sentences each)
+10. IMPLEMENTATION TIMELINE (3-5 bullet points, 1-2 sentences each)
 
-2. MARKET ANALYSIS (4-5 bullet points):
-   - Detailed target market size and demographics in India
-   - Current market trends and growth opportunities
-   - Customer behavior patterns and preferences
-   - Market gaps and opportunities this business will address
-   - Specific examples and data points
-
-3. TARGET CUSTOMERS (3-4 bullet points):
-   - Detailed customer personas with demographics
-   - Customer pain points and needs
-   - Buying behavior and decision-making factors
-   - Customer acquisition and retention strategies
-
-4. COMPETITIVE ADVANTAGE (3-4 bullet points):
-   - Specific unique selling propositions
-   - Competitive landscape analysis
-   - Barriers to entry for competitors
-   - How this business differentiates from existing solutions
-   - Long-term competitive moats
-
-5. REVENUE MODEL (3-4 bullet points):
-   - Detailed pricing strategy with specific price points
-   - Multiple revenue streams and their contribution
-   - Unit economics and profit margins
-   - Scalability of the business model
-   - Payment terms and cash flow considerations
-
-6. MARKETING STRATEGY (4-5 bullet points):
-   - Specific digital and offline marketing channels
-   - Customer acquisition strategy with cost estimates
-   - Brand positioning and messaging
-   - Partnership and collaboration opportunities
-   - Month-by-month marketing roadmap for first 6 months
-
-7. OPERATIONS PLAN (4-5 bullet points):
-   - Day-to-day operational workflow
-   - Key resources needed (team, technology, infrastructure)
-   - Supply chain and vendor management
-   - Quality control and customer service processes
-   - Scalability and efficiency improvements
-
-8. FINANCIAL PROJECTIONS (4-5 bullet points):
-   - Detailed startup costs breakdown (₹50,000 - ₹5,00,000)
-   - Monthly operating expenses with specific categories
-   - Revenue projections for Year 1, 2, and 3
-   - Break-even analysis and timeline
-   - Funding requirements and ROI expectations
-
-9. RISK ANALYSIS (3-4 bullet points):
-   - Major business risks (market, operational, financial)
-   - Specific mitigation strategies for each risk
-   - Contingency plans and alternative approaches
-   - Regulatory and compliance considerations
-
-10. IMPLEMENTATION TIMELINE (3-4 bullet points):
-    - Detailed 6-month roadmap with specific milestones
-    - Month-by-month action items and deliverables
-    - Key metrics and success indicators
-    - Resource allocation timeline`;
+Keep each bullet point brief and actionable. Focus on specific, measurable information.`;
 
     console.log('Generating business plan for idea:', ideaId);
 
@@ -148,16 +97,16 @@ Generate a comprehensive business plan with detailed content for each section:
               parameters: {
                 type: "object",
                 properties: {
-                  executiveSummary: { type: "string", description: "3-4 bullet points executive summary" },
-                  marketAnalysis: { type: "string", description: "4-5 bullet points market analysis" },
-                  targetCustomers: { type: "string", description: "3-4 bullet points target customers" },
-                  competitiveAdvantage: { type: "string", description: "3-4 bullet points competitive advantage" },
-                  revenueModel: { type: "string", description: "3-4 bullet points revenue model" },
-                  marketingStrategy: { type: "string", description: "4-5 bullet points marketing strategy" },
-                  operationsPlan: { type: "string", description: "4-5 bullet points operations plan" },
-                  financialProjections: { type: "string", description: "4-5 bullet points financial projections" },
-                  riskAnalysis: { type: "string", description: "3-4 bullet points risk analysis" },
-                  implementationTimeline: { type: "string", description: "3-4 bullet points implementation timeline" }
+                  executiveSummary: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" },
+                  marketAnalysis: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" },
+                  targetCustomers: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" },
+                  competitiveAdvantage: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" },
+                  revenueModel: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" },
+                  marketingStrategy: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" },
+                  operationsPlan: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" },
+                  financialProjections: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" },
+                  riskAnalysis: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" },
+                  implementationTimeline: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" }
                 },
                 required: [
                   "executiveSummary", "marketAnalysis", "targetCustomers", 
