@@ -460,6 +460,14 @@ const MarketingHub: React.FC = () => {
       icon: Image,
       color: 'text-orange-600',
       bgColor: 'bg-orange-50'
+    },
+    {
+      id: 'banners',
+      title: 'Banner Design',
+      description: 'Professional banners for all platforms',
+      icon: LayoutTemplate,
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-50'
     }
   ];
 
