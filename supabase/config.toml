@@ -1,5 +1,8 @@
 project_id = "soynuxsibdlgikbpjipr"
 
+[functions.generate-banner]
+verify_jwt = true
+
 [functions.refine-idea]
 verify_jwt = false
 

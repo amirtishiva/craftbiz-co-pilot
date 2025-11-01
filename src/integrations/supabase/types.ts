@@ -14,6 +14,89 @@ export type Database = {
   }
   public: {
     Tables: {
+      banner_designs: {
+        Row: {
+          banner_size: string
+          banner_url_png_1: string
+          banner_url_png_2: string | null
+          banner_url_png_3: string | null
+          color_scheme: string
+          created_at: string
+          cta_text: string | null
+          custom_height: number | null
+          custom_width: number | null
+          headline: string
+          id: string
+          input_type: string
+          plan_id: string | null
+          primary_color: string | null
+          prompt_used: string | null
+          reference_image_data: string | null
+          secondary_color: string | null
+          style_theme: string
+          subheadline: string | null
+          text_description: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          banner_size: string
+          banner_url_png_1: string
+          banner_url_png_2?: string | null
+          banner_url_png_3?: string | null
+          color_scheme: string
+          created_at?: string
+          cta_text?: string | null
+          custom_height?: number | null
+          custom_width?: number | null
+          headline: string
+          id?: string
+          input_type: string
+          plan_id?: string | null
+          primary_color?: string | null
+          prompt_used?: string | null
+          reference_image_data?: string | null
+          secondary_color?: string | null
+          style_theme: string
+          subheadline?: string | null
+          text_description?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          banner_size?: string
+          banner_url_png_1?: string
+          banner_url_png_2?: string | null
+          banner_url_png_3?: string | null
+          color_scheme?: string
+          created_at?: string
+          cta_text?: string | null
+          custom_height?: number | null
+          custom_width?: number | null
+          headline?: string
+          id?: string
+          input_type?: string
+          plan_id?: string | null
+          primary_color?: string | null
+          prompt_used?: string | null
+          reference_image_data?: string | null
+          secondary_color?: string | null
+          style_theme?: string
+          subheadline?: string | null
+          text_description?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "banner_designs_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "business_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_ideas: {
         Row: {
           created_at: string

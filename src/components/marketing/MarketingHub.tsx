@@ -12,11 +12,22 @@ import {
   Loader2,
   Sparkles,
   Pencil,
-  Trash2
+  Trash2,
+  Download,
+  LayoutTemplate
 } from 'lucide-react';
 import { useMarketingContent } from '@/hooks/useMarketingContent';
+import { useBannerDesigns } from '@/hooks/useBannerDesigns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Label } from '@/components/ui/label';
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const MarketingHub: React.FC = () => {
   const { toast } = useToast();
@@ -34,6 +45,25 @@ const MarketingHub: React.FC = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [editingContentId, setEditingContentId] = useState<string | null>(null);
   const [editedContent, setEditedContent] = useState<string>('');
+
+  // Banner Design states
+  const { data: bannerDesigns, refetch: refetchBanners } = useBannerDesigns();
+  const [bannerSize, setBannerSize] = useState('instagram-post');
+  const [customWidth, setCustomWidth] = useState('');
+  const [customHeight, setCustomHeight] = useState('');
+  const [bannerInputType, setBannerInputType] = useState<'text' | 'image'>('text');
+  const [headline, setHeadline] = useState('');
+  const [subheadline, setSubheadline] = useState('');
+  const [ctaText, setCtaText] = useState('');
+  const [styleTheme, setStyleTheme] = useState('minimalist');
+  const [colorScheme, setColorScheme] = useState('brand');
+  const [primaryColor, setPrimaryColor] = useState('');
+  const [secondaryColor, setSecondaryColor] = useState('');
+  const [textDescription, setTextDescription] = useState('');
+  const [referenceImage, setReferenceImage] = useState<File | null>(null);
+  const [referenceImagePreview, setReferenceImagePreview] = useState<string | null>(null);
+  const [isGeneratingBanner, setIsGeneratingBanner] = useState(false);
+  const [generatedBanners, setGeneratedBanners] = useState<string[]>([]);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -300,6 +330,120 @@ const MarketingHub: React.FC = () => {
     }
   };
 
+  // Banner Design functions
+  const handleReferenceImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setReferenceImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setReferenceImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const generateBanner = async () => {
+    if (!headline.trim()) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter a headline for your banner",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (bannerInputType === 'image' && !referenceImage) {
+      toast({
+        title: "Missing Information",
+        description: "Please upload a reference image",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (bannerSize === 'custom' && (!customWidth || !customHeight)) {
+      toast({
+        title: "Missing Information",
+        description: "Please specify custom dimensions",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingBanner(true);
+    setGeneratedBanners([]);
+
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) throw new Error('Not authenticated');
+
+      let referenceImageData = null;
+      if (bannerInputType === 'image' && referenceImage) {
+        const reader = new FileReader();
+        referenceImageData = await new Promise<string>((resolve) => {
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(referenceImage);
+        });
+      }
+
+      const { data, error } = await supabase.functions.invoke('generate-banner', {
+        body: {
+          bannerSize,
+          customWidth: bannerSize === 'custom' ? parseInt(customWidth) : null,
+          customHeight: bannerSize === 'custom' ? parseInt(customHeight) : null,
+          inputType: bannerInputType,
+          headline,
+          subheadline,
+          ctaText,
+          styleTheme,
+          colorScheme,
+          primaryColor: primaryColor || null,
+          secondaryColor: secondaryColor || null,
+          textDescription: bannerInputType === 'text' ? textDescription : null,
+          referenceImageData,
+          planId: null,
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.success && data?.banners) {
+        setGeneratedBanners(data.banners);
+        await refetchBanners();
+        toast({
+          title: "Success!",
+          description: "Banner variants generated successfully",
+        });
+      } else {
+        throw new Error('No banners generated');
+      }
+    } catch (error) {
+      console.error('Error generating banner:', error);
+      toast({
+        title: "Generation Failed",
+        description: error instanceof Error ? error.message : "Failed to generate banner",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingBanner(false);
+    }
+  };
+
+  const downloadBanner = (url: string, format: 'png' | 'jpg') => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `banner-${Date.now()}.${format}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({
+      title: "Download Started",
+      description: `Banner downloaded as ${format.toUpperCase()}`,
+    });
+  };
+
   const marketingTools = [
     {
       id: 'content',
@@ -333,9 +477,10 @@ const MarketingHub: React.FC = () => {
       </div>
 
       <Tabs defaultValue="content" className="space-y-6">
-        <TabsList className="grid grid-cols-2 w-full max-w-2xl mx-auto">
+        <TabsList className="grid grid-cols-3 w-full max-w-3xl mx-auto">
           <TabsTrigger value="content">Content</TabsTrigger>
           <TabsTrigger value="visuals">Visuals</TabsTrigger>
+          <TabsTrigger value="banners">Banner Design</TabsTrigger>
         </TabsList>
 
         {/* Content Generation Tab */}
@@ -623,58 +768,295 @@ const MarketingHub: React.FC = () => {
               <p className="text-muted-foreground mb-4">
                 Generate marketing posters, social media graphics, and promotional materials
               </p>
-              <Button 
-                variant="warm"
-                onClick={() => {
-                  if (generatedContent.length > 0) {
-                    handlePreviewContent(generatedContent[0]);
-                  } else {
-                    alert('Generate some content first to see the preview feature!');
-                  }
-                }}
-              >
-                <Eye className="mr-2 h-4 w-4" />
-                Preview Feature
-              </Button>
-              
-              {/* Preview Modal */}
-              {showPreview && previewContent && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                  <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
-                    <div className="flex justify-between items-center mb-4">
-                      <h3 className="text-lg font-semibold">Content Preview</h3>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => setShowPreview(false)}
-                      >
-                        ×
-                      </Button>
-                    </div>
-                    <div className="mb-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="font-medium text-lg">{getContentHeading(previewContent)}</span>
-                      </div>
-                      <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                        <div className="whitespace-pre-line text-sm leading-relaxed">
-                          {previewContent.content_text || previewContent.content || ''}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 justify-end">
-                      <Button 
-                        variant="outline"
-                        onClick={() => handleCopyContent(previewContent.content_text || previewContent.content || '')}
-                      >
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copy
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Banner Design Tab */}
+        <TabsContent value="banners" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Configuration Panel */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <LayoutTemplate className="h-5 w-5" />
+                  Banner Design Studio
+                </CardTitle>
+                <CardDescription>
+                  Create professional marketing banners with AI
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Banner Size</Label>
+                  <Select value={bannerSize} onValueChange={setBannerSize}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="instagram-post">Instagram Post (1080x1080)</SelectItem>
+                      <SelectItem value="instagram-story">Instagram Story (1080x1920)</SelectItem>
+                      <SelectItem value="facebook-cover">Facebook Cover (820x312)</SelectItem>
+                      <SelectItem value="facebook-post">Facebook Post (1200x630)</SelectItem>
+                      <SelectItem value="linkedin-banner">LinkedIn Banner (1584x396)</SelectItem>
+                      <SelectItem value="twitter-header">X Header (1500x500)</SelectItem>
+                      <SelectItem value="youtube-thumbnail">YouTube Thumbnail (1280x720)</SelectItem>
+                      <SelectItem value="website-hero">Website Hero (1920x600)</SelectItem>
+                      <SelectItem value="email-header">Email Header (600x200)</SelectItem>
+                      <SelectItem value="custom">Custom Size</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {bannerSize === 'custom' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Width (px)</Label>
+                      <Input
+                        type="number"
+                        placeholder="1920"
+                        value={customWidth}
+                        onChange={(e) => setCustomWidth(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Height (px)</Label>
+                      <Input
+                        type="number"
+                        placeholder="1080"
+                        value={customHeight}
+                        onChange={(e) => setCustomHeight(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label>Input Type</Label>
+                  <Select value={bannerInputType} onValueChange={(val) => setBannerInputType(val as 'text' | 'image')}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="text">Text Description</SelectItem>
+                      <SelectItem value="image">Image Reference</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Headline *</Label>
+                  <Input
+                    placeholder="e.g., Diwali Mega Sale! 🪔"
+                    maxLength={50}
+                    value={headline}
+                    onChange={(e) => setHeadline(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Subheadline</Label>
+                  <Input
+                    placeholder="e.g., Up to 50% Off on Handcrafted Goods"
+                    maxLength={80}
+                    value={subheadline}
+                    onChange={(e) => setSubheadline(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Call-to-Action</Label>
+                  <Input
+                    placeholder="e.g., Shop Now"
+                    maxLength={20}
+                    value={ctaText}
+                    onChange={(e) => setCtaText(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Style/Theme</Label>
+                  <Select value={styleTheme} onValueChange={setStyleTheme}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="minimalist">Minimalist</SelectItem>
+                      <SelectItem value="bold">Bold & Vibrant</SelectItem>
+                      <SelectItem value="professional">Professional</SelectItem>
+                      <SelectItem value="festive">Festive</SelectItem>
+                      <SelectItem value="elegant">Elegant</SelectItem>
+                      <SelectItem value="modern">Modern Tech</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Color Scheme</Label>
+                  <Select value={colorScheme} onValueChange={setColorScheme}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="brand">Brand Colors</SelectItem>
+                      <SelectItem value="warm">Warm (Red/Orange/Yellow)</SelectItem>
+                      <SelectItem value="cool">Cool (Blue/Green/Purple)</SelectItem>
+                      <SelectItem value="monochrome">Monochrome</SelectItem>
+                      <SelectItem value="custom">Custom</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {colorScheme === 'custom' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Primary Color</Label>
+                      <Input
+                        type="color"
+                        value={primaryColor}
+                        onChange={(e) => setPrimaryColor(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Secondary Color</Label>
+                      <Input
+                        type="color"
+                        value={secondaryColor}
+                        onChange={(e) => setSecondaryColor(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {bannerInputType === 'text' ? (
+                  <div className="space-y-2">
+                    <Label>Additional Description</Label>
+                    <Textarea
+                      placeholder="e.g., Traditional Indian patterns with diyas and rangoli"
+                      value={textDescription}
+                      onChange={(e) => setTextDescription(e.target.value)}
+                      className="min-h-[80px]"
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label>Reference Image</Label>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleReferenceImageSelect}
+                      className="cursor-pointer"
+                    />
+                    {referenceImagePreview && (
+                      <div className="relative border rounded-lg p-4 bg-muted/30 mt-2">
+                        <div className="w-full h-32 flex items-center justify-center overflow-hidden rounded">
+                          <img 
+                            src={referenceImagePreview} 
+                            alt="Reference Preview" 
+                            className="max-w-full max-h-full object-contain"
+                          />
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            setReferenceImage(null);
+                            setReferenceImagePreview(null);
+                          }}
+                          className="absolute top-2 right-2"
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <Button 
+                  variant="craft" 
+                  onClick={generateBanner}
+                  disabled={isGeneratingBanner}
+                  className="w-full"
+                >
+                  {isGeneratingBanner ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generating Banners...
+                    </>
+                  ) : (
+                    <>
+                      <LayoutTemplate className="mr-2 h-4 w-4" />
+                      Generate Banner Variants
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Preview Panel */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Generated Banners</CardTitle>
+                <CardDescription>
+                  {generatedBanners.length > 0 
+                    ? "3 variants ready for download" 
+                    : "Your generated banners will appear here"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isGeneratingBanner ? (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+                    <p className="text-sm text-muted-foreground">Generating 3 banner variants...</p>
+                  </div>
+                ) : generatedBanners.length > 0 ? (
+                  <div className="space-y-4">
+                    {generatedBanners.map((banner, index) => (
+                      <div key={index} className="border rounded-lg p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-sm">Variant {index + 1}</span>
+                        </div>
+                        <div className="bg-muted/30 rounded-lg overflow-hidden flex items-center justify-center min-h-[200px]">
+                          <img 
+                            src={banner} 
+                            alt={`Banner Variant ${index + 1}`}
+                            className="max-w-full max-h-[300px] object-contain"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => downloadBanner(banner, 'png')}
+                            className="flex-1"
+                          >
+                            <Download className="mr-2 h-4 w-4" />
+                            PNG
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => downloadBanner(banner, 'jpg')}
+                            className="flex-1"
+                          >
+                            <Download className="mr-2 h-4 w-4" />
+                            JPG
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <LayoutTemplate className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-muted-foreground">
+                      Configure your banner and click Generate to create 3 professional variants
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
