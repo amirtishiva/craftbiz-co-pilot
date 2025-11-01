@@ -21,17 +21,19 @@ const Navigation: React.FC = () => {
   };
 
   return (
-    <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-6 w-6 text-primary" />
-          <span className="text-xl font-bold">CraftBiz</span>
+    <nav className="bg-background py-4">
+      <div className="container mx-auto px-4">
+        <div className="bg-card border border-border rounded-lg shadow-sm px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-6 w-6 text-primary" />
+            <span className="text-xl font-bold">CraftBiz</span>
+          </div>
+          
+          <Button variant="outline" size="sm" onClick={handleLogout}>
+            <LogOut className="h-4 w-4 mr-2" />
+            Log Out
+          </Button>
         </div>
-        
-        <Button variant="outline" size="sm" onClick={handleLogout}>
-          <LogOut className="h-4 w-4 mr-2" />
-          Log Out
-        </Button>
       </div>
     </nav>
   );
