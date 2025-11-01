@@ -447,43 +447,49 @@ Yearly Revenue: ₹${projections.yearlyRevenue.toLocaleString()}
     setIsTranslatingFinancial(true);
 
     try {
-      const contentToTranslate = JSON.stringify({
-        sectionTitles: {
-          financialCalculator: "Financial Calculator",
-          projections: "Projections",
-          aiStrategist: "AI Financial Strategist"
-        },
-        inputLabels: {
-          startupCost: "Initial Startup Cost",
-          monthlyExpenses: "Monthly Operating Expenses",
-          pricePerUnit: "Price per Unit/Service",
-          unitsPerMonth: "Units Sold per Month"
-        },
-        projectionLabels: {
-          monthlyRevenue: "Monthly Revenue",
-          monthlyProfit: "Monthly Profit",
-          breakEvenPeriod: "Break-even Period",
-          yearlyRevenue: "Yearly Revenue"
-        },
-        aiSectionLabels: {
-          cashFlow: "Cash Flow Analysis",
-          pricing: "Pricing Strategy",
-          growth: "Growth Opportunities",
-          risk: "Risk Mitigation",
-          actions: "Immediate Action Items"
-        },
-        buttons: {
-          getInsights: "Get AI Insights",
-          refresh: "Refresh Insights",
-          analyzing: "Analyzing..."
-        },
-        descriptions: {
-          financialCalc: "Input your estimates to calculate projections",
-          aiStrategist: "Get personalized recommendations to grow your business",
-          enterDetails: "Enter all financial details above to get personalized AI insights"
-        },
-        aiInsights: aiInsights || null
-      });
+      // Format content for translation with clear delimiters
+      const contentToTranslate = `
+###SECTION_TITLES###
+financialCalculator::Financial Calculator
+projections::Projections
+aiStrategist::AI Financial Strategist
+
+###INPUT_LABELS###
+startupCost::Initial Startup Cost
+monthlyExpenses::Monthly Operating Expenses
+pricePerUnit::Price per Unit/Service
+unitsPerMonth::Units Sold per Month
+
+###PROJECTION_LABELS###
+monthlyRevenue::Monthly Revenue
+monthlyProfit::Monthly Profit
+breakEvenPeriod::Break-even Period
+yearlyRevenue::Yearly Revenue
+
+###AI_SECTION_LABELS###
+cashFlow::Cash Flow Analysis
+pricing::Pricing Strategy
+growth::Growth Opportunities
+risk::Risk Mitigation
+actions::Immediate Action Items
+
+###BUTTONS###
+getInsights::Get AI Insights
+refresh::Refresh Insights
+analyzing::Analyzing...
+
+###DESCRIPTIONS###
+financialCalc::Input your estimates to calculate projections
+aiStrategist::Get personalized recommendations to grow your business
+enterDetails::Enter all financial details above to get personalized AI insights
+
+${aiInsights ? `###AI_INSIGHTS###
+cashFlowAnalysis::${aiInsights.cashFlowAnalysis}
+pricingRecommendation::${aiInsights.pricingRecommendation}
+growthOpportunities::${aiInsights.growthOpportunities?.join('||')}
+riskMitigation::${aiInsights.riskMitigation?.join('||')}
+actionItems::${aiInsights.actionItems?.join('||')}` : ''}
+      `.trim();
 
       const { data, error } = await supabase.functions.invoke('translate-business-plan', {
         body: { 
@@ -494,7 +500,50 @@ Yearly Revenue: ₹${projections.yearlyRevenue.toLocaleString()}
 
       if (error) throw error;
 
-      const translatedData = JSON.parse(data.translatedContent);
+      // Parse the translated content
+      const translatedText = data.translatedContent;
+      const sections = translatedText.split('###');
+      const translatedData: any = {};
+
+      sections.forEach((section: string) => {
+        const lines = section.trim().split('\n');
+        if (lines.length === 0) return;
+
+        const sectionName = lines[0].replace(/###/g, '').trim();
+        const sectionData: any = {};
+
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line || !line.includes('::')) continue;
+          
+          const [key, ...valueParts] = line.split('::');
+          const value = valueParts.join('::').trim();
+          
+          // Handle array values (joined with ||)
+          if (value.includes('||')) {
+            sectionData[key.trim()] = value.split('||').map(v => v.trim());
+          } else {
+            sectionData[key.trim()] = value;
+          }
+        }
+
+        // Map section names to object structure
+        const sectionMap: any = {
+          'SECTION_TITLES': 'sectionTitles',
+          'INPUT_LABELS': 'inputLabels',
+          'PROJECTION_LABELS': 'projectionLabels',
+          'AI_SECTION_LABELS': 'aiSectionLabels',
+          'BUTTONS': 'buttons',
+          'DESCRIPTIONS': 'descriptions',
+          'AI_INSIGHTS': 'aiInsights'
+        };
+
+        const mappedName = sectionMap[sectionName];
+        if (mappedName) {
+          translatedData[mappedName] = sectionData;
+        }
+      });
+
       setTranslatedFinancialLabels(prev => ({
         ...prev,
         [targetLanguage]: translatedData
