@@ -24,7 +24,10 @@ const MarketingHub: React.FC = () => {
   const [contentType, setContentType] = useState('social-post');
   const [socialMediaType, setSocialMediaType] = useState('facebook');
   const [audienceType, setAudienceType] = useState('general');
+  const [inputType, setInputType] = useState<'text' | 'image'>('text');
   const [contentPrompt, setContentPrompt] = useState('');
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRefining, setIsRefining] = useState(false);
   const [previewContent, setPreviewContent] = useState<any>(null);
@@ -32,11 +35,32 @@ const MarketingHub: React.FC = () => {
   const [editingContentId, setEditingContentId] = useState<string | null>(null);
   const [editedContent, setEditedContent] = useState<string>('');
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const generateContent = async () => {
-    if (!contentPrompt.trim()) {
+    if (inputType === 'text' && !contentPrompt.trim()) {
       toast({
         title: "Missing Information",
         description: "Please enter a campaign focus",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (inputType === 'image' && !selectedImage) {
+      toast({
+        title: "Missing Information",
+        description: "Please upload an image",
         variant: "destructive",
       });
       return;
@@ -47,10 +71,21 @@ const MarketingHub: React.FC = () => {
       const user = (await supabase.auth.getUser()).data.user;
       if (!user) throw new Error('Not authenticated');
 
+      let imageData = null;
+      if (inputType === 'image' && selectedImage) {
+        const reader = new FileReader();
+        imageData = await new Promise<string>((resolve) => {
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(selectedImage);
+        });
+      }
+
       const requestBody: any = { 
         prompt: contentPrompt,
         contentType,
-        audienceType
+        audienceType,
+        inputType,
+        imageData
       };
 
       // Only include socialMediaType if contentType is social-post
@@ -89,6 +124,8 @@ const MarketingHub: React.FC = () => {
         description: "Your marketing content has been created.",
       });
       setContentPrompt('');
+      setSelectedImage(null);
+      setImagePreview(null);
     } catch (error) {
       console.error('Content generation error:', error);
       toast({
@@ -359,30 +396,81 @@ const MarketingHub: React.FC = () => {
                   </div>
                 )}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Campaign Focus</label>
-                  <div className="relative">
-                    <Textarea
-                      placeholder="What message do you want to convey? (e.g., supporting local artisans, product quality, cultural heritage)"
-                      value={contentPrompt}
-                      onChange={(e) => setContentPrompt(e.target.value)}
-                      className="min-h-[100px] pr-10"
-                    />
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="absolute bottom-2 right-2 h-8 w-8 p-0"
-                      onClick={refineContent}
-                      disabled={isRefining || !contentPrompt.trim()}
-                      title="Refine content with AI"
-                    >
-                      {isRefining ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Sparkles className="h-4 w-4 text-primary" />
-                      )}
-                    </Button>
-                  </div>
+                  <label className="text-sm font-medium">Campaign Focus Type</label>
+                  <select 
+                    className="w-full px-3 py-2 border border-input rounded-md"
+                    value={inputType}
+                    onChange={(e) => {
+                      setInputType(e.target.value as 'text' | 'image');
+                      setContentPrompt('');
+                      setSelectedImage(null);
+                      setImagePreview(null);
+                    }}
+                  >
+                    <option value="text">Text-based</option>
+                    <option value="image">Image-based</option>
+                  </select>
                 </div>
+                {inputType === 'text' ? (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Campaign Focus</label>
+                    <div className="relative">
+                      <Textarea
+                        placeholder="What message do you want to convey? (e.g., supporting local artisans, product quality, cultural heritage)"
+                        value={contentPrompt}
+                        onChange={(e) => setContentPrompt(e.target.value)}
+                        className="min-h-[100px] pr-10"
+                      />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="absolute bottom-2 right-2 h-8 w-8 p-0"
+                        onClick={refineContent}
+                        disabled={isRefining || !contentPrompt.trim()}
+                        title="Refine content with AI"
+                      >
+                        {isRefining ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-4 w-4 text-primary" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Upload Image</label>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageSelect}
+                      className="cursor-pointer"
+                    />
+                    {imagePreview && (
+                      <div className="relative border rounded-lg overflow-hidden mt-2">
+                        <img 
+                          src={imagePreview} 
+                          alt="Preview" 
+                          className="w-full h-48 object-cover"
+                        />
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            setSelectedImage(null);
+                            setImagePreview(null);
+                          }}
+                          className="absolute top-2 right-2"
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Upload a product photo, mockup, or visual to generate contextual marketing content
+                    </p>
+                  </div>
+                )}
                 <Button 
                   variant="craft" 
                   onClick={generateContent}

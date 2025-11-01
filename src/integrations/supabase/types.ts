@@ -169,6 +169,8 @@ export type Database = {
           created_at: string
           hashtags: string[] | null
           id: string
+          image_data: string | null
+          input_type: string | null
           plan_id: string | null
           platform: string | null
           user_id: string
@@ -179,6 +181,8 @@ export type Database = {
           created_at?: string
           hashtags?: string[] | null
           id?: string
+          image_data?: string | null
+          input_type?: string | null
           plan_id?: string | null
           platform?: string | null
           user_id: string
@@ -189,6 +193,8 @@ export type Database = {
           created_at?: string
           hashtags?: string[] | null
           id?: string
+          image_data?: string | null
+          input_type?: string | null
           plan_id?: string | null
           platform?: string | null
           user_id?: string

@@ -13,10 +13,14 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, contentType, audienceType, socialMediaType } = await req.json();
+    const { prompt, contentType, audienceType, socialMediaType, inputType, imageData } = await req.json();
 
-    if (!prompt) {
+    if (inputType === 'text' && !prompt) {
       throw new Error('Campaign focus/prompt is required');
+    }
+    
+    if (inputType === 'image' && !imageData) {
+      throw new Error('Image data is required for image-based generation');
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -32,9 +36,54 @@ serve(async (req) => {
       user = authUser;
     }
 
-    const OPENAI_API_KEY = Deno.env.get('Open_API');
-    if (!OPENAI_API_KEY) {
-      throw new Error('OpenAI API key is not configured');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      throw new Error('Lovable API key is not configured');
+    }
+
+    // Analyze image if image-based generation
+    let imageAnalysis = '';
+    if (inputType === 'image' && imageData) {
+      console.log('Analyzing image for marketing context...');
+      
+      const visionResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Analyze this image and provide: 1) Product/subject type, 2) Visual style and mood, 3) Color palette and theme, 4) Setting/background context, 5) Key visual elements for marketing. Be detailed but concise.'
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: imageData
+                  }
+                }
+              ]
+            }
+          ],
+          max_tokens: 500
+        }),
+      });
+
+      if (!visionResponse.ok) {
+        const errorText = await visionResponse.text();
+        console.error('Vision API error:', errorText);
+        throw new Error('Failed to analyze image');
+      }
+
+      const visionData = await visionResponse.json();
+      imageAnalysis = visionData.choices?.[0]?.message?.content || '';
+      console.log('Image analysis complete:', imageAnalysis.substring(0, 200));
     }
 
     // Platform-specific style guidelines for SOCIAL MEDIA POSTS ONLY
@@ -84,7 +133,29 @@ You create culturally relevant, engaging content that resonates with Indian audi
 You understand local cultural nuances, festivals, values, and communication styles.
 Always maintain authenticity and emotional connection while being professional.`;
 
-      userPrompt = `Create compelling ${contentTypeDesc} content for ${socialMediaType || 'social media'} with these specifications:
+      if (inputType === 'image' && imageAnalysis) {
+        userPrompt = `Create compelling ${contentTypeDesc} content for ${socialMediaType || 'social media'} with these specifications:
+
+PLATFORM: ${socialMediaType || 'Facebook'}
+STYLE GUIDE: ${platformStyle}
+TARGET AUDIENCE: ${audience}
+
+VISUAL ANALYSIS:
+${imageAnalysis}
+
+Requirements:
+1. Create content that reflects the visual theme, mood, and colors from the image
+2. Align messaging with the product/subject identified in the image
+3. Use emotional appeal and storytelling inspired by the visual context
+4. Maintain culturally appropriate tone for Indian market
+5. Include strong call-to-action
+6. Generate relevant, contextual hashtags based on the visual theme
+7. Use emojis appropriately for the platform
+8. Make the content feel authentic to the visual identity
+
+Return ONLY the marketing content text with hashtags and emojis, no explanations.`;
+      } else {
+        userPrompt = `Create compelling ${contentTypeDesc} content for ${socialMediaType || 'social media'} with these specifications:
 
 PLATFORM: ${socialMediaType || 'Facebook'}
 STYLE GUIDE: ${platformStyle}
@@ -103,6 +174,7 @@ Requirements:
 9. Use emojis appropriately for the platform
 
 Return ONLY the marketing content text with hashtags and emojis, no explanations or additional formatting.`;
+      }
     } else {
       // Non-social content - NO hashtags, NO emojis
       systemPrompt = `You are an expert marketing copywriter specializing in Indian market campaigns. 
@@ -110,7 +182,27 @@ You create culturally relevant, professional content that resonates with Indian 
 You understand local cultural nuances, festivals, values, and communication styles.
 Always maintain authenticity and emotional connection while being professional.`;
 
-      userPrompt = `Create compelling ${contentTypeDesc} with these specifications:
+      if (inputType === 'image' && imageAnalysis) {
+        userPrompt = `Create compelling ${contentTypeDesc} with these specifications:
+
+CONTENT TYPE: ${contentType}
+GUIDELINE: ${contentGuideline}
+TARGET AUDIENCE: ${audience}
+
+VISUAL ANALYSIS:
+${imageAnalysis}
+
+Requirements:
+1. Create professional content inspired by the visual analysis
+2. Reflect the mood, theme, and context from the image
+3. Align with the product/subject identified
+4. Professional tone - NO hashtags, NO emojis
+5. Include strong call-to-action
+6. Make it actionable and culturally appropriate for Indian market
+
+Return ONLY the marketing content text, no explanations.`;
+      } else {
+        userPrompt = `Create compelling ${contentTypeDesc} with these specifications:
 
 CONTENT TYPE: ${contentType}
 GUIDELINE: ${contentGuideline}
@@ -126,20 +218,20 @@ Requirements:
 6. Use inclusive language that resonates with Indian values
 
 Return ONLY the marketing content text, no explanations or additional formatting.`;
+      }
     }
 
-    console.log('Generating marketing content with OpenAI GPT-5');
-    console.log('System prompt:', systemPrompt);
-    console.log('User prompt:', userPrompt);
+    console.log('Generating marketing content with Lovable AI (Gemini 2.5 Flash)');
+    console.log('Input type:', inputType);
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
@@ -151,12 +243,12 @@ Return ONLY the marketing content text, no explanations or additional formatting
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenAI API error:', response.status, errorText);
-      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+      console.error('Lovable AI API error:', response.status, errorText);
+      throw new Error(`Lovable AI API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-    console.log('OpenAI response:', JSON.stringify(data, null, 2));
+    console.log('Lovable AI response received');
     
     if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
       console.error('Invalid OpenAI response structure:', data);
@@ -177,7 +269,9 @@ Return ONLY the marketing content text, no explanations or additional formatting
           platform: contentType === 'social-post' ? (socialMediaType || null) : null,
           content_type: contentType,
           content_text: generatedContent,
-          hashtags: [] // Hashtags are now included in the content_text
+          hashtags: [], // Hashtags are now included in the content_text
+          input_type: inputType || 'text',
+          image_data: inputType === 'image' ? imageData : null
         })
         .select()
         .single();
