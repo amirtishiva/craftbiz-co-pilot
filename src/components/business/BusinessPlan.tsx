@@ -502,28 +502,33 @@ actionItems::${aiInsights.actionItems?.join('||')}` : ''}
 
       // Parse the translated content
       const translatedText = data.translatedContent;
-      const sections = translatedText.split('###');
+      console.log('Raw translated text:', translatedText);
+      
+      const sections = translatedText.split('###').filter((s: string) => s.trim());
       const translatedData: any = {};
 
       sections.forEach((section: string) => {
-        const lines = section.trim().split('\n');
+        const lines = section.trim().split('\n').filter((l: string) => l.trim());
         if (lines.length === 0) return;
 
-        const sectionName = lines[0].replace(/###/g, '').trim();
+        const sectionName = lines[0].trim();
+        console.log('Processing section:', sectionName);
+        
         const sectionData: any = {};
 
         for (let i = 1; i < lines.length; i++) {
           const line = lines[i].trim();
           if (!line || !line.includes('::')) continue;
           
-          const [key, ...valueParts] = line.split('::');
-          const value = valueParts.join('::').trim();
+          const colonIndex = line.indexOf('::');
+          const key = line.substring(0, colonIndex).trim();
+          const value = line.substring(colonIndex + 2).trim();
           
           // Handle array values (joined with ||)
           if (value.includes('||')) {
-            sectionData[key.trim()] = value.split('||').map(v => v.trim());
+            sectionData[key] = value.split('||').map(v => v.trim());
           } else {
-            sectionData[key.trim()] = value;
+            sectionData[key] = value;
           }
         }
 
@@ -541,8 +546,11 @@ actionItems::${aiInsights.actionItems?.join('||')}` : ''}
         const mappedName = sectionMap[sectionName];
         if (mappedName) {
           translatedData[mappedName] = sectionData;
+          console.log(`Mapped ${sectionName} to ${mappedName}:`, sectionData);
         }
       });
+
+      console.log('Final translated data:', translatedData);
 
       setTranslatedFinancialLabels(prev => ({
         ...prev,
