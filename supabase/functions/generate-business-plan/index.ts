@@ -46,33 +46,48 @@ serve(async (req) => {
 
     const systemPrompt = `You are an expert business consultant specializing in helping Indian entrepreneurs create concise, actionable business plans. You understand the Indian market and provide clear, structured insights.
 
-CRITICAL INSTRUCTIONS:
-- Generate CONCISE, ACTIONABLE content for each section
-- Each section must have EXACTLY 3-5 bullet points
-- Each bullet point must be 1-2 sentences maximum
+CRITICAL FORMATTING INSTRUCTIONS:
+- Each section must have EXACTLY 3-5 clean sentences
+- Each sentence must be on a NEW LINE separated by \n
+- Each sentence must be 1-2 sentences maximum (professional, corporate style)
+- NO asterisks (*), bullets (•), dashes (-), or any special symbols before sentences
+- NO thick dividers or separators between sections
 - Use specific numbers and data relevant to India when possible
-- Avoid lengthy paragraphs - be brief and impactful
-- Focus on key insights and actionable items only
-- You MUST return valid JSON ONLY - no markdown, no code blocks
-- Use the tool call to return structured data`;
+- Professional, executive tone - clear and concise
+- You MUST return valid JSON ONLY - no markdown formatting
+- Use the tool call to return structured data
+
+EXAMPLE FORMAT FOR EACH SECTION:
+First key insight in one or two professional sentences.
+Second important point clearly stated.
+Third actionable recommendation.
+Fourth strategic consideration.
+Fifth implementation detail.`;
 
     const userPrompt = `Business Idea: ${idea.refined_idea || idea.original_text}
 Business Name: ${businessName || 'Not specified'}
 
-Generate a concise, actionable business plan. Each section MUST have 3-5 bullet points with 1-2 sentences each:
+Generate a professional, concise business plan. Each section MUST contain 3-5 clean sentences (NO bullets, asterisks, or symbols):
 
-1. EXECUTIVE SUMMARY (3-5 bullet points, 1-2 sentences each)
-2. MARKET ANALYSIS (3-5 bullet points, 1-2 sentences each)
-3. TARGET CUSTOMERS (3-5 bullet points, 1-2 sentences each)
-4. COMPETITIVE ADVANTAGE (3-5 bullet points, 1-2 sentences each)
-5. REVENUE MODEL (3-5 bullet points, 1-2 sentences each)
-6. MARKETING STRATEGY (3-5 bullet points, 1-2 sentences each)
-7. OPERATIONS PLAN (3-5 bullet points, 1-2 sentences each)
-8. FINANCIAL PROJECTIONS (3-5 bullet points, 1-2 sentences each)
-9. RISK ANALYSIS (3-5 bullet points, 1-2 sentences each)
-10. IMPLEMENTATION TIMELINE (3-5 bullet points, 1-2 sentences each)
+FORMAT REQUIREMENTS:
+- Each sentence on a NEW LINE (separated by \n)
+- NO special symbols (*, •, -, etc.) before sentences
+- Professional corporate tone
+- Each sentence is 1-2 sentences maximum
 
-Keep each bullet point brief and actionable. Focus on specific, measurable information.`;
+SECTIONS TO GENERATE:
+1. EXECUTIVE SUMMARY (3-5 clean sentences, newline-separated)
+2. MARKET ANALYSIS (3-5 clean sentences, newline-separated)
+3. TARGET CUSTOMERS (3-5 clean sentences, newline-separated)
+4. COMPETITIVE ADVANTAGE (3-5 clean sentences, newline-separated)
+5. REVENUE MODEL (3-5 clean sentences, newline-separated)
+6. MARKETING STRATEGY (3-5 clean sentences, newline-separated)
+7. OPERATIONS PLAN (3-5 clean sentences, newline-separated)
+8. FINANCIAL PROJECTIONS (3-5 clean sentences, newline-separated)
+9. RISK ANALYSIS (3-5 clean sentences, newline-separated)
+10. IMPLEMENTATION TIMELINE (3-5 clean sentences, newline-separated)
+
+Each section should be specific, measurable, and actionable for the Indian market.`;
 
     console.log('Generating business plan for idea:', ideaId);
 
@@ -97,16 +112,16 @@ Keep each bullet point brief and actionable. Focus on specific, measurable infor
               parameters: {
                 type: "object",
                 properties: {
-                  executiveSummary: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" },
-                  marketAnalysis: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" },
-                  targetCustomers: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" },
-                  competitiveAdvantage: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" },
-                  revenueModel: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" },
-                  marketingStrategy: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" },
-                  operationsPlan: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" },
-                  financialProjections: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" },
-                  riskAnalysis: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" },
-                  implementationTimeline: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" }
+                  executiveSummary: { type: "string", description: "3-5 clean sentences, each on new line (\\n), NO symbols like * or •, professional tone" },
+                  marketAnalysis: { type: "string", description: "3-5 clean sentences, each on new line (\\n), NO symbols like * or •, professional tone" },
+                  targetCustomers: { type: "string", description: "3-5 clean sentences, each on new line (\\n), NO symbols like * or •, professional tone" },
+                  competitiveAdvantage: { type: "string", description: "3-5 clean sentences, each on new line (\\n), NO symbols like * or •, professional tone" },
+                  revenueModel: { type: "string", description: "3-5 clean sentences, each on new line (\\n), NO symbols like * or •, professional tone" },
+                  marketingStrategy: { type: "string", description: "3-5 clean sentences, each on new line (\\n), NO symbols like * or •, professional tone" },
+                  operationsPlan: { type: "string", description: "3-5 clean sentences, each on new line (\\n), NO symbols like * or •, professional tone" },
+                  financialProjections: { type: "string", description: "3-5 clean sentences, each on new line (\\n), NO symbols like * or •, professional tone" },
+                  riskAnalysis: { type: "string", description: "3-5 clean sentences, each on new line (\\n), NO symbols like * or •, professional tone" },
+                  implementationTimeline: { type: "string", description: "3-5 clean sentences, each on new line (\\n), NO symbols like * or •, professional tone" }
                 },
                 required: [
                   "executiveSummary", "marketAnalysis", "targetCustomers", 
