@@ -20,7 +20,7 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
-  const { stats, loading } = useDashboardStats();
+  const { stats, progress, loading } = useDashboardStats();
 
   const features = [
     {
@@ -30,7 +30,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
       icon: Lightbulb,
       color: 'text-yellow-600',
       bgColor: 'bg-yellow-50',
-      progress: 0,
     },
     {
       id: 'business-plan',
@@ -39,7 +38,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
       icon: FileText,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50',
-      progress: 0,
     },
     {
       id: 'design-studio',
@@ -48,7 +46,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
       icon: Palette,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50',
-      progress: 0,
     },
     {
       id: 'marketing',
@@ -57,7 +54,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
       icon: Megaphone,
       color: 'text-green-600',
       bgColor: 'bg-green-50',
-      progress: 0,
+    },
+    {
+      id: 'suppliers',
+      title: 'Suppliers',
+      description: 'Connect with trusted suppliers',
+      icon: Truck,
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-50',
     },
   ];
 
@@ -117,6 +121,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         {features.map((feature) => {
           const Icon = feature.icon;
+          const featureProgress = progress[feature.id as keyof typeof progress] || 0;
           return (
             <Card 
               key={feature.id} 
@@ -139,14 +144,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
               <CardContent>
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-muted-foreground">
-                    Progress: {feature.progress}%
+                    Progress: {featureProgress}%
                   </div>
                   <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-smooth" />
                 </div>
                 <div className="w-full bg-secondary rounded-full h-2 mt-2">
                   <div 
                     className="bg-accent-orange h-2 rounded-full transition-smooth" 
-                    style={{ width: `${feature.progress}%` }}
+                    style={{ width: `${featureProgress}%` }}
                   ></div>
                 </div>
               </CardContent>

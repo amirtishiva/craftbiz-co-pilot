@@ -8,6 +8,13 @@ export const useDashboardStats = () => {
     designs: 0,
     marketing: 0,
   });
+  const [progress, setProgress] = useState({
+    idea: 0,
+    'business-plan': 0,
+    'design-studio': 0,
+    marketing: 0,
+    suppliers: 0,
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -49,6 +56,15 @@ export const useDashboardStats = () => {
           designs: designsCount || 0,
           marketing: marketingCount || 0,
         });
+
+        // Calculate progress percentages
+        setProgress({
+          idea: ideasCount > 0 ? 100 : 0,
+          'business-plan': plansCount > 0 ? 100 : 0,
+          'design-studio': designsCount > 0 ? 100 : 0,
+          marketing: marketingCount > 0 ? 100 : 0,
+          suppliers: 100, // Always available
+        });
       } catch (error) {
         console.error('Error fetching dashboard stats:', error);
       } finally {
@@ -59,5 +75,5 @@ export const useDashboardStats = () => {
     fetchStats();
   }, []);
 
-  return { stats, loading };
+  return { stats, progress, loading };
 };
