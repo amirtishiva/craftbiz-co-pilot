@@ -105,46 +105,66 @@ const BusinessPlan: React.FC<BusinessPlanProps> = ({ ideaData }) => {
     }
   };
 
+  // Format sections into a unified plan with clean professional formatting
   const formatUnifiedPlan = (sections: any): string => {
+    // Clean formatting helper - removes asterisks, bullets, and bold markers
+    const cleanContent = (content: string) => {
+      if (!content) return '';
+      return content
+        .replace(/^\s*[\*\•\-]\s*/gm, '') // Remove bullets at start of lines
+        .replace(/\*\*/g, '') // Remove bold markers
+        .replace(/\n{3,}/g, '\n\n') // Normalize line breaks
+        .trim();
+    };
+
     return `EXECUTIVE SUMMARY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${sections.executiveSummary}
+
+${cleanContent(sections.executiveSummary)}
+
 
 MARKET ANALYSIS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${sections.marketAnalysis}
+
+${cleanContent(sections.marketAnalysis)}
+
 
 TARGET CUSTOMERS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${sections.targetCustomers}
+
+${cleanContent(sections.targetCustomers)}
+
 
 COMPETITIVE ADVANTAGE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${sections.competitiveAdvantage}
+
+${cleanContent(sections.competitiveAdvantage)}
+
 
 REVENUE MODEL
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${sections.revenueModel}
+
+${cleanContent(sections.revenueModel)}
+
 
 MARKETING STRATEGY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${sections.marketingStrategy}
+
+${cleanContent(sections.marketingStrategy)}
+
 
 OPERATIONS PLAN
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${sections.operationsPlan}
+
+${cleanContent(sections.operationsPlan)}
+
 
 FINANCIAL PROJECTIONS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${sections.financialProjections}
+
+${cleanContent(sections.financialProjections)}
+
 
 RISK ANALYSIS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${sections.riskAnalysis}
+
+${cleanContent(sections.riskAnalysis)}
+
 
 IMPLEMENTATION TIMELINE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${sections.implementationTimeline}`;
+
+${cleanContent(sections.implementationTimeline)}`;
   };
 
   const generateBusinessPlan = async () => {
@@ -227,7 +247,8 @@ ${sections.implementationTimeline}`;
       implementation_timeline: ''
     };
 
-    const sectionRegex = /^([A-Z\s]+)\n━+\n([\s\S]*?)(?=\n\n[A-Z\s]+\n━+|$)/gm;
+    // Updated regex for clean format without dividers (just title followed by content)
+    const sectionRegex = /^([A-Z\s]+)\n\n([\s\S]*?)(?=\n\n\n[A-Z\s]+\n\n|$)/gm;
     let match;
 
     while ((match = sectionRegex.exec(unifiedPlan)) !== null) {
@@ -558,7 +579,7 @@ Yearly Revenue: ₹${projections.yearlyRevenue.toLocaleString()}
                   </div>
                   <CardDescription>
                     {isEditing 
-                      ? "Edit your business plan. Section headers are marked with ━━━ separators."
+                      ? "Edit your business plan. Keep section headers in ALL CAPS for proper parsing."
                       : selectedLanguage !== 'en'
                         ? `Your comprehensive business plan translated to ${languages.find(l => l.code === selectedLanguage)?.name}.`
                         : "Your comprehensive business plan with all sections in one view."
@@ -581,10 +602,27 @@ Yearly Revenue: ₹${projections.yearlyRevenue.toLocaleString()}
                       aria-label="Edit complete business plan"
                     />
                   ) : (
-                    <div className="prose prose-sm max-w-none">
-                      <pre className="whitespace-pre-wrap font-sans text-sm text-foreground leading-relaxed">
-                        {displayContent}
-                      </pre>
+                    <div className="space-y-8">
+                      {displayContent.split('\n\n\n').map((section, idx) => {
+                        const lines = section.split('\n');
+                        const title = lines[0];
+                        const content = lines.slice(1).join('\n').trim();
+                        
+                        return (
+                          <div key={idx} className="space-y-3">
+                            <h3 className="text-lg font-semibold text-foreground tracking-wide">
+                              {title}
+                            </h3>
+                            <div className="text-sm text-muted-foreground leading-relaxed space-y-2">
+                              {content.split('\n').filter(line => line.trim()).map((line, lineIdx) => (
+                                <p key={lineIdx} className="text-foreground/90">
+                                  {line.trim()}
+                                </p>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </CardContent>
