@@ -394,7 +394,7 @@ const DesignStudio: React.FC = () => {
           <TabsTrigger value="logo">Logo Design</TabsTrigger>
           <TabsTrigger value="mockups">Mockups</TabsTrigger>
           <TabsTrigger value="scenes">Scenes</TabsTrigger>
-          <TabsTrigger value="enhance">Image Enhance</TabsTrigger>
+          <TabsTrigger value="enhance">SceneBuilder</TabsTrigger>
         </TabsList>
 
         {/* Logo Design Tab */}

@@ -26,6 +26,7 @@ export const ImageEnhancer: React.FC = () => {
   const [generatedScenes, setGeneratedScenes] = useState<string[]>([]);
   const [selectedContext, setSelectedContext] = useState<string>('');
   const [customSceneDescription, setCustomSceneDescription] = useState<string>('');
+  const [refinedScenePrompt, setRefinedScenePrompt] = useState<string>('');
   const [isRefiningPrompt, setIsRefiningPrompt] = useState(false);
 
   const contextOptions = [
@@ -195,11 +196,11 @@ export const ImageEnhancer: React.FC = () => {
     }
   };
 
-  const generateCustomScene = async () => {
+  const refinePromptManually = async () => {
     if (!customSceneDescription.trim()) {
       toast({
         title: "Description Required",
-        description: "Please describe the scene you want to create",
+        description: "Please describe the scene you want to refine",
         variant: "destructive",
       });
       return;
@@ -207,15 +208,11 @@ export const ImageEnhancer: React.FC = () => {
 
     setIsRefiningPrompt(true);
     try {
-      const user = (await supabase.auth.getUser()).data.user;
-      if (!user) throw new Error('Not authenticated');
-
       toast({
         title: "Refining Prompt",
         description: "AI is optimizing your scene description...",
       });
 
-      // Refine the custom prompt using AI
       const { data: refinedData, error: refineError } = await supabase.functions.invoke('refine-prompt', {
         body: { 
           userPrompt: customSceneDescription,
@@ -226,14 +223,53 @@ export const ImageEnhancer: React.FC = () => {
       if (refineError) throw refineError;
 
       const refinedPrompt = refinedData?.refinedPrompt || customSceneDescription;
+      setRefinedScenePrompt(refinedPrompt);
 
+      toast({
+        title: "Prompt Refined!",
+        description: "You can now edit or generate the scene.",
+      });
+
+    } catch (error: any) {
+      console.error('Prompt refinement error:', error);
+      toast({
+        title: "Refinement Failed",
+        description: error.message || "Failed to refine prompt. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setIsRefiningPrompt(false);
+    }
+  };
+
+  const generateCustomScene = async () => {
+    const promptToUse = refinedScenePrompt || customSceneDescription;
+    
+    if (!promptToUse.trim()) {
+      toast({
+        title: "Description Required",
+        description: "Please describe the scene you want to create",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingScene(true);
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) throw new Error('Not authenticated');
+
+      toast({
+        title: "Generating Scene",
+        description: "Creating your custom scene... This may take 20-30 seconds.",
+      });
+
+      // Generate scene with the prompt
+      await generateContextualScene('custom', promptToUse);
       
-      // Generate scene with refined prompt
-      await generateContextualScene('custom', refinedPrompt);
-      
-      // Clear custom input after generation
+      // Clear inputs after generation
       setCustomSceneDescription('');
+      setRefinedScenePrompt('');
 
     } catch (error: any) {
       console.error('Custom scene generation error:', error);
@@ -242,7 +278,8 @@ export const ImageEnhancer: React.FC = () => {
         description: error.message || "Failed to generate custom scene. Please try again.",
         variant: "destructive",
       });
-      setIsRefiningPrompt(false);
+    } finally {
+      setIsGeneratingScene(false);
     }
   };
 
@@ -405,29 +442,64 @@ export const ImageEnhancer: React.FC = () => {
                 <Label htmlFor="custom-scene" className="text-sm font-medium">
                   Or Describe Your Custom Scene
                 </Label>
-                <Textarea
-                  id="custom-scene"
-                  placeholder="Example: Place the product on a wooden café table with natural morning light and a blurred background..."
-                  value={customSceneDescription}
-                  onChange={(e) => setCustomSceneDescription(e.target.value)}
-                  className="min-h-[100px] resize-none"
-                  disabled={isGeneratingScene || isRefiningPrompt}
-                />
+                <div className="relative">
+                  <Textarea
+                    id="custom-scene"
+                    placeholder="Example: Place the product on a wooden café table with natural morning light and a blurred background..."
+                    value={customSceneDescription}
+                    onChange={(e) => {
+                      setCustomSceneDescription(e.target.value);
+                      setRefinedScenePrompt('');
+                    }}
+                    className="min-h-[100px] resize-none pr-12"
+                    disabled={isGeneratingScene || isRefiningPrompt}
+                  />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="absolute bottom-2 right-2"
+                    onClick={refinePromptManually}
+                    disabled={isGeneratingScene || isRefiningPrompt || !customSceneDescription.trim()}
+                    title="Refine prompt with AI"
+                  >
+                    {isRefiningPrompt ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+
+                {refinedScenePrompt && (
+                  <div className="space-y-2">
+                    <Label htmlFor="refined-scene" className="text-sm font-medium text-primary">
+                      Refined Prompt (editable)
+                    </Label>
+                    <Textarea
+                      id="refined-scene"
+                      value={refinedScenePrompt}
+                      onChange={(e) => setRefinedScenePrompt(e.target.value)}
+                      className="min-h-[120px] resize-none bg-primary/5 border-primary/20"
+                      disabled={isGeneratingScene}
+                    />
+                  </div>
+                )}
+
                 <Button
                   onClick={generateCustomScene}
-                  disabled={isGeneratingScene || isRefiningPrompt || !customSceneDescription.trim()}
+                  disabled={isGeneratingScene || isRefiningPrompt || (!customSceneDescription.trim() && !refinedScenePrompt.trim())}
                   className="w-full"
                   variant="craft"
                 >
-                  {isRefiningPrompt ? (
+                  {isGeneratingScene ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Refining & Generating...
+                      Generating Scene...
                     </>
                   ) : (
                     <>
                       <Wand2 className="mr-2 h-4 w-4" />
-                      Refine & Generate Scene
+                      Generate Scene
                     </>
                   )}
                 </Button>
