@@ -10,7 +10,8 @@ import {
   TrendingUp,
   Users,
   Target,
-  Loader2
+  Loader2,
+  Truck
 } from 'lucide-react';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 
@@ -181,9 +182,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
                 Start Now
               </Button>
             </div>
-            <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg opacity-60">
+            <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-gray-400 text-white flex items-center justify-center text-sm font-bold">
+                <div className="w-8 h-8 rounded-full bg-accent-orange text-white flex items-center justify-center text-sm font-bold">
                   2
                 </div>
                 <div>
@@ -191,22 +192,50 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
                   <p className="text-sm text-muted-foreground">Get detailed insights and strategy</p>
                 </div>
               </div>
-              <Button variant="outline" disabled>
-                Coming Next
+              <Button variant="warm" onClick={() => onTabChange('business-plan')}>
+                Start Now
               </Button>
             </div>
-            <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg opacity-60">
+            <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-gray-400 text-white flex items-center justify-center text-sm font-bold">
+                <div className="w-8 h-8 rounded-full bg-accent-orange text-white flex items-center justify-center text-sm font-bold">
                   3
+                </div>
+                <div>
+                  <h4 className="font-semibold">Design Studio</h4>
+                  <p className="text-sm text-muted-foreground">Create logos and brand materials</p>
+                </div>
+              </div>
+              <Button variant="warm" onClick={() => onTabChange('design-studio')}>
+                Start Now
+              </Button>
+            </div>
+            <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-accent-orange text-white flex items-center justify-center text-sm font-bold">
+                  4
                 </div>
                 <div>
                   <h4 className="font-semibold">Launch Your Marketing</h4>
                   <p className="text-sm text-muted-foreground">Create content and reach customers</p>
                 </div>
               </div>
-              <Button variant="outline" disabled>
-                Coming Next
+              <Button variant="warm" onClick={() => onTabChange('marketing')}>
+                Start Now
+              </Button>
+            </div>
+            <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-accent-orange text-white flex items-center justify-center text-sm font-bold">
+                  5
+                </div>
+                <div>
+                  <h4 className="font-semibold">Suppliers</h4>
+                  <p className="text-sm text-muted-foreground">Connect with trusted suppliers</p>
+                </div>
+              </div>
+              <Button variant="warm" onClick={() => onTabChange('suppliers')}>
+                Start Now
               </Button>
             </div>
           </div>
