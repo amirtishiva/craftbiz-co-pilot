@@ -26,7 +26,6 @@ export const ImageEnhancer: React.FC = () => {
   const [generatedScenes, setGeneratedScenes] = useState<string[]>([]);
   const [selectedContext, setSelectedContext] = useState<string>('');
   const [customSceneDescription, setCustomSceneDescription] = useState<string>('');
-  const [refinedScenePrompt, setRefinedScenePrompt] = useState<string>('');
   const [isRefiningPrompt, setIsRefiningPrompt] = useState(false);
 
   const contextOptions = [
@@ -223,11 +222,11 @@ export const ImageEnhancer: React.FC = () => {
       if (refineError) throw refineError;
 
       const refinedPrompt = refinedData?.refinedPrompt || customSceneDescription;
-      setRefinedScenePrompt(refinedPrompt);
+      setCustomSceneDescription(refinedPrompt);
 
       toast({
         title: "Prompt Refined!",
-        description: "You can now edit or generate the scene.",
+        description: "Your scene description has been enhanced. You can edit it further or generate the scene.",
       });
 
     } catch (error: any) {
@@ -243,9 +242,7 @@ export const ImageEnhancer: React.FC = () => {
   };
 
   const generateCustomScene = async () => {
-    const promptToUse = refinedScenePrompt || customSceneDescription;
-    
-    if (!promptToUse.trim()) {
+    if (!customSceneDescription.trim()) {
       toast({
         title: "Description Required",
         description: "Please describe the scene you want to create",
@@ -265,11 +262,10 @@ export const ImageEnhancer: React.FC = () => {
       });
 
       // Generate scene with the prompt
-      await generateContextualScene('custom', promptToUse);
+      await generateContextualScene('custom', customSceneDescription);
       
-      // Clear inputs after generation
+      // Clear input after generation
       setCustomSceneDescription('');
-      setRefinedScenePrompt('');
 
     } catch (error: any) {
       console.error('Custom scene generation error:', error);
@@ -447,10 +443,7 @@ export const ImageEnhancer: React.FC = () => {
                     id="custom-scene"
                     placeholder="Example: Place the product on a wooden café table with natural morning light and a blurred background..."
                     value={customSceneDescription}
-                    onChange={(e) => {
-                      setCustomSceneDescription(e.target.value);
-                      setRefinedScenePrompt('');
-                    }}
+                    onChange={(e) => setCustomSceneDescription(e.target.value)}
                     className="min-h-[100px] resize-none pr-12"
                     disabled={isGeneratingScene || isRefiningPrompt}
                   />
@@ -470,24 +463,9 @@ export const ImageEnhancer: React.FC = () => {
                   </Button>
                 </div>
 
-                {refinedScenePrompt && (
-                  <div className="space-y-2">
-                    <Label htmlFor="refined-scene" className="text-sm font-medium text-primary">
-                      Refined Prompt (editable)
-                    </Label>
-                    <Textarea
-                      id="refined-scene"
-                      value={refinedScenePrompt}
-                      onChange={(e) => setRefinedScenePrompt(e.target.value)}
-                      className="min-h-[120px] resize-none bg-primary/5 border-primary/20"
-                      disabled={isGeneratingScene}
-                    />
-                  </div>
-                )}
-
                 <Button
                   onClick={generateCustomScene}
-                  disabled={isGeneratingScene || isRefiningPrompt || (!customSceneDescription.trim() && !refinedScenePrompt.trim())}
+                  disabled={isGeneratingScene || isRefiningPrompt || !customSceneDescription.trim()}
                   className="w-full"
                   variant="craft"
                 >
