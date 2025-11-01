@@ -46,33 +46,41 @@ serve(async (req) => {
 
     const systemPrompt = `You are an expert business consultant specializing in helping Indian entrepreneurs create concise, actionable business plans. You understand the Indian market and provide clear, structured insights.
 
-CRITICAL INSTRUCTIONS:
-- Generate CONCISE, ACTIONABLE content for each section
+CRITICAL FORMATTING INSTRUCTIONS:
 - Each section must have EXACTLY 3-5 bullet points
-- Each bullet point must be 1-2 sentences maximum
+- Format each bullet point as: "• " followed by 1-2 sentences
+- Each bullet point MUST be on a new line (use \\n to separate)
+- Example format:
+  "• First key point goes here. Additional detail if needed.\\n• Second point here.\\n• Third point here."
 - Use specific numbers and data relevant to India when possible
-- Avoid lengthy paragraphs - be brief and impactful
-- Focus on key insights and actionable items only
-- You MUST return valid JSON ONLY - no markdown, no code blocks
+- Be concise and actionable - no lengthy paragraphs
+- You MUST return valid JSON with properly formatted bullet points
 - Use the tool call to return structured data`;
 
     const userPrompt = `Business Idea: ${idea.refined_idea || idea.original_text}
 Business Name: ${businessName || 'Not specified'}
 
-Generate a concise, actionable business plan. Each section MUST have 3-5 bullet points with 1-2 sentences each:
+Generate a concise business plan with EXACTLY 3-5 bullet points per section.
 
-1. EXECUTIVE SUMMARY (3-5 bullet points, 1-2 sentences each)
-2. MARKET ANALYSIS (3-5 bullet points, 1-2 sentences each)
-3. TARGET CUSTOMERS (3-5 bullet points, 1-2 sentences each)
-4. COMPETITIVE ADVANTAGE (3-5 bullet points, 1-2 sentences each)
-5. REVENUE MODEL (3-5 bullet points, 1-2 sentences each)
-6. MARKETING STRATEGY (3-5 bullet points, 1-2 sentences each)
-7. OPERATIONS PLAN (3-5 bullet points, 1-2 sentences each)
-8. FINANCIAL PROJECTIONS (3-5 bullet points, 1-2 sentences each)
-9. RISK ANALYSIS (3-5 bullet points, 1-2 sentences each)
-10. IMPLEMENTATION TIMELINE (3-5 bullet points, 1-2 sentences each)
+FORMAT REQUIREMENTS:
+- Each bullet point MUST start with "• " 
+- Each bullet point MUST be on a new line (use \\n)
+- Each bullet point should be 1-2 sentences maximum
+- Example: "• Point one.\\n• Point two.\\n• Point three."
 
-Keep each bullet point brief and actionable. Focus on specific, measurable information.`;
+SECTIONS REQUIRED:
+1. Executive Summary
+2. Market Analysis  
+3. Target Customers
+4. Competitive Advantage
+5. Revenue Model
+6. Marketing Strategy
+7. Operations Plan
+8. Financial Projections
+9. Risk Analysis
+10. Implementation Timeline
+
+Focus on specific, actionable, and measurable information relevant to the Indian market.`;
 
     console.log('Generating business plan for idea:', ideaId);
 
@@ -97,16 +105,16 @@ Keep each bullet point brief and actionable. Focus on specific, measurable infor
               parameters: {
                 type: "object",
                 properties: {
-                  executiveSummary: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" },
-                  marketAnalysis: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" },
-                  targetCustomers: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" },
-                  competitiveAdvantage: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" },
-                  revenueModel: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" },
-                  marketingStrategy: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" },
-                  operationsPlan: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" },
-                  financialProjections: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" },
-                  riskAnalysis: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" },
-                  implementationTimeline: { type: "string", description: "3-5 concise bullet points (1-2 sentences each)" }
+                  executiveSummary: { type: "string", description: "3-5 bullet points. Format: '• Point one.\\n• Point two.\\n• Point three.' Each 1-2 sentences." },
+                  marketAnalysis: { type: "string", description: "3-5 bullet points. Format: '• Point one.\\n• Point two.\\n• Point three.' Each 1-2 sentences." },
+                  targetCustomers: { type: "string", description: "3-5 bullet points. Format: '• Point one.\\n• Point two.\\n• Point three.' Each 1-2 sentences." },
+                  competitiveAdvantage: { type: "string", description: "3-5 bullet points. Format: '• Point one.\\n• Point two.\\n• Point three.' Each 1-2 sentences." },
+                  revenueModel: { type: "string", description: "3-5 bullet points. Format: '• Point one.\\n• Point two.\\n• Point three.' Each 1-2 sentences." },
+                  marketingStrategy: { type: "string", description: "3-5 bullet points. Format: '• Point one.\\n• Point two.\\n• Point three.' Each 1-2 sentences." },
+                  operationsPlan: { type: "string", description: "3-5 bullet points. Format: '• Point one.\\n• Point two.\\n• Point three.' Each 1-2 sentences." },
+                  financialProjections: { type: "string", description: "3-5 bullet points. Format: '• Point one.\\n• Point two.\\n• Point three.' Each 1-2 sentences." },
+                  riskAnalysis: { type: "string", description: "3-5 bullet points. Format: '• Point one.\\n• Point two.\\n• Point three.' Each 1-2 sentences." },
+                  implementationTimeline: { type: "string", description: "3-5 bullet points. Format: '• Point one.\\n• Point two.\\n• Point three.' Each 1-2 sentences." }
                 },
                 required: [
                   "executiveSummary", "marketAnalysis", "targetCustomers", 
