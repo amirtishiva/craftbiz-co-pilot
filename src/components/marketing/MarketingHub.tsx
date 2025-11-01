@@ -447,12 +447,14 @@ const MarketingHub: React.FC = () => {
                       className="cursor-pointer"
                     />
                     {imagePreview && (
-                      <div className="relative border rounded-lg overflow-hidden mt-2">
-                        <img 
-                          src={imagePreview} 
-                          alt="Preview" 
-                          className="w-full h-48 object-cover"
-                        />
+                      <div className="relative border rounded-lg p-4 bg-muted/30 mt-2">
+                        <div className="w-full h-48 flex items-center justify-center overflow-hidden rounded">
+                          <img 
+                            src={imagePreview} 
+                            alt="Preview" 
+                            className="max-w-full max-h-full object-contain"
+                          />
+                        </div>
                         <Button
                           size="sm"
                           variant="secondary"
