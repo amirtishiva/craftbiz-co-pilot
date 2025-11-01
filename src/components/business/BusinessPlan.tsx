@@ -33,9 +33,6 @@ const BusinessPlan: React.FC<BusinessPlanProps> = ({ ideaData }) => {
   const [selectedLanguage, setSelectedLanguage] = useState('en');
   const [translatedContent, setTranslatedContent] = useState<{ [key: string]: string }>({});
   const [isTranslating, setIsTranslating] = useState(false);
-  const [financialLanguage, setFinancialLanguage] = useState('en');
-  const [translatedFinancialLabels, setTranslatedFinancialLabels] = useState<{[key: string]: any}>({});
-  const [isTranslatingFinancial, setIsTranslatingFinancial] = useState(false);
   const [financialData, setFinancialData] = useState({
     startupCost: '',
     monthlyExpenses: '',
@@ -79,19 +76,6 @@ const BusinessPlan: React.FC<BusinessPlanProps> = ({ ideaData }) => {
   useEffect(() => {
     sessionStorage.setItem('businessPlanLanguage', selectedLanguage);
   }, [selectedLanguage]);
-
-  // Load financial calculator language preference
-  useEffect(() => {
-    const savedFinancialLanguage = sessionStorage.getItem('financialCalculatorLanguage');
-    if (savedFinancialLanguage) {
-      setFinancialLanguage(savedFinancialLanguage);
-    }
-  }, []);
-
-  // Save financial calculator language preference
-  useEffect(() => {
-    sessionStorage.setItem('financialCalculatorLanguage', financialLanguage);
-  }, [financialLanguage]);
 
   const loadExistingPlan = async (ideaId: string) => {
     try {
@@ -433,153 +417,6 @@ Yearly Revenue: ₹${projections.yearlyRevenue.toLocaleString()}
     financialData.pricePerUnit && 
     financialData.unitsPerMonth;
 
-  const translateFinancialCalculator = async (targetLanguage: string) => {
-    if (targetLanguage === 'en') {
-      setFinancialLanguage('en');
-      return;
-    }
-
-    if (translatedFinancialLabels[targetLanguage]) {
-      setFinancialLanguage(targetLanguage);
-      return;
-    }
-
-    setIsTranslatingFinancial(true);
-
-    try {
-      // Format content for translation with clear delimiters
-      const contentToTranslate = `
-###SECTION_TITLES###
-financialCalculator::Financial Calculator
-projections::Projections
-aiStrategist::AI Financial Strategist
-
-###INPUT_LABELS###
-startupCost::Initial Startup Cost
-monthlyExpenses::Monthly Operating Expenses
-pricePerUnit::Price per Unit/Service
-unitsPerMonth::Units Sold per Month
-
-###PROJECTION_LABELS###
-monthlyRevenue::Monthly Revenue
-monthlyProfit::Monthly Profit
-breakEvenPeriod::Break-even Period
-yearlyRevenue::Yearly Revenue
-
-###AI_SECTION_LABELS###
-cashFlow::Cash Flow Analysis
-pricing::Pricing Strategy
-growth::Growth Opportunities
-risk::Risk Mitigation
-actions::Immediate Action Items
-
-###BUTTONS###
-getInsights::Get AI Insights
-refresh::Refresh Insights
-analyzing::Analyzing...
-
-###DESCRIPTIONS###
-financialCalc::Input your estimates to calculate projections
-aiStrategist::Get personalized recommendations to grow your business
-enterDetails::Enter all financial details above to get personalized AI insights
-
-${aiInsights ? `###AI_INSIGHTS###
-cashFlowAnalysis::${aiInsights.cashFlowAnalysis}
-pricingRecommendation::${aiInsights.pricingRecommendation}
-growthOpportunities::${aiInsights.growthOpportunities?.join('||')}
-riskMitigation::${aiInsights.riskMitigation?.join('||')}
-actionItems::${aiInsights.actionItems?.join('||')}` : ''}
-      `.trim();
-
-      const { data, error } = await supabase.functions.invoke('translate-business-plan', {
-        body: { 
-          content: contentToTranslate,
-          targetLanguage 
-        }
-      });
-
-      if (error) throw error;
-
-      // Parse the translated content
-      const translatedText = data.translatedContent;
-      console.log('Raw translated text:', translatedText);
-      
-      const sections = translatedText.split('###').filter((s: string) => s.trim());
-      const translatedData: any = {};
-
-      sections.forEach((section: string) => {
-        const lines = section.trim().split('\n').filter((l: string) => l.trim());
-        if (lines.length === 0) return;
-
-        const sectionName = lines[0].trim();
-        console.log('Processing section:', sectionName);
-        
-        const sectionData: any = {};
-
-        for (let i = 1; i < lines.length; i++) {
-          const line = lines[i].trim();
-          if (!line || !line.includes('::')) continue;
-          
-          const colonIndex = line.indexOf('::');
-          const key = line.substring(0, colonIndex).trim();
-          const value = line.substring(colonIndex + 2).trim();
-          
-          // Handle array values (joined with ||)
-          if (value.includes('||')) {
-            sectionData[key] = value.split('||').map(v => v.trim());
-          } else {
-            sectionData[key] = value;
-          }
-        }
-
-        // Map section names to object structure
-        const sectionMap: any = {
-          'SECTION_TITLES': 'sectionTitles',
-          'INPUT_LABELS': 'inputLabels',
-          'PROJECTION_LABELS': 'projectionLabels',
-          'AI_SECTION_LABELS': 'aiSectionLabels',
-          'BUTTONS': 'buttons',
-          'DESCRIPTIONS': 'descriptions',
-          'AI_INSIGHTS': 'aiInsights'
-        };
-
-        const mappedName = sectionMap[sectionName];
-        if (mappedName) {
-          translatedData[mappedName] = sectionData;
-          console.log(`Mapped ${sectionName} to ${mappedName}:`, sectionData);
-        }
-      });
-
-      console.log('Final translated data:', translatedData);
-
-      setTranslatedFinancialLabels(prev => ({
-        ...prev,
-        [targetLanguage]: translatedData
-      }));
-
-      setFinancialLanguage(targetLanguage);
-
-      toast({
-        title: "Translation completed",
-        description: "Financial calculator has been translated successfully.",
-      });
-    } catch (error) {
-      console.error('Financial translation error:', error);
-      toast({
-        title: "Translation failed",
-        description: "Failed to translate financial calculator. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsTranslatingFinancial(false);
-    }
-  };
-
-  const getFinancialLabel = (category: string, key: string, fallback: string) => {
-    if (financialLanguage === 'en') return fallback;
-    return translatedFinancialLabels[financialLanguage]?.[category]?.[key] || fallback;
-  };
-
   const generateFinancialInsights = async () => {
     if (!allInputsFilled) {
       toast({
@@ -620,12 +457,6 @@ actionItems::${aiInsights.actionItems?.join('||')}` : ''}
       if (error) throw error;
 
       setAiInsights(data.insights);
-      
-      // Clear cached translations for financial calculator when insights change
-      if (financialLanguage !== 'en') {
-        setTranslatedFinancialLabels({});
-        setFinancialLanguage('en');
-      }
       
       toast({
         title: "AI Insights Generated!",
@@ -831,262 +662,214 @@ actionItems::${aiInsights.actionItems?.join('||')}` : ''}
             </TabsContent>
 
             <TabsContent value="calculator" className="space-y-6">
-              {/* Language Selector for Financial Calculator */}
-              <div className="flex justify-end mb-4">
-                <Select
-                  value={financialLanguage}
-                  onValueChange={translateFinancialCalculator}
-                  disabled={isTranslatingFinancial}
-                >
-                  <SelectTrigger className="w-[200px]">
-                    <Languages className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Select language" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {languages.map((lang) => (
-                      <SelectItem key={lang.code} value={lang.code}>
-                        {lang.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Financial Calculator */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Calculator className="h-5 w-5" />
+                      Financial Calculator
+                    </CardTitle>
+                    <CardDescription>
+                      Input your estimates to calculate projections
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Initial Startup Cost (₹)</label>
+                      <Input
+                        type="number"
+                        placeholder="500000"
+                        value={financialData.startupCost}
+                        onChange={(e) => setFinancialData(prev => ({ ...prev, startupCost: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Monthly Operating Expenses (₹)</label>
+                      <Input
+                        type="number"
+                        placeholder="50000"
+                        value={financialData.monthlyExpenses}
+                        onChange={(e) => setFinancialData(prev => ({ ...prev, monthlyExpenses: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Price per Unit/Service (₹)</label>
+                      <Input
+                        type="number"
+                        placeholder="1000"
+                        value={financialData.pricePerUnit}
+                        onChange={(e) => setFinancialData(prev => ({ ...prev, pricePerUnit: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Units Sold per Month</label>
+                      <Input
+                        type="number"
+                        placeholder="100"
+                        value={financialData.unitsPerMonth}
+                        onChange={(e) => setFinancialData(prev => ({ ...prev, unitsPerMonth: e.target.value }))}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
 
-              {isTranslatingFinancial ? (
-                <div className="flex items-center justify-center py-20">
-                  <div className="flex flex-col items-center gap-4">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-                    <p className="text-muted-foreground">Translating financial calculator...</p>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {/* Financial Calculator */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <Calculator className="h-5 w-5" />
-                          {getFinancialLabel('sectionTitles', 'financialCalculator', 'Financial Calculator')}
-                        </CardTitle>
-                        <CardDescription>
-                          {getFinancialLabel('descriptions', 'financialCalc', 'Input your estimates to calculate projections')}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">{getFinancialLabel('inputLabels', 'startupCost', 'Initial Startup Cost')} (₹)</label>
-                          <Input
-                            type="number"
-                            placeholder="500000"
-                            value={financialData.startupCost}
-                            onChange={(e) => setFinancialData(prev => ({ ...prev, startupCost: e.target.value }))}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">{getFinancialLabel('inputLabels', 'monthlyExpenses', 'Monthly Operating Expenses')} (₹)</label>
-                          <Input
-                            type="number"
-                            placeholder="50000"
-                            value={financialData.monthlyExpenses}
-                            onChange={(e) => setFinancialData(prev => ({ ...prev, monthlyExpenses: e.target.value }))}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">{getFinancialLabel('inputLabels', 'pricePerUnit', 'Price per Unit/Service')} (₹)</label>
-                          <Input
-                            type="number"
-                            placeholder="1000"
-                            value={financialData.pricePerUnit}
-                            onChange={(e) => setFinancialData(prev => ({ ...prev, pricePerUnit: e.target.value }))}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">{getFinancialLabel('inputLabels', 'unitsPerMonth', 'Units Sold per Month')}</label>
-                          <Input
-                            type="number"
-                            placeholder="100"
-                            value={financialData.unitsPerMonth}
-                            onChange={(e) => setFinancialData(prev => ({ ...prev, unitsPerMonth: e.target.value }))}
-                          />
-                        </div>
-                      </CardContent>
-                    </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5" />
+                      Projections
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                        <span className="text-sm font-medium">Monthly Revenue</span>
+                        <span className="text-lg font-bold text-blue-600">
+                          ₹{projections.monthlyRevenue.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                        <span className="text-sm font-medium">Monthly Profit</span>
+                        <span className={`text-lg font-bold ${projections.monthlyProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          ₹{projections.monthlyProfit.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
+                        <span className="text-sm font-medium">Break-even Period</span>
+                        <span className="text-lg font-bold text-orange-600">
+                          {projections.breakEvenMonths} months
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
+                        <span className="text-sm font-medium">Yearly Revenue</span>
+                        <span className="text-lg font-bold text-purple-600">
+                          ₹{projections.yearlyRevenue.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <TrendingUp className="h-5 w-5" />
-                          {getFinancialLabel('sectionTitles', 'projections', 'Projections')}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-4">
-                          <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                            <span className="text-sm font-medium">{getFinancialLabel('projectionLabels', 'monthlyRevenue', 'Monthly Revenue')}</span>
-                            <span className="text-lg font-bold text-blue-600">
-                              ₹{projections.monthlyRevenue.toLocaleString()}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                            <span className="text-sm font-medium">{getFinancialLabel('projectionLabels', 'monthlyProfit', 'Monthly Profit')}</span>
-                            <span className={`text-lg font-bold ${projections.monthlyProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              ₹{projections.monthlyProfit.toLocaleString()}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
-                            <span className="text-sm font-medium">{getFinancialLabel('projectionLabels', 'breakEvenPeriod', 'Break-even Period')}</span>
-                            <span className="text-lg font-bold text-orange-600">
-                              {projections.breakEvenMonths} months
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
-                            <span className="text-sm font-medium">{getFinancialLabel('projectionLabels', 'yearlyRevenue', 'Yearly Revenue')}</span>
-                            <span className="text-lg font-bold text-purple-600">
-                              ₹{projections.yearlyRevenue.toLocaleString()}
-                            </span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* AI Financial Strategist */}
-                    <Card className="border-primary/20">
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <Lightbulb className="h-5 w-5 text-primary" />
-                          {getFinancialLabel('sectionTitles', 'aiStrategist', 'AI Financial Strategist')}
-                        </CardTitle>
-                        <CardDescription>
-                          {getFinancialLabel('descriptions', 'aiStrategist', 'Get personalized recommendations to grow your business')}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        {!aiInsights ? (
-                          <div className="text-center py-6 space-y-4">
-                            {!allInputsFilled ? (
-                              <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                                <AlertCircle className="h-5 w-5" />
-                                <p className="text-sm">{getFinancialLabel('descriptions', 'enterDetails', 'Enter all financial details above to get personalized AI insights')}</p>
-                              </div>
-                            ) : (
-                              <Button
-                                variant="craft"
-                                size="lg"
-                                onClick={generateFinancialInsights}
-                                disabled={isAnalyzing}
-                                className="min-w-[200px]"
-                              >
-                                {isAnalyzing ? (
-                                  <>
-                                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                                    {getFinancialLabel('buttons', 'analyzing', 'Analyzing...')}
-                                  </>
-                                ) : (
-                                  <>
-                                    <Lightbulb className="mr-2 h-5 w-5" />
-                                    {getFinancialLabel('buttons', 'getInsights', 'Get AI Insights')}
-                                  </>
-                                )}
-                              </Button>
-                            )}
-                            {insightsError && (
-                              <p className="text-sm text-destructive">{insightsError}</p>
-                            )}
+                {/* AI Financial Strategist */}
+                <Card className="border-primary/20">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Lightbulb className="h-5 w-5 text-primary" />
+                      AI Financial Strategist
+                    </CardTitle>
+                    <CardDescription>
+                      Get personalized recommendations to grow your business
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {!aiInsights ? (
+                      <div className="text-center py-6 space-y-4">
+                        {!allInputsFilled ? (
+                          <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                            <AlertCircle className="h-5 w-5" />
+                            <p className="text-sm">Enter all financial details above to get personalized AI insights</p>
                           </div>
                         ) : (
-                          <div className="space-y-6">
-                            {/* Refresh Button */}
-                            <div className="flex justify-end">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={generateFinancialInsights}
-                                disabled={isAnalyzing}
-                              >
-                                {isAnalyzing ? getFinancialLabel('buttons', 'analyzing', 'Analyzing...') : getFinancialLabel('buttons', 'refresh', 'Refresh Insights')}
-                              </Button>
-                            </div>
-
-                            {/* Cash Flow Analysis */}
-                            <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                              <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
-                                <TrendingUp className="h-4 w-4" />
-                                {getFinancialLabel('aiSectionLabels', 'cashFlow', 'Cash Flow Analysis')}
-                              </h4>
-                              <p className="text-sm text-blue-800 dark:text-blue-200">
-                                {financialLanguage === 'en' 
-                                  ? aiInsights.cashFlowAnalysis 
-                                  : (translatedFinancialLabels[financialLanguage]?.aiInsights?.cashFlowAnalysis || aiInsights.cashFlowAnalysis)}
-                              </p>
-                            </div>
-
-                            {/* Pricing Recommendation */}
-                            <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
-                              <h4 className="font-semibold text-green-900 dark:text-green-100 mb-2 flex items-center gap-2">
-                                <Calculator className="h-4 w-4" />
-                                {getFinancialLabel('aiSectionLabels', 'pricing', 'Pricing Strategy')}
-                              </h4>
-                              <p className="text-sm text-green-800 dark:text-green-200">
-                                {financialLanguage === 'en' 
-                                  ? aiInsights.pricingRecommendation 
-                                  : (translatedFinancialLabels[financialLanguage]?.aiInsights?.pricingRecommendation || aiInsights.pricingRecommendation)}
-                              </p>
-                            </div>
-
-                            {/* Growth Opportunities */}
-                            <div className="p-4 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-800">
-                              <h4 className="font-semibold text-purple-900 dark:text-purple-100 mb-2">{getFinancialLabel('aiSectionLabels', 'growth', 'Growth Opportunities')}</h4>
-                              <ul className="space-y-2">
-                                {(financialLanguage === 'en' 
-                                  ? aiInsights.growthOpportunities 
-                                  : (translatedFinancialLabels[financialLanguage]?.aiInsights?.growthOpportunities || aiInsights.growthOpportunities)
-                                )?.map((opportunity: string, index: number) => (
-                                  <li key={index} className="text-sm text-purple-800 dark:text-purple-200 flex gap-2">
-                                    <span className="text-purple-500 dark:text-purple-400">•</span>
-                                    <span>{opportunity}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-
-                            {/* Risk Mitigation */}
-                            <div className="p-4 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200 dark:border-orange-800">
-                              <h4 className="font-semibold text-orange-900 dark:text-orange-100 mb-2">{getFinancialLabel('aiSectionLabels', 'risk', 'Risk Mitigation')}</h4>
-                              <ul className="space-y-2">
-                                {(financialLanguage === 'en' 
-                                  ? aiInsights.riskMitigation 
-                                  : (translatedFinancialLabels[financialLanguage]?.aiInsights?.riskMitigation || aiInsights.riskMitigation)
-                                )?.map((risk: string, index: number) => (
-                                  <li key={index} className="text-sm text-orange-800 dark:text-orange-200 flex gap-2">
-                                    <span className="text-orange-500 dark:text-orange-400">•</span>
-                                    <span>{risk}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-
-                            {/* Action Items */}
-                            <div className="p-4 bg-indigo-50 dark:bg-indigo-950/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
-                              <h4 className="font-semibold text-indigo-900 dark:text-indigo-100 mb-2">{getFinancialLabel('aiSectionLabels', 'actions', 'Immediate Action Items')}</h4>
-                              <ol className="space-y-2 list-decimal list-inside">
-                                {(financialLanguage === 'en' 
-                                  ? aiInsights.actionItems 
-                                  : (translatedFinancialLabels[financialLanguage]?.aiInsights?.actionItems || aiInsights.actionItems)
-                                )?.map((action: string, index: number) => (
-                                  <li key={index} className="text-sm text-indigo-800 dark:text-indigo-200">
-                                    {action}
-                                  </li>
-                                ))}
-                              </ol>
-                            </div>
-                          </div>
+                          <Button
+                            variant="craft"
+                            size="lg"
+                            onClick={generateFinancialInsights}
+                            disabled={isAnalyzing}
+                            className="min-w-[200px]"
+                          >
+                            {isAnalyzing ? (
+                              <>
+                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                                Analyzing...
+                              </>
+                            ) : (
+                              <>
+                                <Lightbulb className="mr-2 h-5 w-5" />
+                                Get AI Insights
+                              </>
+                            )}
+                          </Button>
                         )}
-                      </CardContent>
-                    </Card>
-                  </div>
-                </>
-              )}
+                        {insightsError && (
+                          <p className="text-sm text-destructive">{insightsError}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {/* Refresh Button */}
+                        <div className="flex justify-end">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={generateFinancialInsights}
+                            disabled={isAnalyzing}
+                          >
+                            {isAnalyzing ? 'Analyzing...' : 'Refresh Insights'}
+                          </Button>
+                        </div>
+
+                        {/* Cash Flow Analysis */}
+                        <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                          <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
+                            <TrendingUp className="h-4 w-4" />
+                            Cash Flow Analysis
+                          </h4>
+                          <p className="text-sm text-blue-800 dark:text-blue-200">{aiInsights.cashFlowAnalysis}</p>
+                        </div>
+
+                        {/* Pricing Recommendation */}
+                        <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                          <h4 className="font-semibold text-green-900 dark:text-green-100 mb-2 flex items-center gap-2">
+                            <Calculator className="h-4 w-4" />
+                            Pricing Strategy
+                          </h4>
+                          <p className="text-sm text-green-800 dark:text-green-200">{aiInsights.pricingRecommendation}</p>
+                        </div>
+
+                        {/* Growth Opportunities */}
+                        <div className="p-4 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                          <h4 className="font-semibold text-purple-900 dark:text-purple-100 mb-2">Growth Opportunities</h4>
+                          <ul className="space-y-2">
+                            {aiInsights.growthOpportunities?.map((opportunity: string, index: number) => (
+                              <li key={index} className="text-sm text-purple-800 dark:text-purple-200 flex gap-2">
+                                <span className="text-purple-500 dark:text-purple-400">•</span>
+                                <span>{opportunity}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        {/* Risk Mitigation */}
+                        <div className="p-4 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                          <h4 className="font-semibold text-orange-900 dark:text-orange-100 mb-2">Risk Mitigation</h4>
+                          <ul className="space-y-2">
+                            {aiInsights.riskMitigation?.map((risk: string, index: number) => (
+                              <li key={index} className="text-sm text-orange-800 dark:text-orange-200 flex gap-2">
+                                <span className="text-orange-500 dark:text-orange-400">•</span>
+                                <span>{risk}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        {/* Action Items */}
+                        <div className="p-4 bg-indigo-50 dark:bg-indigo-950/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
+                          <h4 className="font-semibold text-indigo-900 dark:text-indigo-100 mb-2">Immediate Action Items</h4>
+                          <ol className="space-y-2">
+                            {aiInsights.actionItems?.map((item: string, index: number) => (
+                              <li key={index} className="text-sm text-indigo-800 dark:text-indigo-200 flex gap-2">
+                                <span className="font-semibold text-indigo-500 dark:text-indigo-400">{index + 1}.</span>
+                                <span>{item}</span>
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
           </Tabs>
         </div>
