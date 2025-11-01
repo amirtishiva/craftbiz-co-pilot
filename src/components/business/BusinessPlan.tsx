@@ -12,7 +12,9 @@ import {
   Save,
   Calculator,
   TrendingUp,
-  Languages
+  Languages,
+  Lightbulb,
+  AlertCircle
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -37,6 +39,9 @@ const BusinessPlan: React.FC<BusinessPlanProps> = ({ ideaData }) => {
     pricePerUnit: '',
     unitsPerMonth: '',
   });
+  const [aiInsights, setAiInsights] = useState<any>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [insightsError, setInsightsError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const languages = [
@@ -406,6 +411,71 @@ Yearly Revenue: ₹${projections.yearlyRevenue.toLocaleString()}
 
   const projections = calculateProjections();
 
+  // Check if all financial inputs are filled
+  const allInputsFilled = financialData.startupCost && 
+    financialData.monthlyExpenses && 
+    financialData.pricePerUnit && 
+    financialData.unitsPerMonth;
+
+  const generateFinancialInsights = async () => {
+    if (!allInputsFilled) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all financial inputs to get AI insights.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setInsightsError(null);
+
+    try {
+      const businessContext = businessPlan 
+        ? `${businessPlan.substring(0, 500)}...` // First 500 chars as context
+        : ideaData?.refined_idea || ideaData?.original_text || 'New business venture';
+
+      const { data, error } = await supabase.functions.invoke('analyze-financial-strategy', {
+        body: {
+          financialData: {
+            startupCost: parseFloat(financialData.startupCost),
+            monthlyExpenses: parseFloat(financialData.monthlyExpenses),
+            pricePerUnit: parseFloat(financialData.pricePerUnit),
+            unitsPerMonth: parseFloat(financialData.unitsPerMonth),
+          },
+          projections: {
+            monthlyRevenue: projections.monthlyRevenue,
+            monthlyProfit: projections.monthlyProfit,
+            breakEvenMonths: projections.breakEvenMonths,
+            yearlyRevenue: projections.yearlyRevenue,
+          },
+          businessContext,
+          businessName: businessName || ideaData?.type || 'My Business'
+        }
+      });
+
+      if (error) throw error;
+
+      setAiInsights(data.insights);
+      
+      toast({
+        title: "AI Insights Generated!",
+        description: "Your personalized financial strategy is ready.",
+      });
+    } catch (error) {
+      console.error('Insights generation error:', error);
+      setInsightsError(error.message || 'Failed to generate insights');
+      
+      toast({
+        title: "Insights Generation Failed",
+        description: "Failed to generate AI insights. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   // Get the content to display based on selected language
   const displayContent = selectedLanguage === 'en' 
     ? businessPlan 
@@ -678,6 +748,125 @@ Yearly Revenue: ₹${projections.yearlyRevenue.toLocaleString()}
                         </span>
                       </div>
                     </div>
+                  </CardContent>
+                </Card>
+
+                {/* AI Financial Strategist */}
+                <Card className="border-primary/20">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Lightbulb className="h-5 w-5 text-primary" />
+                      AI Financial Strategist
+                    </CardTitle>
+                    <CardDescription>
+                      Get personalized recommendations to grow your business
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {!aiInsights ? (
+                      <div className="text-center py-6 space-y-4">
+                        {!allInputsFilled ? (
+                          <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                            <AlertCircle className="h-5 w-5" />
+                            <p className="text-sm">Enter all financial details above to get personalized AI insights</p>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="craft"
+                            size="lg"
+                            onClick={generateFinancialInsights}
+                            disabled={isAnalyzing}
+                            className="min-w-[200px]"
+                          >
+                            {isAnalyzing ? (
+                              <>
+                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                                Analyzing...
+                              </>
+                            ) : (
+                              <>
+                                <Lightbulb className="mr-2 h-5 w-5" />
+                                Get AI Insights
+                              </>
+                            )}
+                          </Button>
+                        )}
+                        {insightsError && (
+                          <p className="text-sm text-destructive">{insightsError}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {/* Refresh Button */}
+                        <div className="flex justify-end">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={generateFinancialInsights}
+                            disabled={isAnalyzing}
+                          >
+                            {isAnalyzing ? 'Analyzing...' : 'Refresh Insights'}
+                          </Button>
+                        </div>
+
+                        {/* Cash Flow Analysis */}
+                        <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                          <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
+                            <TrendingUp className="h-4 w-4" />
+                            Cash Flow Analysis
+                          </h4>
+                          <p className="text-sm text-blue-800 dark:text-blue-200">{aiInsights.cashFlowAnalysis}</p>
+                        </div>
+
+                        {/* Pricing Recommendation */}
+                        <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                          <h4 className="font-semibold text-green-900 dark:text-green-100 mb-2 flex items-center gap-2">
+                            <Calculator className="h-4 w-4" />
+                            Pricing Strategy
+                          </h4>
+                          <p className="text-sm text-green-800 dark:text-green-200">{aiInsights.pricingRecommendation}</p>
+                        </div>
+
+                        {/* Growth Opportunities */}
+                        <div className="p-4 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                          <h4 className="font-semibold text-purple-900 dark:text-purple-100 mb-2">Growth Opportunities</h4>
+                          <ul className="space-y-2">
+                            {aiInsights.growthOpportunities?.map((opportunity: string, index: number) => (
+                              <li key={index} className="text-sm text-purple-800 dark:text-purple-200 flex gap-2">
+                                <span className="text-purple-500 dark:text-purple-400">•</span>
+                                <span>{opportunity}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        {/* Risk Mitigation */}
+                        <div className="p-4 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                          <h4 className="font-semibold text-orange-900 dark:text-orange-100 mb-2">Risk Mitigation</h4>
+                          <ul className="space-y-2">
+                            {aiInsights.riskMitigation?.map((risk: string, index: number) => (
+                              <li key={index} className="text-sm text-orange-800 dark:text-orange-200 flex gap-2">
+                                <span className="text-orange-500 dark:text-orange-400">•</span>
+                                <span>{risk}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        {/* Action Items */}
+                        <div className="p-4 bg-indigo-50 dark:bg-indigo-950/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
+                          <h4 className="font-semibold text-indigo-900 dark:text-indigo-100 mb-2">Immediate Action Items</h4>
+                          <ol className="space-y-2">
+                            {aiInsights.actionItems?.map((item: string, index: number) => (
+                              <li key={index} className="text-sm text-indigo-800 dark:text-indigo-200 flex gap-2">
+                                <span className="font-semibold text-indigo-500 dark:text-indigo-400">{index + 1}.</span>
+                                <span>{item}</span>
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
