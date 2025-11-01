@@ -124,10 +124,10 @@ export const ImageEnhancer: React.FC = () => {
   };
 
   const generateContextualScene = async (contextType: string, customDescription?: string) => {
-    if (!enhancedImage && !previewUrl) {
+    if (!enhancedImage && !selectedFile) {
       toast({
         title: "No Image",
-        description: "Please upload and enhance an image first",
+        description: "Please upload an image first",
         variant: "destructive",
       });
       return;
@@ -150,7 +150,22 @@ export const ImageEnhancer: React.FC = () => {
           : `Creating ${contextData?.name} context... This may take 20-30 seconds.`,
       });
 
-      const imageToUse = enhancedImage || previewUrl;
+      // Use enhanced image if available, otherwise convert original file to base64
+      let imageToUse = enhancedImage;
+      
+      if (!imageToUse && selectedFile) {
+        // Convert file to base64
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve, reject) => {
+          reader.onload = () => {
+            const result = reader.result as string;
+            resolve(result);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(selectedFile);
+        });
+        imageToUse = await base64Promise;
+      }
 
       const { data, error } = await supabase.functions.invoke('generate-contextual-scene', {
         body: { 
