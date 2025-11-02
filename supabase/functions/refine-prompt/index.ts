@@ -8,7 +8,8 @@ const corsHeaders = {
 
 const PromptSchema = z.object({
   userPrompt: z.string().trim().min(3, { message: "Prompt must be at least 3 characters" }).max(2000, { message: "Prompt must be less than 2000 characters" }),
-  promptType: z.string().optional()
+  promptType: z.string().optional(),
+  businessName: z.string().optional()
 });
 
 serve(async (req) => {
@@ -18,7 +19,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { userPrompt, promptType } = PromptSchema.parse(body);
+    const { userPrompt, promptType, businessName } = PromptSchema.parse(body);
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -53,6 +54,9 @@ Important guidelines:
 Example:
 User: "Place the product on a wooden café table with natural morning light"
 Refined: "Professional product photography showing the item placed on a weathered oak café table. Soft golden morning sunlight streams from a nearby window, creating warm highlights and gentle shadows. Background shows a subtly blurred café interior with warm earth tones. Shallow depth of field keeps the product sharp and prominent. Photorealistic, marketing-ready composition."`;
+    } else if (promptType === 'logo') {
+      const businessNameContext = businessName ? ` for "${businessName}"` : '';
+      systemPrompt = `You are an expert AI prompt engineer specializing in logo design. Refine the user's prompt to be more detailed and effective for AI logo generation${businessNameContext}. Maintain the business name exactly as provided${businessNameContext ? `: "${businessName}"` : ''}. Output only the refined prompt with specific design elements, colors, style preferences, and visual characteristics while keeping the original intent.`;
     } else {
       systemPrompt = `You are an expert AI prompt engineer. Refine the user's prompt to be more detailed, specific, and effective for AI generation while maintaining their original intent. Output only the refined prompt.`;
     }
