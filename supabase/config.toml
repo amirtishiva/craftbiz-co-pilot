@@ -4,7 +4,7 @@ project_id = "soynuxsibdlgikbpjipr"
 verify_jwt = true
 
 [functions.refine-idea]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-business-plan]
 verify_jwt = true
@@ -13,7 +13,7 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.analyze-product-image]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-logo]
 verify_jwt = true
@@ -22,16 +22,16 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.refine-marketing-content]
-verify_jwt = false
+verify_jwt = true
 
 [functions.search-suppliers]
-verify_jwt = false
+verify_jwt = true
 
 [functions.geocode-address]
-verify_jwt = false
+verify_jwt = true
 
 [functions.translate-business-plan]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-mockup]
 verify_jwt = true
