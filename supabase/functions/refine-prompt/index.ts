@@ -1,9 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const PromptSchema = z.object({
+  userPrompt: z.string().trim().min(3, { message: "Prompt must be at least 3 characters" }).max(2000, { message: "Prompt must be less than 2000 characters" }),
+  promptType: z.string().optional()
+});
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -11,11 +17,8 @@ serve(async (req) => {
   }
 
   try {
-    const { userPrompt, promptType } = await req.json();
-
-    if (!userPrompt) {
-      throw new Error('User prompt is required');
-    }
+    const body = await req.json();
+    const { userPrompt, promptType } = PromptSchema.parse(body);
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -92,6 +95,20 @@ Refined: "Professional product photography showing the item placed on a weathere
 
   } catch (error) {
     console.error('Error in refine-prompt function:', error);
+    
+    // Handle Zod validation errors
+    if (error.name === 'ZodError') {
+      const firstError = error.errors?.[0];
+      const message = firstError?.message || 'Invalid input data';
+      return new Response(
+        JSON.stringify({ error: message }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+    
     return new Response(
       JSON.stringify({ error: error.message || 'Failed to refine prompt' }),
       { 
