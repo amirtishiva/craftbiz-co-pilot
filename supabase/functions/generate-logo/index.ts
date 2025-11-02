@@ -44,14 +44,14 @@ serve(async (req) => {
       throw new Error('Lovable API key is not configured');
     }
 
-    console.log('Generating', count, 'logo(s) with nano-banana using', prompts.length, 'prompt variations');
+    console.log('Generating', count, 'logo(s) with nano-banana');
 
-    // Generate logos using available prompts
+    // Generate logos - use count directly, repeat base prompt if needed
     const logoUrls = [];
-    const numToGenerate = Math.min(count, prompts.length);
     
-    for (let i = 0; i < numToGenerate; i++) {
-      const currentPrompt = prompts[i] || prompts[0];
+    for (let i = 0; i < count; i++) {
+      // Use different prompts if available, otherwise use the base prompt
+      const currentPrompt = prompts[i % prompts.length];
       let attemptCount = 0;
       let success = false;
       let logoUrl = null;
