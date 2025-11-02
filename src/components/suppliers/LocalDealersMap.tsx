@@ -220,6 +220,16 @@ const LocalDealersMap: React.FC = () => {
       return;
     }
 
+    // Check if API key is present
+    if (!import.meta.env.VITE_GOOGLE_MAPS_API_KEY) {
+      toast({
+        title: "Configuration Error",
+        description: "Google Maps API key is missing. Please contact support.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Check if offline and try to use cached results
     if (!isOnline()) {
       const cachedDealers = cache.get<Dealer[]>(`dealers_${query}_${selectedRadius}`);
@@ -258,49 +268,98 @@ const LocalDealersMap: React.FC = () => {
       keyword: query,
     };
 
+    console.log('Places API Search Request:', {
+      query,
+      location: userLocation,
+      radius: selectedRadius * 1000,
+      timestamp: new Date().toISOString()
+    });
+
     placesServiceRef.current.nearbySearch(request, async (results, status) => {
+      console.log('Places API Response:', {
+        status,
+        resultsCount: results?.length || 0,
+        query,
+        timestamp: new Date().toISOString()
+      });
+
+      setIsSearching(false);
+
+      // Handle ZERO_RESULTS specifically
+      if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
+        setDealers([]);
+        toast({
+          title: "No dealers found",
+          description: `No "${query}" found within ${selectedRadius}km. Try expanding your search radius or using different keywords.`,
+        });
+        return;
+      }
+
+      // Handle successful results
       if (status === google.maps.places.PlacesServiceStatus.OK && results) {
         const dealersWithDistances = await calculateDistances(results, userLocation);
         setDealers(dealersWithDistances);
-        setIsSearching(false);
 
         // Cache the results for offline use
         cache.set(`dealers_${query}_${selectedRadius}`, dealersWithDistances);
 
         if (dealersWithDistances.length === 0) {
           toast({
-            title: "No results found",
-            description: "Try expanding your search radius or different keywords.",
+            title: "No results within radius",
+            description: `Found locations but none within ${selectedRadius}km. Try expanding your search radius.`,
           });
         } else {
           toast({
             title: "Search complete",
-            description: `Found ${dealersWithDistances.length} nearby locations.`,
+            description: `Found ${dealersWithDistances.length} nearby location${dealersWithDistances.length === 1 ? '' : 's'}.`,
           });
         }
-      } else if (status === google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT) {
-        setIsSearching(false);
-        toast({
-          title: "Rate limit exceeded",
-          description: "Too many requests. Please wait a moment and try again.",
-          variant: "destructive",
-        });
-      } else if (status === google.maps.places.PlacesServiceStatus.REQUEST_DENIED) {
-        setIsSearching(false);
-        toast({
-          title: "API Key Error",
-          description: "There's an issue with the Google Maps configuration.",
-          variant: "destructive",
-        });
-      } else {
-        setIsSearching(false);
+        return;
+      }
+
+      // Handle OVER_QUERY_LIMIT
+      if (status === google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT) {
         setDealers([]);
         toast({
-          title: "Search failed",
-          description: "Unable to find nearby locations. Please try again.",
+          title: "Too many requests",
+          description: "Please wait a moment and try again.",
           variant: "destructive",
         });
+        return;
       }
+
+      // Handle REQUEST_DENIED
+      if (status === google.maps.places.PlacesServiceStatus.REQUEST_DENIED) {
+        setDealers([]);
+        console.error('Places API request denied. Check API key and permissions.');
+        toast({
+          title: "API Access Denied",
+          description: "Please ensure Places API is enabled in your Google Cloud Console.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Handle INVALID_REQUEST
+      if (status === google.maps.places.PlacesServiceStatus.INVALID_REQUEST) {
+        setDealers([]);
+        console.error('Invalid Places API request:', request);
+        toast({
+          title: "Invalid search",
+          description: "Please try different search terms.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Handle UNKNOWN_ERROR or any other status
+      setDealers([]);
+      console.error('Places API error:', status);
+      toast({
+        title: "Search error",
+        description: "Service temporarily unavailable. Please try again in a moment.",
+        variant: "destructive",
+      });
     });
   };
 
