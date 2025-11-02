@@ -1,10 +1,17 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const ImageSchema = z.object({
+  imageUrl: z.string()
+    .max(10485760, { message: "Image size exceeds 10MB limit" })
+    .refine((val) => val.startsWith('data:image/'), { message: 'Must be a valid image data URL' })
+});
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -12,13 +19,8 @@ serve(async (req) => {
   }
 
   try {
-    const { imageUrl } = await req.json();
-
-    console.log('Received request with imageUrl:', imageUrl ? `present (${imageUrl.substring(0, 50)}...)` : 'missing');
-
-    if (!imageUrl) {
-      throw new Error('Image URL (base64 data URL) is required');
-    }
+    const body = await req.json();
+    const { imageUrl } = ImageSchema.parse(body);
 
     const OPENAI_API_KEY = Deno.env.get('Open_API');
     if (!OPENAI_API_KEY) {

@@ -1,9 +1,27 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const FinancialDataSchema = z.object({
+  financialData: z.object({
+    startupCost: z.number().nonnegative({ message: "Startup cost cannot be negative" }).max(1000000000, { message: "Value exceeds reasonable limit" }),
+    monthlyExpenses: z.number().nonnegative({ message: "Expenses cannot be negative" }).max(100000000, { message: "Value exceeds reasonable limit" }),
+    pricePerUnit: z.number().positive({ message: "Price must be positive" }).max(10000000, { message: "Value exceeds reasonable limit" }),
+    unitsPerMonth: z.number().nonnegative({ message: "Units cannot be negative" }).max(10000000, { message: "Value exceeds reasonable limit" })
+  }),
+  projections: z.object({
+    monthlyRevenue: z.number(),
+    monthlyProfit: z.number(),
+    breakEvenMonths: z.number(),
+    yearlyRevenue: z.number()
+  }),
+  businessContext: z.string().trim().min(1).max(5000),
+  businessName: z.string().trim().min(1).max(200)
+});
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -11,21 +29,14 @@ serve(async (req) => {
   }
 
   try {
-    const { financialData, projections, businessContext, businessName } = await req.json();
+    const body = await req.json();
+    const { financialData, projections, businessContext, businessName } = FinancialDataSchema.parse(body);
 
     console.log("Analyzing financial strategy for:", businessName);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
-    }
-
-    // Validate inputs
-    if (!financialData || !projections || !businessContext) {
-      return new Response(
-        JSON.stringify({ error: "Missing required financial data" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
     }
 
     const systemPrompt = `You are an expert financial advisor specializing in Indian startups and small businesses. 

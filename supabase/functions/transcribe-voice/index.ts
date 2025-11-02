@@ -1,10 +1,18 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const AudioSchema = z.object({
+  audioData: z.string()
+    .min(1, { message: "Audio data is required" })
+    .max(52428800, { message: "Audio file exceeds 50MB limit" })
+    .refine((val) => val.includes('base64') || val.length > 0, { message: 'Invalid audio data format' })
+});
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -12,11 +20,8 @@ serve(async (req) => {
   }
 
   try {
-    const { audioData } = await req.json();
-
-    if (!audioData) {
-      throw new Error('Audio data is required');
-    }
+    const body = await req.json();
+    const { audioData } = AudioSchema.parse(body);
 
     const OPENAI_API_KEY = Deno.env.get('Open_API');
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');

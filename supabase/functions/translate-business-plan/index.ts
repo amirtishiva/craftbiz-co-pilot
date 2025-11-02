@@ -1,10 +1,18 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const validLanguages = ['hi', 'te', 'ta', 'bn', 'mr', 'gu', 'kn', 'ml', 'pa', 'or'];
+
+const TranslationSchema = z.object({
+  content: z.string().trim().min(1, { message: "Content is required" }).max(50000, { message: "Content exceeds 50000 character limit" }),
+  targetLanguage: z.enum(['hi', 'te', 'ta', 'bn', 'mr', 'gu', 'kn', 'ml', 'pa', 'or'] as [string, ...string[]], { errorMap: () => ({ message: "Invalid target language" }) })
+});
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -12,11 +20,8 @@ serve(async (req) => {
   }
 
   try {
-    const { content, targetLanguage } = await req.json();
-
-    if (!content || !targetLanguage) {
-      throw new Error('Content and target language are required');
-    }
+    const body = await req.json();
+    const { content, targetLanguage } = TranslationSchema.parse(body);
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {

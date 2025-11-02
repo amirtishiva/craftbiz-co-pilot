@@ -1,20 +1,21 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface SupplierSearchRequest {
-  searchQuery?: string;
-  category?: string;
-  city?: string;
-  userLocation?: {
-    lat: number;
-    lng: number;
-  };
-  maxDistance?: number; // km
-}
+const SearchSchema = z.object({
+  searchQuery: z.string().max(200).optional(),
+  category: z.string().max(100).optional(),
+  city: z.string().max(100).optional(),
+  userLocation: z.object({
+    lat: z.number().min(-90).max(90),
+    lng: z.number().min(-180).max(180)
+  }).optional(),
+  maxDistance: z.number().positive().max(500).optional()
+});
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -27,7 +28,8 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const params: SupplierSearchRequest = await req.json();
+    const body = await req.json();
+    const params = SearchSchema.parse(body);
     console.log('Search params:', params);
 
     // Build query
