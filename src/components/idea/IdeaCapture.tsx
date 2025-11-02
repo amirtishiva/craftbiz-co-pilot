@@ -59,6 +59,15 @@ const IdeaCapture: React.FC<IdeaCaptureProps> = ({ onIdeaSubmit }) => {
       return;
     }
 
+    if (textToRefine.trim().length < 10) {
+      toast({
+        title: "Idea Too Short",
+        description: "Please enter at least 10 characters to refine your idea",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsRefining(true);
     try {
       const { data, error } = await supabase.functions.invoke('refine-idea', {
