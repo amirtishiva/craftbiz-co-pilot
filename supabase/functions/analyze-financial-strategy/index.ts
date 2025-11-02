@@ -163,6 +163,20 @@ Provide strategic financial recommendations focusing on:
 
   } catch (error) {
     console.error("Error in analyze-financial-strategy:", error);
+    
+    // Handle Zod validation errors
+    if (error.name === 'ZodError') {
+      const firstError = error.errors?.[0];
+      const message = firstError?.message || 'Invalid input data';
+      return new Response(
+        JSON.stringify({ error: message }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+    
     return new Response(
       JSON.stringify({ error: error.message || "Failed to analyze financial strategy" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

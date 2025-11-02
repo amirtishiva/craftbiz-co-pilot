@@ -109,10 +109,31 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Error in search-suppliers:', error);
+    
+    // Handle Zod validation errors
+    if (error.name === 'ZodError') {
+      const firstError = error.errors?.[0];
+      const message = firstError?.message || 'Invalid input data';
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: message,
+          data: [],
+          count: 0
+        }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+    
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message 
+        error: error.message || 'An error occurred while searching suppliers',
+        data: [],
+        count: 0
       }),
       { 
         status: 500,
