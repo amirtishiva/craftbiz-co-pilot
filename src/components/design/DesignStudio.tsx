@@ -71,8 +71,8 @@ const DesignStudio: React.FC = () => {
     try {
       const { data, error } = await supabase.functions.invoke('refine-prompt', {
         body: { 
-          prompt: currentPrompt, 
-          type: promptType,
+          userPrompt: currentPrompt, 
+          promptType: promptType,
           businessName: promptType === 'logo' ? businessName : undefined
         }
       });
