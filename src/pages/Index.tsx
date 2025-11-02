@@ -9,6 +9,7 @@ import BusinessPlan from '@/components/business/BusinessPlan';
 import DesignStudio from '@/components/design/DesignStudio';
 import MarketingHub from '@/components/marketing/MarketingHub';
 import SuppliersMap from '@/components/suppliers/SuppliersMap';
+import Marketplace from '@/components/marketplace/Marketplace';
 import type { User } from "@supabase/supabase-js";
 
 const Index = () => {
@@ -60,6 +61,8 @@ const Index = () => {
         return <MarketingHub />;
       case 'suppliers':
         return <SuppliersMap />;
+      case 'marketplace':
+        return <Marketplace />;
       default:
         return <Dashboard onTabChange={setActiveTab} />;
     }
