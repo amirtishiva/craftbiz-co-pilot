@@ -454,14 +454,6 @@ const MarketingHub: React.FC = () => {
       bgColor: 'bg-blue-50'
     },
     {
-      id: 'visuals',
-      title: 'Visual Assets',
-      description: 'Marketing graphics and posters',
-      icon: Image,
-      color: 'text-orange-600',
-      bgColor: 'bg-orange-50'
-    },
-    {
       id: 'banners',
       title: 'Banner Design',
       description: 'Professional banners for all platforms',
@@ -485,9 +477,8 @@ const MarketingHub: React.FC = () => {
       </div>
 
       <Tabs defaultValue="content" className="space-y-6">
-        <TabsList className="grid grid-cols-3 w-full max-w-3xl mx-auto">
+        <TabsList className="grid grid-cols-2 w-full max-w-2xl mx-auto">
           <TabsTrigger value="content">Content</TabsTrigger>
-          <TabsTrigger value="visuals">Visuals</TabsTrigger>
           <TabsTrigger value="banners">Banner Design</TabsTrigger>
         </TabsList>
 
@@ -758,27 +749,6 @@ const MarketingHub: React.FC = () => {
           )}
         </TabsContent>
 
-        {/* Visuals Tab */}
-        <TabsContent value="visuals" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Image className="h-5 w-5" />
-                Visual Marketing Assets
-              </CardTitle>
-              <CardDescription>
-                Create stunning visuals for your marketing campaigns
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-center py-8">
-              <Image className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-semibold mb-2">Visual Assets Coming Soon</h3>
-              <p className="text-muted-foreground mb-4">
-                Generate marketing posters, social media graphics, and promotional materials
-              </p>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         {/* Banner Design Tab */}
         <TabsContent value="banners" className="space-y-6">
