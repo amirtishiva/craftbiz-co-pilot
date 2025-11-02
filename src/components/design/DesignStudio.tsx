@@ -318,6 +318,38 @@ const DesignStudio: React.FC = () => {
     }
   };
 
+  const viewAsset = async (url: string) => {
+    try {
+      // Handle base64 data URLs properly by converting to blob
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      
+      // Open in new tab and clean up after a delay
+      const newWindow = window.open(blobUrl, '_blank');
+      if (newWindow) {
+        // Clean up the blob URL after window is loaded
+        setTimeout(() => {
+          window.URL.revokeObjectURL(blobUrl);
+        }, 1000);
+      } else {
+        toast({
+          title: "Pop-up Blocked",
+          description: "Please allow pop-ups to view the image.",
+          variant: "destructive",
+        });
+        window.URL.revokeObjectURL(blobUrl);
+      }
+    } catch (error) {
+      console.error('View error:', error);
+      toast({
+        title: "View Failed",
+        description: "Unable to open the image. Please try downloading instead.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const downloadAsset = async (url: string, filename: string) => {
     try {
       // Use a proxy approach to handle CORS issues with OpenAI URLs
@@ -499,7 +531,7 @@ const DesignStudio: React.FC = () => {
                           className="h-8 px-2" 
                           onClick={(e) => {
                             e.stopPropagation();
-                            window.open(logo.asset_url, '_blank');
+                            viewAsset(logo.asset_url);
                           }}
                         >
                           <Eye className="h-3 w-3" />
