@@ -46,7 +46,7 @@ const Auth = () => {
         toast.success("Welcome back!");
         navigate("/dashboard");
       } else {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -56,8 +56,13 @@ const Auth = () => {
 
         if (error) throw error;
         
-        toast.success("Account created! Welcome to CraftBiz!");
-        navigate("/dashboard");
+        // Check if session was created (auto-confirm email enabled)
+        if (data.session) {
+          toast.success("Account created! Welcome to CraftBiz!");
+          navigate("/dashboard");
+        } else {
+          toast.success("Please check your email to confirm your account");
+        }
       }
     } catch (error: any) {
       console.error("Auth error:", error);

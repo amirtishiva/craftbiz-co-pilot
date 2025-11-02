@@ -31,11 +31,14 @@ const Landing = () => {
   const [scrollPosition, setScrollPosition] = useState(0);
 
   useEffect(() => {
-    // Check if user is already logged in
-    const isLoggedIn = localStorage.getItem('craftbiz_user');
-    if (isLoggedIn) {
-      navigate('/dashboard');
-    }
+    // Check if user is already logged in via Supabase session
+    import('@/integrations/supabase/client').then(({ supabase }) => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          navigate('/dashboard');
+        }
+      });
+    });
   }, [navigate]);
 
   useEffect(() => {
