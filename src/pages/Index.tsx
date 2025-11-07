@@ -10,6 +10,8 @@ import DesignStudio from '@/components/design/DesignStudio';
 import MarketingHub from '@/components/marketing/MarketingHub';
 import SuppliersMap from '@/components/suppliers/SuppliersMap';
 import Marketplace from '@/components/marketplace/Marketplace';
+import { ProfileSettings } from '@/components/profile/ProfileSettings';
+import { AccountSettings } from '@/components/profile/AccountSettings';
 import type { User } from "@supabase/supabase-js";
 
 const Index = () => {
@@ -63,6 +65,10 @@ const Index = () => {
         return <SuppliersMap />;
       case 'marketplace':
         return <Marketplace />;
+      case 'profile':
+        return <ProfileSettings />;
+      case 'account':
+        return <AccountSettings />;
       default:
         return <Dashboard onTabChange={setActiveTab} />;
     }
@@ -82,7 +88,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
+      <Navigation onTabChange={setActiveTab} />
       <SecondaryNav activeTab={activeTab} onTabChange={setActiveTab} />
       <main className="pb-8">
         {renderActiveComponent()}

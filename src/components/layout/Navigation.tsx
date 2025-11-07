@@ -1,11 +1,21 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { LogOut, Sparkles } from 'lucide-react';
+import { LogOut, Sparkles, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from "@/integrations/supabase/client";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-const Navigation: React.FC = () => {
+interface NavigationProps {
+  onTabChange: (tab: string) => void;
+}
+
+const Navigation: React.FC<NavigationProps> = ({ onTabChange }) => {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -29,10 +39,28 @@ const Navigation: React.FC = () => {
             <span className="text-xl font-bold">CraftBiz</span>
           </div>
           
-          <Button variant="outline" size="sm" onClick={handleLogout}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Log Out
-          </Button>
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <User className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onTabChange("profile")}>
+                  Profile Settings
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onTabChange("account")}>
+                  Account Settings
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
+            <Button variant="outline" size="sm" onClick={handleLogout}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Log Out
+            </Button>
+          </div>
         </div>
       </div>
     </nav>
