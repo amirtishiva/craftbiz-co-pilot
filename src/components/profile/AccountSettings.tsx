@@ -5,14 +5,26 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Loader2, LogOut, Mail } from "lucide-react";
+import { Loader2, LogOut, Mail, Trash2, AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { emailSchema } from "@/lib/validation";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 export const AccountSettings = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [currentEmail, setCurrentEmail] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [passwordData, setPasswordData] = useState({
@@ -109,6 +121,36 @@ export const AccountSettings = () => {
       toast.success("Logged out successfully");
     } catch (error: any) {
       toast.error("Failed to log out");
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmation !== "DELETE") {
+      toast.error("Please type DELETE to confirm account deletion");
+      return;
+    }
+
+    setDeleteLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No user found");
+
+      // Delete the user account - this will cascade delete all related data
+      const { error } = await supabase.auth.admin.deleteUser(user.id);
+
+      if (error) throw error;
+
+      // Sign out and redirect
+      await supabase.auth.signOut();
+      toast.success("Account deleted successfully");
+      navigate("/");
+    } catch (error: any) {
+      console.error("Delete account error:", error);
+      toast.error(error.message || "Failed to delete account. Please contact support.");
+    } finally {
+      setDeleteLoading(false);
+      setDeleteDialogOpen(false);
+      setDeleteConfirmation("");
     }
   };
 
@@ -215,6 +257,83 @@ export const AccountSettings = () => {
             <LogOut className="mr-2 h-4 w-4" />
             Logout
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="border-destructive">
+        <CardHeader>
+          <CardTitle className="text-destructive">Danger Zone</CardTitle>
+          <CardDescription>Permanently delete your account and all associated data</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="destructive">
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Account
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-destructive">
+                  <AlertTriangle className="h-5 w-5" />
+                  Delete Account
+                </DialogTitle>
+                <DialogDescription className="space-y-3 pt-4">
+                  <p className="font-semibold">This action cannot be undone!</p>
+                  <p>This will permanently delete:</p>
+                  <ul className="list-disc list-inside space-y-1 text-sm">
+                    <li>Your account and profile</li>
+                    <li>All business ideas and plans</li>
+                    <li>All design assets and marketing content</li>
+                    <li>All uploaded files and data</li>
+                  </ul>
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="deleteConfirmation">
+                    Type <span className="font-bold">DELETE</span> to confirm
+                  </Label>
+                  <Input
+                    id="deleteConfirmation"
+                    value={deleteConfirmation}
+                    onChange={(e) => setDeleteConfirmation(e.target.value)}
+                    placeholder="Type DELETE"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setDeleteDialogOpen(false);
+                    setDeleteConfirmation("");
+                  }}
+                  disabled={deleteLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteAccount}
+                  disabled={deleteLoading || deleteConfirmation !== "DELETE"}
+                >
+                  {deleteLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete Forever
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </CardContent>
       </Card>
     </div>
