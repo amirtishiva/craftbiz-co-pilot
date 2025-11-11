@@ -28,6 +28,11 @@ const App = () => (
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
+      <zapier-interfaces-chatbot-embed
+        is-popup="true"
+        chatbot-id="cmhrri5p9003gp1eh14nold50"
+        tracked-params="utm_source,utm_medium,utm_campaign,gclid,fbclid,msclkid"
+      />
     </TooltipProvider>
   </QueryClientProvider>
 );
