@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Sparkles } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Sparkles, Linkedin } from 'lucide-react';
 import artisanWoodworker from '@/assets/artisan-woodworker.jpg';
 import artisanTextile from '@/assets/artisan-textile.jpg';
 import artisanPotter from '@/assets/artisan-potter.jpg';
@@ -12,6 +13,10 @@ import artisanStonemason from '@/assets/artisan-stonemason.jpg';
 import artisanJewelry from '@/assets/artisan-jewelry.jpg';
 import artisanBasketweaver from '@/assets/artisan-basketweaver.jpg';
 import artisanEmbroidery from '@/assets/artisan-embroidery.jpg';
+import teamAmirtiShiva from '@/assets/team-amirti-shiva.jpg';
+import teamSandeepKumar from '@/assets/team-sandeep-kumar.jpg';
+import teamLathish from '@/assets/team-lathish.jpg';
+import teamManoj from '@/assets/team-manoj.jpg';
 
 const artisanImages = [
   artisanWoodworker,
@@ -24,6 +29,33 @@ const artisanImages = [
   artisanJewelry,
   artisanBasketweaver,
   artisanEmbroidery,
+];
+
+const teamMembers = [
+  {
+    name: 'Amirti Shiva',
+    role: 'Founder | AI-ML Enthusiast',
+    image: teamAmirtiShiva,
+    linkedin: 'https://www.linkedin.com/in/shiva666/',
+  },
+  {
+    name: 'B. Sandeep Kumar',
+    role: 'Co-Founder | AI-ML Enthusiast',
+    image: teamSandeepKumar,
+    linkedin: 'https://www.linkedin.com/in/b-sandeep-kumar-b56612265/',
+  },
+  {
+    name: 'K. Lathish',
+    role: 'Co-Founder | Data Scientist',
+    image: teamLathish,
+    linkedin: 'https://www.linkedin.com/in/kotlalathish/',
+  },
+  {
+    name: 'Gottipalli Manoj',
+    role: 'Co-Founder | Data Scientist | Front-end Developer',
+    image: teamManoj,
+    linkedin: 'https://www.linkedin.com/in/gottipalli-manoj-315a3a260/',
+  },
 ];
 
 const Landing = () => {
@@ -190,6 +222,55 @@ const Landing = () => {
             </button>
           </p>
         </div>
+
+        {/* Team Section */}
+        <section className="py-20 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-6xl mx-auto">
+            <h2 className="text-4xl sm:text-5xl font-bold text-center text-foreground mb-4">
+              Meet Our Team
+            </h2>
+            <p className="text-center text-muted-foreground mb-16 max-w-2xl mx-auto">
+              A passionate group of students committed to empowering Indian entrepreneurs with AI-powered business tools.
+            </p>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+              {teamMembers.map((member, index) => (
+                <Card 
+                  key={index} 
+                  className="group hover:shadow-xl transition-all duration-300 border-border overflow-hidden"
+                >
+                  <CardContent className="p-6 flex flex-col items-center text-center">
+                    <div className="relative mb-6 w-40 h-40 rounded-full overflow-hidden ring-4 ring-primary/10 group-hover:ring-primary/30 transition-all duration-300">
+                      <img 
+                        src={member.image} 
+                        alt={member.name}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      />
+                    </div>
+                    
+                    <h3 className="text-xl font-semibold text-foreground mb-2">
+                      {member.name}
+                    </h3>
+                    
+                    <p className="text-sm text-muted-foreground mb-4 min-h-[3rem]">
+                      {member.role}
+                    </p>
+                    
+                    <a
+                      href={member.linkedin}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
+                    >
+                      <Linkedin className="w-5 h-5" />
+                      <span className="text-sm font-medium">Connect on LinkedIn</span>
+                    </a>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </section>
       </main>
     </div>
   );
