@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Heart, ShoppingCart, MapPin, Star, Clock, Package, Truck, MessageSquare } from 'lucide-react';
+import { Heart, ShoppingCart, MapPin, Star, Clock, Package, Truck, MessageSquare, Palette } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { Product, useMarketplace } from '@/hooks/useMarketplace';
+import CustomOrderModal from './CustomOrderModal';
 
 interface ProductDetailModalProps {
   product: Product;
@@ -17,6 +18,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, isOpen
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [customizationNotes, setCustomizationNotes] = useState('');
+  const [showCustomOrderModal, setShowCustomOrderModal] = useState(false);
   const { addToCart } = useMarketplace();
 
   const images = product.product_images?.length 
@@ -226,8 +228,30 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, isOpen
                 Add to Cart
               </Button>
             </div>
+
+            {/* Request Custom Order */}
+            {product.seller_profile && (
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => setShowCustomOrderModal(true)}
+              >
+                <Palette className="h-5 w-5 mr-2" />
+                Request Custom Order from This Artisan
+              </Button>
+            )}
           </div>
         </div>
+
+        {/* Custom Order Modal */}
+        {product.seller_profile && (
+          <CustomOrderModal
+            isOpen={showCustomOrderModal}
+            onClose={() => setShowCustomOrderModal(false)}
+            sellerId={product.seller_id}
+            sellerName={product.seller_profile.shop_name}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

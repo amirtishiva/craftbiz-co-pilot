@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Plus, Package, ShoppingBag, TrendingUp, Star, Settings } from 'lucide-react';
+import { ArrowLeft, Plus, Package, ShoppingBag, TrendingUp, Star, Settings, MessageSquare } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -7,6 +7,7 @@ import { useSellerProfile } from '@/hooks/useSellerProfile';
 import { supabase } from '@/integrations/supabase/client';
 import ProductForm from './ProductForm';
 import SellerProductList from './SellerProductList';
+import CustomRequestsList from './CustomRequestsList';
 
 interface SellerDashboardProps {
   onBack: () => void;
@@ -156,12 +157,27 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ onBack }) => {
       <Tabs defaultValue="products" className="space-y-6">
         <TabsList>
           <TabsTrigger value="products">My Products</TabsTrigger>
+          <TabsTrigger value="custom-requests">Custom Requests</TabsTrigger>
           <TabsTrigger value="orders">Orders</TabsTrigger>
           <TabsTrigger value="settings">Shop Settings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="products">
           <SellerProductList onAddProduct={() => setShowProductForm(true)} />
+        </TabsContent>
+
+        <TabsContent value="custom-requests">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                Custom Order Requests
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CustomRequestsList isSeller={true} />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="orders">
