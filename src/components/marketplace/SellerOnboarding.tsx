@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Store, Sparkles, MapPin, Clock } from 'lucide-react';
+import { ArrowLeft, Store, Sparkles, MapPin, Clock, Navigation } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSellerProfile } from '@/hooks/useSellerProfile';
+import { useToast } from '@/hooks/use-toast';
 
 interface SellerOnboardingProps {
   onComplete: () => void;
@@ -28,6 +29,15 @@ const CRAFT_SPECIALTIES = [
   'Paper Crafts',
 ];
 
+const INDIAN_STATES = [
+  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
+  'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
+  'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram',
+  'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu',
+  'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
+  'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Puducherry', 'Chandigarh',
+];
+
 const SellerOnboarding: React.FC<SellerOnboardingProps> = ({ onComplete, onBack }) => {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -36,10 +46,49 @@ const SellerOnboarding: React.FC<SellerOnboardingProps> = ({ onComplete, onBack 
     artisan_story: '',
     craft_specialty: [] as string[],
     years_of_experience: '',
-    location: ''
+    city: '',
+    state: '',
   });
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
 
   const { createSellerProfile, isLoading } = useSellerProfile();
+  const { toast } = useToast();
+
+  const handleGetCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast({
+        title: "Geolocation not supported",
+        description: "Your browser doesn't support geolocation",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGettingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setCoordinates({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+        toast({
+          title: "Location captured",
+          description: "Your location has been saved for the artisan map",
+        });
+        setIsGettingLocation(false);
+      },
+      (error) => {
+        console.error('Geolocation error:', error);
+        toast({
+          title: "Location access denied",
+          description: "You can still enter your city and state manually",
+          variant: "destructive",
+        });
+        setIsGettingLocation(false);
+      }
+    );
+  };
 
   const handleSubmit = async () => {
     const result = await createSellerProfile({
@@ -48,6 +97,8 @@ const SellerOnboarding: React.FC<SellerOnboardingProps> = ({ onComplete, onBack 
       artisan_story: formData.artisan_story || undefined,
       craft_specialty: formData.craft_specialty.length > 0 ? formData.craft_specialty : undefined,
       years_of_experience: formData.years_of_experience ? parseInt(formData.years_of_experience) : undefined,
+      latitude: coordinates?.lat,
+      longitude: coordinates?.lng,
     });
 
     if (result.success) {
@@ -87,6 +138,18 @@ const SellerOnboarding: React.FC<SellerOnboardingProps> = ({ onComplete, onBack 
           <p className="text-muted-foreground">
             Share your craft with the world and connect with customers who value handmade products
           </p>
+          
+          {/* Step indicator */}
+          <div className="flex items-center justify-center gap-2 mt-4">
+            {[1, 2, 3].map((s) => (
+              <div
+                key={s}
+                className={`w-3 h-3 rounded-full transition-colors ${
+                  s === step ? 'bg-primary' : s < step ? 'bg-primary/50' : 'bg-muted'
+                }`}
+              />
+            ))}
+          </div>
         </CardHeader>
 
         <CardContent className="space-y-6">
@@ -169,6 +232,85 @@ const SellerOnboarding: React.FC<SellerOnboardingProps> = ({ onComplete, onBack 
 
           {step === 2 && (
             <div className="space-y-4">
+              <div className="bg-primary/5 rounded-lg p-4 mb-4">
+                <h4 className="font-semibold text-foreground flex items-center gap-2 mb-2">
+                  <MapPin className="h-5 w-5 text-primary" />
+                  Your Location
+                </h4>
+                <p className="text-sm text-muted-foreground">
+                  Help customers discover you on the Artisan Map by adding your location
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="city">City</Label>
+                  <Input
+                    id="city"
+                    placeholder="e.g., Jaipur"
+                    value={formData.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="state">State</Label>
+                  <Select
+                    value={formData.state}
+                    onValueChange={(value) => setFormData({ ...formData, state: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select state" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {INDIAN_STATES.map((state) => (
+                        <SelectItem key={state} value={state}>
+                          {state}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">Or</span>
+                </div>
+              </div>
+
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={handleGetCurrentLocation}
+                disabled={isGettingLocation}
+              >
+                <Navigation className="h-4 w-4 mr-2" />
+                {isGettingLocation ? 'Getting Location...' : 'Use Current Location'}
+              </Button>
+
+              {coordinates && (
+                <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3 text-sm text-green-600">
+                  <MapPin className="h-4 w-4 inline mr-1" />
+                  Location captured successfully!
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={() => setStep(1)} className="flex-1">
+                  Back
+                </Button>
+                <Button className="flex-1" onClick={() => setStep(3)}>
+                  Continue
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="space-y-4">
               <div>
                 <Label htmlFor="artisan_story">Your Artisan Story</Label>
                 <p className="text-sm text-muted-foreground mb-2">
@@ -203,7 +345,7 @@ const SellerOnboarding: React.FC<SellerOnboardingProps> = ({ onComplete, onBack 
               </div>
 
               <div className="flex gap-3">
-                <Button variant="outline" onClick={() => setStep(1)} className="flex-1">
+                <Button variant="outline" onClick={() => setStep(2)} className="flex-1">
                   Back
                 </Button>
                 <Button

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, MapPin, Sparkles, ShoppingCart, Store, Map } from 'lucide-react';
+import { Search, Filter, MapPin, Sparkles, ShoppingCart, Store, Map, MessageSquare } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -10,6 +10,7 @@ import SellerOnboarding from './SellerOnboarding';
 import SellerDashboard from './SellerDashboard';
 import ShoppingCartDrawer from './ShoppingCartDrawer';
 import ArtisanMap from './ArtisanMap';
+import BuyerCustomOrders from './BuyerCustomOrders';
 
 const CRAFT_CATEGORIES = [
   { value: 'all', label: 'All Categories' },
@@ -28,7 +29,7 @@ const MarketplaceHome: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState('created_at');
-  const [view, setView] = useState<'browse' | 'seller-onboarding' | 'seller-dashboard' | 'artisan-map'>('browse');
+  const [view, setView] = useState<'browse' | 'seller-onboarding' | 'seller-dashboard' | 'artisan-map' | 'my-orders'>('browse');
   const [isCartOpen, setIsCartOpen] = useState(false);
 
   const { isLoading, products, searchProducts, cart, fetchCart } = useMarketplace();
@@ -78,11 +79,14 @@ const MarketplaceHome: React.FC = () => {
       <ArtisanMap 
         onBack={() => setView('browse')} 
         onSelectSeller={(sellerId) => {
-          // Could filter products by seller here
           setView('browse');
         }}
       />
     );
+  }
+
+  if (view === 'my-orders') {
+    return <BuyerCustomOrders onBack={() => setView('browse')} />;
   }
 
   return (
@@ -99,13 +103,21 @@ const MarketplaceHome: React.FC = () => {
           </p>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <Button
             variant="outline"
             onClick={() => setView('artisan-map')}
           >
             <Map className="h-5 w-5 mr-2" />
             Find Artisans
+          </Button>
+
+          <Button
+            variant="outline"
+            onClick={() => setView('my-orders')}
+          >
+            <MessageSquare className="h-5 w-5 mr-2" />
+            My Orders
           </Button>
           
           <Button
