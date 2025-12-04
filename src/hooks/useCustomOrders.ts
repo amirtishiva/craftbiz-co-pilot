@@ -70,6 +70,23 @@ export const useCustomOrders = () => {
 
       if (error) throw error;
 
+      // Notify seller about new custom order request
+      const { data: sellerProfile } = await supabase
+        .from('seller_profiles')
+        .select('user_id, shop_name')
+        .eq('id', params.sellerId)
+        .single();
+
+      if (sellerProfile) {
+        await supabase.from('notifications').insert({
+          user_id: sellerProfile.user_id,
+          type: 'custom_order_request',
+          title: 'New Custom Order Request',
+          message: `You have a new custom order request${params.proposedBudget ? ` with budget ₹${params.proposedBudget.toLocaleString()}` : ''}`,
+          data: { request_id: data.id }
+        });
+      }
+
       toast({
         title: "Request Submitted",
         description: "Your custom order request has been sent to the artisan",
@@ -164,12 +181,40 @@ export const useCustomOrders = () => {
       if (params.estimatedDeliveryDays !== undefined) updateData.estimated_delivery_days = params.estimatedDeliveryDays;
       if (params.sellerNotes !== undefined) updateData.seller_notes = params.sellerNotes;
 
+      // Get the request details first
+      const { data: request } = await supabase
+        .from('custom_requests')
+        .select('buyer_id')
+        .eq('id', params.requestId)
+        .single();
+
       const { error } = await supabase
         .from('custom_requests')
         .update(updateData)
         .eq('id', params.requestId);
 
       if (error) throw error;
+
+      // Notify buyer about the response
+      if (request) {
+        const notificationType = params.status === 'quoted' ? 'custom_order_quote' : 
+                                 params.status === 'rejected' ? 'custom_order_rejected' : 'custom_order_update';
+        const notificationTitle = params.status === 'quoted' ? 'Quote Received!' : 
+                                  params.status === 'rejected' ? 'Request Declined' : 'Order Update';
+        const notificationMessage = params.status === 'quoted' 
+          ? `An artisan has quoted ₹${params.sellerQuote?.toLocaleString()} for your custom order`
+          : params.status === 'rejected' 
+            ? 'An artisan has declined your custom order request'
+            : 'Your custom order has been updated';
+
+        await supabase.from('notifications').insert({
+          user_id: request.buyer_id,
+          type: notificationType,
+          title: notificationTitle,
+          message: notificationMessage,
+          data: { request_id: params.requestId }
+        });
+      }
 
       toast({
         title: "Response Sent",
