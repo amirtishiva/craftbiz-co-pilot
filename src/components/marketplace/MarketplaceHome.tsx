@@ -11,6 +11,7 @@ import SellerDashboard from './SellerDashboard';
 import ShoppingCartDrawer from './ShoppingCartDrawer';
 import ArtisanMap from './ArtisanMap';
 import BuyerCustomOrders from './BuyerCustomOrders';
+import NotificationBell from './NotificationBell';
 
 const CRAFT_CATEGORIES = [
   { value: 'all', label: 'All Categories' },
@@ -104,6 +105,8 @@ const MarketplaceHome: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-3 flex-wrap">
+          <NotificationBell />
+          
           <Button
             variant="outline"
             onClick={() => setView('artisan-map')}

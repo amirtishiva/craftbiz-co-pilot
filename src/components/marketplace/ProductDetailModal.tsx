@@ -5,8 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Product, useMarketplace } from '@/hooks/useMarketplace';
 import CustomOrderModal from './CustomOrderModal';
+import ProductReviews from './ProductReviews';
 
 interface ProductDetailModalProps {
   product: Product;
@@ -240,6 +242,39 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, isOpen
                 Request Custom Order from This Artisan
               </Button>
             )}
+
+            <Separator />
+
+            {/* Reviews Section */}
+            <Tabs defaultValue="reviews" className="w-full">
+              <TabsList className="w-full">
+                <TabsTrigger value="reviews" className="flex-1">Reviews</TabsTrigger>
+                <TabsTrigger value="details" className="flex-1">Details</TabsTrigger>
+              </TabsList>
+              <TabsContent value="reviews" className="mt-4">
+                <ProductReviews productId={product.id} />
+              </TabsContent>
+              <TabsContent value="details" className="mt-4 space-y-3 text-sm text-muted-foreground">
+                {product.materials_used?.length > 0 && (
+                  <div>
+                    <span className="font-medium text-foreground">Materials: </span>
+                    {product.materials_used.join(', ')}
+                  </div>
+                )}
+                {product.creation_time_hours && (
+                  <div>
+                    <span className="font-medium text-foreground">Creation Time: </span>
+                    {product.creation_time_hours}+ hours
+                  </div>
+                )}
+                {product.craft_heritage && (
+                  <div>
+                    <span className="font-medium text-foreground">Heritage: </span>
+                    {product.craft_heritage}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
 
