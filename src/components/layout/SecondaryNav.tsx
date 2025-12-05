@@ -6,10 +6,8 @@ import {
   Palette,
   Megaphone,
   Truck,
-  ShoppingBag,
-  Store
+  ShoppingBag
 } from 'lucide-react';
-import { useUserRoles } from '@/hooks/useUserRoles';
 
 interface SecondaryNavProps {
   activeTab: string;
@@ -17,10 +15,7 @@ interface SecondaryNavProps {
 }
 
 const SecondaryNav: React.FC<SecondaryNavProps> = ({ activeTab, onTabChange }) => {
-  const { isSeller, isLoading } = useUserRoles();
-
-  // Base nav items available to all authenticated users
-  const baseNavItems = [
+  const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Lightbulb },
     { id: 'idea', label: 'Your Idea', icon: PlusCircle },
     { id: 'business-plan', label: 'Business Plan', icon: FileText },
@@ -29,11 +24,6 @@ const SecondaryNav: React.FC<SecondaryNavProps> = ({ activeTab, onTabChange }) =
     { id: 'suppliers', label: 'Suppliers', icon: Truck },
     { id: 'marketplace', label: 'Marketplace', icon: ShoppingBag },
   ];
-
-  // Add seller-specific nav items
-  const navItems = isSeller 
-    ? [...baseNavItems, { id: 'seller-dashboard', label: 'My Shop', icon: Store }]
-    : baseNavItems;
 
   return (
     <div className="bg-background pb-4">
