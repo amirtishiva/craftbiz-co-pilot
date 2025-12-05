@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Loader2, LogOut, Mail, Trash2, AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { emailSchema } from "@/lib/validation";
+import NotificationSettings from "./NotificationSettings";
 import {
   Dialog,
   DialogContent,
@@ -259,6 +260,9 @@ export const AccountSettings = () => {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Notification Settings */}
+      <NotificationSettings />
 
       <Card className="border-destructive">
         <CardHeader>

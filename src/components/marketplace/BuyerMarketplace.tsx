@@ -4,12 +4,14 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useMarketplace } from '@/hooks/useMarketplace';
+import { useOfflineProducts } from '@/hooks/useOfflineProducts';
 import ProductGrid from './ProductGrid';
 import ShoppingCartDrawer from './ShoppingCartDrawer';
 import ArtisanMap from './ArtisanMap';
 import BuyerCustomOrders from './BuyerCustomOrders';
 import NotificationBell from './NotificationBell';
 import MobileBottomNav from './MobileBottomNav';
+import OfflineIndicator from './OfflineIndicator';
 
 const CRAFT_CATEGORIES = [
   { value: 'all', label: 'All Categories' },
@@ -33,11 +35,22 @@ const BuyerMarketplace: React.FC = () => {
   const [showSearchPanel, setShowSearchPanel] = useState(false);
 
   const { isLoading, products, searchProducts, cart, fetchCart } = useMarketplace();
+  const { cachedProducts, isOffline, isCached, cacheTimestamp, cacheProductsData } = useOfflineProducts();
+
+  // Use cached products when offline
+  const displayProducts = isOffline && cachedProducts.length > 0 ? cachedProducts : products;
 
   useEffect(() => {
     searchProducts({ category: selectedCategory, sortBy });
     fetchCart();
   }, []);
+
+  // Cache products when they're loaded
+  useEffect(() => {
+    if (products.length > 0 && !isOffline) {
+      cacheProductsData(products);
+    }
+  }, [products, isOffline, cacheProductsData]);
 
   const handleSearch = useCallback(() => {
     searchProducts({
@@ -120,6 +133,13 @@ const BuyerMarketplace: React.FC = () => {
   return (
     <>
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 pb-20 sm:pb-8">
+        {/* Offline Indicator */}
+        <OfflineIndicator 
+          isOffline={isOffline} 
+          isCached={isCached} 
+          cacheTimestamp={cacheTimestamp} 
+        />
+
         {/* Header */}
         <div className="flex flex-col gap-4 mb-6 sm:mb-8">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
@@ -152,12 +172,13 @@ const BuyerMarketplace: React.FC = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 className="pl-9 sm:pl-10 text-sm sm:text-base h-9 sm:h-10"
+                disabled={isOffline}
               />
             </div>
             
             {/* Filters Row */}
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-              <Select value={selectedCategory} onValueChange={handleCategoryChange}>
+              <Select value={selectedCategory} onValueChange={handleCategoryChange} disabled={isOffline}>
                 <SelectTrigger className="w-full sm:w-[180px] lg:w-[200px] h-9 sm:h-10 text-sm">
                   <Filter className="h-4 w-4 mr-2 flex-shrink-0" />
                   <SelectValue placeholder="Category" />
@@ -171,7 +192,7 @@ const BuyerMarketplace: React.FC = () => {
                 </SelectContent>
               </Select>
               
-              <Select value={sortBy} onValueChange={handleSortChange}>
+              <Select value={sortBy} onValueChange={handleSortChange} disabled={isOffline}>
                 <SelectTrigger className="w-full sm:w-[140px] lg:w-[160px] h-9 sm:h-10 text-sm">
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
@@ -189,6 +210,7 @@ const BuyerMarketplace: React.FC = () => {
                 }} 
                 size="sm" 
                 className="w-full sm:w-auto h-9 sm:h-10 text-sm"
+                disabled={isOffline}
               >
                 Search
               </Button>
@@ -198,10 +220,10 @@ const BuyerMarketplace: React.FC = () => {
 
         {/* Products Grid with Pull-to-Refresh */}
         <ProductGrid 
-          products={products} 
-          isLoading={isLoading}
+          products={displayProducts} 
+          isLoading={isLoading && !isOffline}
           onRefresh={handleRefresh}
-          enablePullToRefresh
+          enablePullToRefresh={!isOffline}
         />
 
         {/* Shopping Cart Drawer */}
