@@ -1,28 +1,47 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Sparkles } from "lucide-react";
+import { Sparkles, ShoppingBag, Store } from "lucide-react";
+
+type UserRole = 'buyer' | 'seller';
 
 const Auth = () => {
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [selectedRole, setSelectedRole] = useState<UserRole>('buyer');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     // Check if user is already logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        navigate("/dashboard");
+        // Redirect based on role
+        redirectBasedOnRole(session.user.id);
       }
     });
   }, [navigate]);
+
+  const redirectBasedOnRole = async (userId: string) => {
+    const { data: roles } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId);
+
+    const isSeller = roles?.some(r => r.role === 'seller');
+    
+    if (isSeller) {
+      navigate("/dashboard");
+    } else {
+      navigate("/dashboard"); // Buyers also go to dashboard, but will see limited UI
+    }
+  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +55,7 @@ const Auth = () => {
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
@@ -44,13 +63,20 @@ const Auth = () => {
         if (error) throw error;
         
         toast.success("Welcome back!");
-        navigate("/dashboard");
+        
+        // Redirect based on user role
+        if (data.user) {
+          await redirectBasedOnRole(data.user.id);
+        }
       } else {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/dashboard`
+            emailRedirectTo: `${window.location.origin}/dashboard`,
+            data: {
+              selected_role: selectedRole
+            }
           }
         });
 
@@ -84,11 +110,46 @@ const Auth = () => {
           <CardDescription>
             {isLogin
               ? "Sign in to continue building your business"
-              : "Create an account to start your entrepreneurial journey"}
+              : "Create an account to start your journey"}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleAuth} className="space-y-4">
+            {/* Role Selection - Only show during signup */}
+            {!isLogin && (
+              <div className="space-y-3">
+                <Label>I want to...</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRole('buyer')}
+                    className={`p-4 rounded-lg border-2 transition-all text-left ${
+                      selectedRole === 'buyer'
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <ShoppingBag className={`h-6 w-6 mb-2 ${selectedRole === 'buyer' ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <p className="font-medium text-sm">Buy Products</p>
+                    <p className="text-xs text-muted-foreground mt-1">Browse & purchase handcrafted items</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRole('seller')}
+                    className={`p-4 rounded-lg border-2 transition-all text-left ${
+                      selectedRole === 'seller'
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <Store className={`h-6 w-6 mb-2 ${selectedRole === 'seller' ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <p className="font-medium text-sm">Sell Products</p>
+                    <p className="text-xs text-muted-foreground mt-1">I'm an artisan wanting to sell</p>
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
