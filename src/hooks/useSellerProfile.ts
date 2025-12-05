@@ -48,6 +48,24 @@ export const useSellerProfile = () => {
     }
   }, []);
 
+  const addSellerRole = async (userId: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('user_roles')
+        .insert({ user_id: userId, role: 'seller' });
+
+      if (error) {
+        // Ignore duplicate key error - already has role
+        if (error.code === '23505') return true;
+        throw error;
+      }
+      return true;
+    } catch (error) {
+      console.error('Error adding seller role:', error);
+      return false;
+    }
+  };
+
   const createSellerProfile = useCallback(async (profileData: {
     shop_name: string;
     shop_tagline?: string;
@@ -63,6 +81,7 @@ export const useSellerProfile = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      // Create seller profile
       const { data, error } = await supabase
         .from('seller_profiles')
         .insert({
@@ -73,6 +92,9 @@ export const useSellerProfile = () => {
         .single();
 
       if (error) throw error;
+
+      // Add seller role to user_roles table
+      await addSellerRole(user.id);
 
       setSellerProfile(data);
       setIsSeller(true);
