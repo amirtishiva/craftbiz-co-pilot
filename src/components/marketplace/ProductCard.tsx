@@ -5,17 +5,30 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Product, useMarketplace } from '@/hooks/useMarketplace';
 import ProductDetailModal from './ProductDetailModal';
+import QuickViewModal from './QuickViewModal';
 import { useHaptic } from '@/hooks/useHaptic';
 
 interface ProductCardProps {
   product: Product;
+  isWishlisted?: boolean;
+  onToggleWishlist?: (productId: string) => Promise<void>;
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
+const ProductCard: React.FC<ProductCardProps> = ({ 
+  product, 
+  isWishlisted = false,
+  onToggleWishlist 
+}) => {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [isWishlisted, setIsWishlisted] = useState(false);
-  const { addToCart, toggleWishlist } = useMarketplace();
+  const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
+  const [localWishlisted, setLocalWishlisted] = useState(isWishlisted);
+  const { addToCart, toggleWishlist: defaultToggleWishlist } = useMarketplace();
   const haptic = useHaptic();
+
+  // Sync local state with prop
+  React.useEffect(() => {
+    setLocalWishlisted(isWishlisted);
+  }, [isWishlisted]);
 
   const primaryImage = product.product_images?.find(img => img.is_primary)?.image_url 
     || product.product_images?.[0]?.image_url
@@ -24,11 +37,17 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const handleWishlistToggle = async (e: React.MouseEvent) => {
     e.stopPropagation();
     haptic.selection();
-    const result = await toggleWishlist(product.id);
-    if (result.success) {
-      setIsWishlisted(result.isInWishlist);
-      haptic.success();
+    
+    if (onToggleWishlist) {
+      setLocalWishlisted(!localWishlisted);
+      await onToggleWishlist(product.id);
+    } else {
+      const result = await defaultToggleWishlist(product.id);
+      if (result.success) {
+        setLocalWishlisted(result.isInWishlist);
+      }
     }
+    haptic.success();
   };
 
   const handleAddToCart = async (e: React.MouseEvent) => {
@@ -38,9 +57,15 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     haptic.success();
   };
 
+  const handleQuickView = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    haptic.tap();
+    setIsQuickViewOpen(true);
+  };
+
   const handleCardClick = () => {
     haptic.tap();
-    setIsDetailOpen(true);
+    setIsQuickViewOpen(true);
   };
 
   const formatPrice = (price: number) => {
@@ -71,11 +96,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               size="icon"
               variant="secondary"
               className="rounded-full h-8 w-8 sm:h-10 sm:w-10"
-              onClick={(e) => {
-                e.stopPropagation();
-                haptic.tap();
-                setIsDetailOpen(true);
-              }}
+              onClick={handleQuickView}
             >
               <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
@@ -97,7 +118,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           >
             <Heart 
               className={`h-4 w-4 sm:h-5 sm:w-5 transition-all duration-200 ${
-                isWishlisted ? 'fill-red-500 text-red-500 scale-110' : 'text-gray-600'
+                localWishlisted ? 'fill-red-500 text-red-500 scale-110' : 'text-gray-600'
               }`} 
             />
           </button>
@@ -163,10 +184,46 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         </CardContent>
       </Card>
 
+      {/* Quick View Modal */}
+      <QuickViewModal
+        product={product}
+        isOpen={isQuickViewOpen}
+        onClose={() => setIsQuickViewOpen(false)}
+        onViewFull={() => {
+          setIsQuickViewOpen(false);
+          setIsDetailOpen(true);
+        }}
+        isWishlisted={localWishlisted}
+        onToggleWishlist={async () => {
+          if (onToggleWishlist) {
+            setLocalWishlisted(!localWishlisted);
+            await onToggleWishlist(product.id);
+          } else {
+            const result = await defaultToggleWishlist(product.id);
+            if (result.success) {
+              setLocalWishlisted(result.isInWishlist);
+            }
+          }
+        }}
+      />
+
+      {/* Full Detail Modal */}
       <ProductDetailModal
         product={product}
         isOpen={isDetailOpen}
         onClose={() => setIsDetailOpen(false)}
+        isWishlisted={localWishlisted}
+        onToggleWishlist={async () => {
+          if (onToggleWishlist) {
+            setLocalWishlisted(!localWishlisted);
+            await onToggleWishlist(product.id);
+          } else {
+            const result = await defaultToggleWishlist(product.id);
+            if (result.success) {
+              setLocalWishlisted(result.isInWishlist);
+            }
+          }
+        }}
       />
     </>
   );

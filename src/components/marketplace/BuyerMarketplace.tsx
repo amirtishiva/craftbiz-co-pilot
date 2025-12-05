@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Filter, Store, X, SlidersHorizontal, IndianRupee } from 'lucide-react';
+import { Search, Filter, Store, X, SlidersHorizontal, IndianRupee, Heart } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { useMarketplace } from '@/hooks/useMarketplace';
+import { useWishlist } from '@/hooks/useWishlist';
 import { useOfflineProducts } from '@/hooks/useOfflineProducts';
 import { useBackgroundSync } from '@/hooks/useBackgroundSync';
 import ProductGrid from './ProductGrid';
@@ -17,6 +18,7 @@ import OrderTracking from './OrderTracking';
 import NotificationBell from './NotificationBell';
 import MobileBottomNav from './MobileBottomNav';
 import OfflineIndicator from './OfflineIndicator';
+import WishlistView from './WishlistView';
 
 const CRAFT_CATEGORIES = [
   { value: 'all', label: 'All Categories', emoji: '✨' },
@@ -56,12 +58,13 @@ const BuyerMarketplace: React.FC = () => {
   const [customMinPrice, setCustomMinPrice] = useState('');
   const [customMaxPrice, setCustomMaxPrice] = useState('');
   const [sortBy, setSortBy] = useState('created_at');
-  const [view, setView] = useState<'browse' | 'search' | 'artisan-map' | 'my-orders' | 'cart'>('browse');
+  const [view, setView] = useState<'browse' | 'search' | 'artisan-map' | 'my-orders' | 'cart' | 'wishlist'>('browse');
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [showSearchPanel, setShowSearchPanel] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const { isLoading, products, searchProducts, cart, fetchCart } = useMarketplace();
+  const { wishlistItems, wishlistProductIds, toggleWishlist, count: wishlistCount } = useWishlist();
   const { cachedProducts, isOffline, isCached, cacheTimestamp, cacheProductsData } = useOfflineProducts();
   const { pendingCount, isSyncing, syncNow } = useBackgroundSync();
 
@@ -199,6 +202,10 @@ const BuyerMarketplace: React.FC = () => {
     searchProducts({});
   };
 
+  const handleToggleWishlist = async (productId: string) => {
+    await toggleWishlist(productId);
+  };
+
   const handleMobileNavChange = (tab: 'browse' | 'search' | 'artisan-map' | 'my-orders' | 'cart') => {
     if (tab === 'cart') {
       setIsCartOpen(true);
@@ -242,6 +249,24 @@ const BuyerMarketplace: React.FC = () => {
     );
   }
 
+  if (view === 'wishlist') {
+    return (
+      <>
+        <WishlistView 
+          wishlistItems={wishlistItems}
+          wishlistProductIds={wishlistProductIds}
+          onToggleWishlist={handleToggleWishlist}
+          onBack={() => setView('browse')}
+        />
+        <MobileBottomNav 
+          activeTab="browse" 
+          onTabChange={handleMobileNavChange}
+          cartCount={cart.length}
+        />
+      </>
+    );
+  }
+
   return (
     <>
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 pb-20 sm:pb-8">
@@ -270,6 +295,20 @@ const BuyerMarketplace: React.FC = () => {
             
             {/* Action Buttons - Hidden on mobile, shown on desktop */}
             <div className="hidden sm:flex items-center gap-2 sm:gap-3 flex-wrap">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setView('wishlist')}
+                className="gap-2"
+              >
+                <Heart className="h-4 w-4" />
+                Wishlist
+                {wishlistCount > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] flex items-center justify-center text-xs">
+                    {wishlistCount}
+                  </Badge>
+                )}
+              </Button>
               <NotificationBell />
             </div>
           </div>
@@ -446,6 +485,19 @@ const BuyerMarketplace: React.FC = () => {
                 </SheetContent>
               </Sheet>
 
+              {/* Wishlist Button - Mobile */}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setView('wishlist')}
+                className="h-9 gap-1.5 sm:hidden"
+              >
+                <Heart className="h-4 w-4" />
+                {wishlistCount > 0 && (
+                  <span className="text-xs">{wishlistCount}</span>
+                )}
+              </Button>
+
               {/* Clear Filters - Show when filters are active */}
               {(activeFilterCount > 0 || searchQuery) && (
                 <Button 
@@ -510,6 +562,8 @@ const BuyerMarketplace: React.FC = () => {
           isLoading={isLoading && !isOffline}
           onRefresh={handleRefresh}
           enablePullToRefresh={!isOffline}
+          wishlistProductIds={wishlistProductIds}
+          onToggleWishlist={handleToggleWishlist}
         />
 
         {/* Shopping Cart Drawer */}
