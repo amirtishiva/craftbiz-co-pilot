@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { queueSyncAction } from '@/utils/backgroundSync';
 
 export interface Product {
   id: string;
@@ -82,6 +83,8 @@ export const useMarketplace = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const { toast } = useToast();
+
+  const isOnline = () => navigator.onLine;
 
   const searchProducts = useCallback(async (params: SearchParams) => {
     setIsLoading(true);
@@ -178,6 +181,16 @@ export const useMarketplace = () => {
         return { success: false };
       }
 
+      // Queue for sync if offline
+      if (!isOnline()) {
+        await queueSyncAction('add_to_cart', { productId, quantity, customizationNotes });
+        toast({
+          title: "Queued for sync",
+          description: "Item will be added when you're back online",
+        });
+        return { success: true };
+      }
+
       const { error } = await supabase
         .from('cart_items')
         .upsert({
@@ -200,6 +213,17 @@ export const useMarketplace = () => {
       return { success: true };
     } catch (error: any) {
       console.error('Add to cart error:', error);
+      
+      // Queue for sync on network error
+      if (!isOnline()) {
+        await queueSyncAction('add_to_cart', { productId, quantity, customizationNotes });
+        toast({
+          title: "Queued for sync",
+          description: "Item will be added when you're back online",
+        });
+        return { success: true };
+      }
+      
       toast({
         title: "Error",
         description: error.message || "Failed to add to cart",
@@ -211,6 +235,16 @@ export const useMarketplace = () => {
 
   const updateCartItem = useCallback(async (itemId: string, quantity: number) => {
     try {
+      // Queue for sync if offline
+      if (!isOnline()) {
+        await queueSyncAction('update_cart', { itemId, quantity });
+        toast({
+          title: "Queued for sync",
+          description: "Cart will update when you're back online",
+        });
+        return { success: true };
+      }
+
       if (quantity <= 0) {
         const { error } = await supabase
           .from('cart_items')
@@ -229,6 +263,17 @@ export const useMarketplace = () => {
       return { success: true };
     } catch (error: any) {
       console.error('Update cart error:', error);
+      
+      // Queue for sync on network error
+      if (!isOnline()) {
+        await queueSyncAction('update_cart', { itemId, quantity });
+        toast({
+          title: "Queued for sync",
+          description: "Cart will update when you're back online",
+        });
+        return { success: true };
+      }
+      
       toast({
         title: "Error",
         description: error.message || "Failed to update cart",
@@ -252,6 +297,16 @@ export const useMarketplace = () => {
           variant: "destructive",
         });
         return { success: false, isInWishlist: false };
+      }
+
+      // Queue for sync if offline
+      if (!isOnline()) {
+        await queueSyncAction('toggle_wishlist', { productId });
+        toast({
+          title: "Queued for sync",
+          description: "Wishlist will update when you're back online",
+        });
+        return { success: true, isInWishlist: true };
       }
 
       // Check if already in wishlist
@@ -282,6 +337,17 @@ export const useMarketplace = () => {
       }
     } catch (error: any) {
       console.error('Wishlist error:', error);
+      
+      // Queue for sync on network error
+      if (!isOnline()) {
+        await queueSyncAction('toggle_wishlist', { productId });
+        toast({
+          title: "Queued for sync",
+          description: "Wishlist will update when you're back online",
+        });
+        return { success: true, isInWishlist: true };
+      }
+      
       toast({
         title: "Error",
         description: error.message || "Failed to update wishlist",

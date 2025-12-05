@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useMarketplace } from '@/hooks/useMarketplace';
 import { useOfflineProducts } from '@/hooks/useOfflineProducts';
+import { useBackgroundSync } from '@/hooks/useBackgroundSync';
 import ProductGrid from './ProductGrid';
 import ShoppingCartDrawer from './ShoppingCartDrawer';
 import ArtisanMap from './ArtisanMap';
@@ -36,6 +37,7 @@ const BuyerMarketplace: React.FC = () => {
 
   const { isLoading, products, searchProducts, cart, fetchCart } = useMarketplace();
   const { cachedProducts, isOffline, isCached, cacheTimestamp, cacheProductsData } = useOfflineProducts();
+  const { pendingCount, isSyncing, syncNow } = useBackgroundSync();
 
   // Use cached products when offline
   const displayProducts = isOffline && cachedProducts.length > 0 ? cachedProducts : products;
@@ -137,7 +139,10 @@ const BuyerMarketplace: React.FC = () => {
         <OfflineIndicator 
           isOffline={isOffline} 
           isCached={isCached} 
-          cacheTimestamp={cacheTimestamp} 
+          cacheTimestamp={cacheTimestamp}
+          pendingSyncCount={pendingCount}
+          isSyncing={isSyncing}
+          onSyncNow={syncNow}
         />
 
         {/* Header */}
