@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Map, ShoppingCart, MessageSquare, Sparkles, Store } from 'lucide-react';
+import { Search, Filter, Map, ShoppingCart, MessageSquare, Store } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useMarketplace } from '@/hooks/useMarketplace';
-import { useUserRoles } from '@/hooks/useUserRoles';
 import ProductGrid from './ProductGrid';
 import ShoppingCartDrawer from './ShoppingCartDrawer';
 import ArtisanMap from './ArtisanMap';
@@ -24,15 +23,7 @@ const CRAFT_CATEGORIES = [
   { value: 'home-decor', label: 'Home Decor' },
 ];
 
-interface BuyerMarketplaceProps {
-  onStartSelling: () => void;
-  onGoToSellerDashboard: () => void;
-}
-
-const BuyerMarketplace: React.FC<BuyerMarketplaceProps> = ({ 
-  onStartSelling, 
-  onGoToSellerDashboard 
-}) => {
+const BuyerMarketplace: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState('created_at');
@@ -40,7 +31,6 @@ const BuyerMarketplace: React.FC<BuyerMarketplaceProps> = ({
   const [isCartOpen, setIsCartOpen] = useState(false);
 
   const { isLoading, products, searchProducts, cart, fetchCart } = useMarketplace();
-  const { isSeller } = useUserRoles();
 
   useEffect(() => {
     searchProducts({ category: selectedCategory, sortBy });
@@ -87,108 +77,112 @@ const BuyerMarketplace: React.FC<BuyerMarketplaceProps> = ({
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-            <Store className="h-8 w-8 text-primary" />
-            Craft Stories Marketplace
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Discover authentic handcrafted products from skilled Indian artisans
-          </p>
-        </div>
-        
-        <div className="flex items-center gap-3 flex-wrap">
-          <NotificationBell />
+      <div className="flex flex-col gap-4 mb-6 sm:mb-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground flex items-center gap-2">
+              <Store className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8 text-primary flex-shrink-0" />
+              <span className="truncate">Craft Stories Marketplace</span>
+            </h1>
+            <p className="text-sm sm:text-base text-muted-foreground mt-1">
+              Discover authentic handcrafted products from skilled Indian artisans
+            </p>
+          </div>
           
-          <Button
-            variant="outline"
-            onClick={() => setView('artisan-map')}
-          >
-            <Map className="h-5 w-5 mr-2" />
-            Find Artisans
-          </Button>
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <NotificationBell />
+            
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs sm:text-sm"
+              onClick={() => setView('artisan-map')}
+            >
+              <Map className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Find Artisans</span>
+            </Button>
 
-          <Button
-            variant="outline"
-            onClick={() => setView('my-orders')}
-          >
-            <MessageSquare className="h-5 w-5 mr-2" />
-            My Orders
-          </Button>
-          
-          <Button
-            variant="outline"
-            onClick={() => setIsCartOpen(true)}
-            className="relative"
-          >
-            <ShoppingCart className="h-5 w-5 mr-2" />
-            Cart
-            {cart.length > 0 && (
-              <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                {cart.length}
-              </span>
-            )}
-          </Button>
-          
-          {isSeller ? (
-            <Button onClick={onGoToSellerDashboard}>
-              <Store className="h-5 w-5 mr-2" />
-              Seller Dashboard
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs sm:text-sm"
+              onClick={() => setView('my-orders')}
+            >
+              <MessageSquare className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">My Orders</span>
             </Button>
-          ) : (
-            <Button onClick={onStartSelling}>
-              <Sparkles className="h-5 w-5 mr-2" />
-              Start Selling
+            
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs sm:text-sm relative"
+              onClick={() => setIsCartOpen(true)}
+            >
+              <ShoppingCart className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Cart</span>
+              {cart.length > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground text-[10px] sm:text-xs rounded-full h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center">
+                  {cart.length}
+                </span>
+              )}
             </Button>
-          )}
+          </div>
         </div>
       </div>
 
       {/* Search & Filters */}
-      <div className="bg-card border border-border rounded-xl p-4 mb-8">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+      <div className="bg-card border border-border rounded-lg sm:rounded-xl p-3 sm:p-4 mb-6 sm:mb-8">
+        <div className="flex flex-col gap-3 sm:gap-4">
+          {/* Search Input - Full width on all screens */}
+          <div className="relative w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
             <Input
               placeholder="Search for handcrafted products..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              className="pl-10"
+              className="pl-9 sm:pl-10 text-sm sm:text-base h-9 sm:h-10"
             />
           </div>
           
-          <Select value={selectedCategory} onValueChange={handleCategoryChange}>
-            <SelectTrigger className="w-full sm:w-[200px]">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              {CRAFT_CATEGORIES.map((cat) => (
-                <SelectItem key={cat.value} value={cat.value}>
-                  {cat.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          
-          <Select value={sortBy} onValueChange={handleSortChange}>
-            <SelectTrigger className="w-full sm:w-[160px]">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="created_at">Newest</SelectItem>
-              <SelectItem value="price">Price: Low to High</SelectItem>
-              <SelectItem value="title">Name</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          <Button onClick={handleSearch}>
-            Search
-          </Button>
+          {/* Filters Row */}
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+            <Select value={selectedCategory} onValueChange={handleCategoryChange}>
+              <SelectTrigger className="w-full sm:w-[180px] lg:w-[200px] h-9 sm:h-10 text-sm">
+                <Filter className="h-4 w-4 mr-2 flex-shrink-0" />
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                {CRAFT_CATEGORIES.map((cat) => (
+                  <SelectItem key={cat.value} value={cat.value}>
+                    {cat.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            <Select value={sortBy} onValueChange={handleSortChange}>
+              <SelectTrigger className="w-full sm:w-[140px] lg:w-[160px] h-9 sm:h-10 text-sm">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="created_at">Newest</SelectItem>
+                <SelectItem value="price">Price: Low to High</SelectItem>
+                <SelectItem value="title">Name</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Button 
+              onClick={handleSearch} 
+              size="sm" 
+              className="w-full sm:w-auto h-9 sm:h-10 text-sm"
+            >
+              Search
+            </Button>
+          </div>
         </div>
       </div>
 
