@@ -10,19 +10,29 @@ import {
   getPendingCount,
   SyncAction
 } from '@/utils/backgroundSync';
+import {
+  checkCartConflict,
+  resolveCartConflict,
+  autoResolveConflict,
+  ConflictInfo
+} from '@/utils/conflictResolution';
 
 interface UseBackgroundSyncReturn {
   isOnline: boolean;
   isSyncing: boolean;
   pendingCount: number;
+  conflicts: ConflictInfo[];
   queueCartAction: (type: SyncAction['type'], payload: Record<string, unknown>) => Promise<void>;
   syncNow: () => Promise<void>;
+  resolveConflict: (conflict: ConflictInfo, strategy: 'local' | 'server' | 'merge' | 'skip') => Promise<void>;
+  dismissConflict: (actionId: string) => void;
 }
 
 export const useBackgroundSync = (): UseBackgroundSyncReturn => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [conflicts, setConflicts] = useState<ConflictInfo[]>([]);
 
   // Initialize DB and load pending count
   useEffect(() => {
@@ -34,21 +44,37 @@ export const useBackgroundSync = (): UseBackgroundSyncReturn => {
     init();
   }, []);
 
-  // Process a single sync action
-  const processAction = async (action: SyncAction): Promise<boolean> => {
+  // Process a single sync action with conflict detection
+  const processActionWithConflictCheck = async (action: SyncAction): Promise<{ success: boolean; conflict?: ConflictInfo }> => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return false;
+    if (!user) return { success: false };
 
     try {
+      // Check for conflicts
+      const conflict = await checkCartConflict(action);
+      
+      if (conflict.conflictType !== 'none') {
+        // Auto-resolve with sensible defaults
+        const strategy = autoResolveConflict(conflict);
+        const result = await resolveCartConflict(conflict, strategy);
+        
+        if (!result.success) {
+          // If auto-resolve failed, report the conflict
+          return { success: false, conflict };
+        }
+        return { success: true };
+      }
+
+      // No conflict, process normally
       switch (action.type) {
         case 'add_to_cart': {
           const { productId, quantity, customizationNotes } = action.payload;
-          const { error } = await supabase.from('cart_items').insert({
+          const { error } = await supabase.from('cart_items').upsert({
             user_id: user.id,
             product_id: productId as string,
             quantity: (quantity as number) || 1,
             customization_notes: customizationNotes as string || null
-          });
+          }, { onConflict: 'user_id,product_id' });
           if (error) throw error;
           break;
         }
@@ -83,7 +109,6 @@ export const useBackgroundSync = (): UseBackgroundSyncReturn => {
 
         case 'toggle_wishlist': {
           const { productId } = action.payload;
-          // Check if already in wishlist
           const { data: existing } = await supabase
             .from('wishlists')
             .select('id')
@@ -111,13 +136,13 @@ export const useBackgroundSync = (): UseBackgroundSyncReturn => {
 
         default:
           console.warn('Unknown sync action type:', action.type);
-          return false;
+          return { success: false };
       }
 
-      return true;
+      return { success: true };
     } catch (error) {
       console.error('Failed to process sync action:', error);
-      return false;
+      return { success: false };
     }
   };
 
@@ -128,23 +153,26 @@ export const useBackgroundSync = (): UseBackgroundSyncReturn => {
     setIsSyncing(true);
     let successCount = 0;
     let failCount = 0;
+    const newConflicts: ConflictInfo[] = [];
 
     try {
       const actions = await getPendingSyncActions();
       
       for (const action of actions) {
         if (action.retryCount >= 3) {
-          // Remove actions that have failed too many times
           await removeSyncAction(action.id);
           failCount++;
           continue;
         }
 
-        const success = await processAction(action);
+        const result = await processActionWithConflictCheck(action);
         
-        if (success) {
+        if (result.success) {
           await removeSyncAction(action.id);
           successCount++;
+        } else if (result.conflict) {
+          newConflicts.push(result.conflict);
+          await updateRetryCount(action.id);
         } else {
           await updateRetryCount(action.id);
           failCount++;
@@ -153,6 +181,10 @@ export const useBackgroundSync = (): UseBackgroundSyncReturn => {
 
       const newCount = await getPendingCount();
       setPendingCount(newCount);
+
+      if (newConflicts.length > 0) {
+        setConflicts(prev => [...prev, ...newConflicts]);
+      }
 
       if (successCount > 0) {
         toast.success(`Synced ${successCount} offline action${successCount > 1 ? 's' : ''}`);
@@ -166,6 +198,29 @@ export const useBackgroundSync = (): UseBackgroundSyncReturn => {
       setIsSyncing(false);
     }
   }, [isSyncing]);
+
+  // Manually resolve a conflict
+  const resolveConflictManually = useCallback(async (
+    conflict: ConflictInfo,
+    strategy: 'local' | 'server' | 'merge' | 'skip'
+  ) => {
+    const result = await resolveCartConflict(conflict, strategy);
+    
+    if (result.success) {
+      await removeSyncAction(conflict.actionId);
+      setConflicts(prev => prev.filter(c => c.actionId !== conflict.actionId));
+      const newCount = await getPendingCount();
+      setPendingCount(newCount);
+      toast.success('Conflict resolved');
+    } else {
+      toast.error(result.error || 'Failed to resolve conflict');
+    }
+  }, []);
+
+  // Dismiss a conflict without resolving
+  const dismissConflict = useCallback((actionId: string) => {
+    setConflicts(prev => prev.filter(c => c.actionId !== actionId));
+  }, []);
 
   // Queue a cart action for sync
   const queueCartAction = useCallback(async (
@@ -194,7 +249,6 @@ export const useBackgroundSync = (): UseBackgroundSyncReturn => {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Initial sync if online and has pending actions
     if (navigator.onLine) {
       getPendingCount().then(count => {
         if (count > 0) {
@@ -213,7 +267,10 @@ export const useBackgroundSync = (): UseBackgroundSyncReturn => {
     isOnline,
     isSyncing,
     pendingCount,
+    conflicts,
     queueCartAction,
-    syncNow
+    syncNow,
+    resolveConflict: resolveConflictManually,
+    dismissConflict
   };
 };

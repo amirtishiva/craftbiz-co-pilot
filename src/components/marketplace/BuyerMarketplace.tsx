@@ -9,7 +9,7 @@ import { useBackgroundSync } from '@/hooks/useBackgroundSync';
 import ProductGrid from './ProductGrid';
 import ShoppingCartDrawer from './ShoppingCartDrawer';
 import ArtisanMap from './ArtisanMap';
-import BuyerCustomOrders from './BuyerCustomOrders';
+import OrderTracking from './OrderTracking';
 import NotificationBell from './NotificationBell';
 import MobileBottomNav from './MobileBottomNav';
 import OfflineIndicator from './OfflineIndicator';
@@ -120,8 +120,8 @@ const BuyerMarketplace: React.FC = () => {
   if (view === 'my-orders') {
     return (
       <>
-        <div className="pb-16 sm:pb-0">
-          <BuyerCustomOrders onBack={() => setView('browse')} />
+        <div className="pb-16 sm:pb-0 px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
+          <OrderTracking onBack={() => setView('browse')} />
         </div>
         <MobileBottomNav 
           activeTab="my-orders" 
