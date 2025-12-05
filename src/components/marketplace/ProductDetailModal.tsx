@@ -9,19 +9,29 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Product, useMarketplace } from '@/hooks/useMarketplace';
 import CustomOrderModal from './CustomOrderModal';
 import ProductReviews from './ProductReviews';
+import { useHaptic } from '@/hooks/useHaptic';
 
 interface ProductDetailModalProps {
   product: Product;
   isOpen: boolean;
   onClose: () => void;
+  isWishlisted?: boolean;
+  onToggleWishlist?: () => void;
 }
 
-const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, isOpen, onClose }) => {
+const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ 
+  product, 
+  isOpen, 
+  onClose,
+  isWishlisted = false,
+  onToggleWishlist 
+}) => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [customizationNotes, setCustomizationNotes] = useState('');
   const [showCustomOrderModal, setShowCustomOrderModal] = useState(false);
   const { addToCart } = useMarketplace();
+  const haptic = useHaptic();
 
   const images = product.product_images?.length 
     ? product.product_images.sort((a, b) => a.display_order - b.display_order)
@@ -36,7 +46,14 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, isOpen
   };
 
   const handleAddToCart = async () => {
+    haptic.impact('medium');
     await addToCart(product.id, quantity, customizationNotes || undefined);
+    haptic.success();
+  };
+
+  const handleWishlistClick = () => {
+    haptic.selection();
+    onToggleWishlist?.();
   };
 
   return (
@@ -83,8 +100,17 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, isOpen
             <div>
               <div className="flex items-start justify-between gap-4">
                 <h2 className="text-2xl font-bold text-foreground">{product.title}</h2>
-                <Button variant="ghost" size="icon">
-                  <Heart className="h-5 w-5" />
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={handleWishlistClick}
+                  className="flex-shrink-0"
+                >
+                  <Heart 
+                    className={`h-5 w-5 transition-all ${
+                      isWishlisted ? 'fill-red-500 text-red-500' : ''
+                    }`} 
+                  />
                 </Button>
               </div>
               

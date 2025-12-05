@@ -9,13 +9,17 @@ interface ProductGridProps {
   isLoading: boolean;
   onRefresh?: () => Promise<void> | void;
   enablePullToRefresh?: boolean;
+  wishlistProductIds?: Set<string>;
+  onToggleWishlist?: (productId: string) => Promise<void>;
 }
 
 const ProductGrid: React.FC<ProductGridProps> = ({ 
   products, 
   isLoading, 
   onRefresh,
-  enablePullToRefresh = false
+  enablePullToRefresh = false,
+  wishlistProductIds,
+  onToggleWishlist
 }) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -108,7 +112,12 @@ const ProductGrid: React.FC<ProductGridProps> = ({
         }}
       >
         {products.map((product) => (
-          <ProductCard key={product.id} product={product} />
+          <ProductCard 
+            key={product.id} 
+            product={product}
+            isWishlisted={wishlistProductIds?.has(product.id) || false}
+            onToggleWishlist={onToggleWishlist}
+          />
         ))}
       </div>
     </div>
