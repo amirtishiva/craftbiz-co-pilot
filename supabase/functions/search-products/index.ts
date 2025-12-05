@@ -33,13 +33,13 @@ serve(async (req) => {
 
     console.log("Searching products:", { query, category, minPrice, maxPrice });
 
+    // Query products with images and seller profile info
     let dbQuery = supabase
       .from('products')
       .select(`
         *,
-        product_images!inner(id, image_url, is_primary, display_order),
-        seller:profiles!products_seller_id_fkey(id, business_name, avatar_url, location),
-        seller_profile:seller_profiles!inner(shop_name, rating, is_verified)
+        product_images(id, image_url, is_primary, display_order),
+        seller:profiles!products_seller_id_fkey(id, user_id, business_name, avatar_url, location)
       `)
       .eq('status', 'active');
 
@@ -74,17 +74,43 @@ serve(async (req) => {
     // Pagination
     dbQuery = dbQuery.range(offset, offset + limit - 1);
 
-    const { data: products, error, count } = await dbQuery;
+    const { data: products, error } = await dbQuery;
 
     if (error) {
       console.error("Database error:", error);
       throw error;
     }
 
+    // Fetch seller profiles for the products
+    let resultsWithSellerProfiles = products || [];
+    if (products && products.length > 0) {
+      const userIds = products
+        .map(p => p.seller?.user_id)
+        .filter(Boolean);
+      
+      if (userIds.length > 0) {
+        const { data: sellerProfiles } = await supabase
+          .from('seller_profiles')
+          .select('user_id, shop_name, rating, is_verified')
+          .in('user_id', userIds);
+        
+        const sellerProfileMap = new Map(
+          sellerProfiles?.map(sp => [sp.user_id, sp]) || []
+        );
+        
+        resultsWithSellerProfiles = products.map(product => ({
+          ...product,
+          seller_profile: product.seller?.user_id 
+            ? sellerProfileMap.get(product.seller.user_id) 
+            : null
+        }));
+      }
+    }
+
     // If location-based search, calculate distances
-    let resultsWithDistance = products || [];
-    if (latitude && longitude && products) {
-      resultsWithDistance = products.map(product => {
+    let finalResults = resultsWithSellerProfiles;
+    if (latitude && longitude && resultsWithSellerProfiles.length > 0) {
+      finalResults = resultsWithSellerProfiles.map(product => {
         if (product.latitude && product.longitude) {
           const distance = calculateDistance(
             latitude, longitude,
@@ -97,25 +123,25 @@ serve(async (req) => {
 
       // Filter by max distance if specified
       if (maxDistance) {
-        resultsWithDistance = resultsWithDistance.filter(
+        finalResults = finalResults.filter(
           p => p.distance === null || p.distance <= maxDistance
         );
       }
 
       // Sort by distance if location search
-      resultsWithDistance.sort((a, b) => {
+      finalResults.sort((a, b) => {
         if (a.distance === null) return 1;
         if (b.distance === null) return -1;
         return a.distance - b.distance;
       });
     }
 
-    console.log(`Found ${resultsWithDistance.length} products`);
+    console.log(`Found ${finalResults.length} products`);
 
     return new Response(JSON.stringify({ 
       success: true, 
-      data: resultsWithDistance,
-      count: resultsWithDistance.length
+      data: finalResults,
+      count: finalResults.length
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
