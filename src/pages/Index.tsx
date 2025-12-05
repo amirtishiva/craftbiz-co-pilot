@@ -10,8 +10,10 @@ import DesignStudio from '@/components/design/DesignStudio';
 import MarketingHub from '@/components/marketing/MarketingHub';
 import SuppliersMap from '@/components/suppliers/SuppliersMap';
 import Marketplace from '@/components/marketplace/Marketplace';
+import SellerDashboard from '@/components/marketplace/SellerDashboard';
 import { ProfileSettings } from '@/components/profile/ProfileSettings';
 import { AccountSettings } from '@/components/profile/AccountSettings';
+import { RoleGuard } from '@/components/auth/RoleGuard';
 import type { User } from "@supabase/supabase-js";
 
 const Index = () => {
@@ -65,6 +67,15 @@ const Index = () => {
         return <SuppliersMap />;
       case 'marketplace':
         return <Marketplace />;
+      case 'seller-dashboard':
+        return (
+          <RoleGuard 
+            requiredRole="seller" 
+            onAccessDenied={() => setActiveTab('marketplace')}
+          >
+            <SellerDashboard onBack={() => setActiveTab('marketplace')} />
+          </RoleGuard>
+        );
       case 'profile':
         return <ProfileSettings />;
       case 'account':
