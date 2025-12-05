@@ -1,16 +1,41 @@
-import React from 'react';
-import { Package } from 'lucide-react';
+import React, { useState } from 'react';
+import { Package, RefreshCw } from 'lucide-react';
 import { Product } from '@/hooks/useMarketplace';
 import ProductCard from './ProductCard';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
 interface ProductGridProps {
   products: Product[];
   isLoading: boolean;
-  onRefresh?: () => void;
+  onRefresh?: () => Promise<void> | void;
+  enablePullToRefresh?: boolean;
 }
 
-const ProductGrid: React.FC<ProductGridProps> = ({ products, isLoading, onRefresh }) => {
-  if (isLoading) {
+const ProductGrid: React.FC<ProductGridProps> = ({ 
+  products, 
+  isLoading, 
+  onRefresh,
+  enablePullToRefresh = false
+}) => {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    if (!onRefresh) return;
+    setIsRefreshing(true);
+    try {
+      await onRefresh();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const { containerRef, pullDistance, pullProgress, isRefreshing: isPulling } = usePullToRefresh({
+    onRefresh: handleRefresh,
+    disabled: !enablePullToRefresh || isLoading,
+    threshold: 80
+  });
+
+  if (isLoading && !isRefreshing) {
     return (
       <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
         {[...Array(8)].map((_, i) => (
@@ -42,10 +67,50 @@ const ProductGrid: React.FC<ProductGridProps> = ({ products, isLoading, onRefres
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
-      {products.map((product) => (
-        <ProductCard key={product.id} product={product} />
-      ))}
+    <div 
+      ref={containerRef}
+      className="relative overflow-auto"
+    >
+      {/* Pull to refresh indicator - mobile only */}
+      {enablePullToRefresh && (
+        <div 
+          className="sm:hidden absolute left-0 right-0 flex items-center justify-center transition-all duration-200 overflow-hidden"
+          style={{ 
+            height: pullDistance,
+            top: -pullDistance,
+            opacity: pullProgress
+          }}
+        >
+          <div 
+            className={`flex items-center gap-2 text-sm text-muted-foreground ${isPulling ? 'animate-spin' : ''}`}
+            style={{
+              transform: `rotate(${pullProgress * 360}deg)`
+            }}
+          >
+            <RefreshCw className="h-5 w-5" />
+          </div>
+        </div>
+      )}
+      
+      {/* Refreshing overlay */}
+      {isRefreshing && (
+        <div className="sm:hidden flex items-center justify-center py-3 text-sm text-muted-foreground">
+          <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+          Refreshing...
+        </div>
+      )}
+
+      <div 
+        className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6"
+        style={{
+          transform: pullDistance > 0 ? `translateY(${pullDistance}px)` : undefined,
+          transition: pullDistance > 0 ? 'none' : 'transform 0.2s ease-out'
+        }}
+      >
+        {products.map((product) => (
+          <ProductCard key={product.id} product={product} />
+        ))}
+      </div>
     </div>
   );
 };

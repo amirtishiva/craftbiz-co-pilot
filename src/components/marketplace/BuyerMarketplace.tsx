@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Filter, Map, ShoppingCart, MessageSquare, Store } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Search, Filter, Store } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -9,6 +9,7 @@ import ShoppingCartDrawer from './ShoppingCartDrawer';
 import ArtisanMap from './ArtisanMap';
 import BuyerCustomOrders from './BuyerCustomOrders';
 import NotificationBell from './NotificationBell';
+import MobileBottomNav from './MobileBottomNav';
 
 const CRAFT_CATEGORIES = [
   { value: 'all', label: 'All Categories' },
@@ -27,8 +28,9 @@ const BuyerMarketplace: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState('created_at');
-  const [view, setView] = useState<'browse' | 'artisan-map' | 'my-orders'>('browse');
+  const [view, setView] = useState<'browse' | 'search' | 'artisan-map' | 'my-orders' | 'cart'>('browse');
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [showSearchPanel, setShowSearchPanel] = useState(false);
 
   const { isLoading, products, searchProducts, cart, fetchCart } = useMarketplace();
 
@@ -37,13 +39,22 @@ const BuyerMarketplace: React.FC = () => {
     fetchCart();
   }, []);
 
-  const handleSearch = () => {
+  const handleSearch = useCallback(() => {
     searchProducts({
       query: searchQuery,
       category: selectedCategory !== 'all' ? selectedCategory : undefined,
       sortBy
     });
-  };
+  }, [searchQuery, selectedCategory, sortBy, searchProducts]);
+
+  const handleRefresh = useCallback(async () => {
+    await searchProducts({
+      query: searchQuery,
+      category: selectedCategory !== 'all' ? selectedCategory : undefined,
+      sortBy
+    });
+    await fetchCart();
+  }, [searchQuery, selectedCategory, sortBy, searchProducts, fetchCart]);
 
   const handleCategoryChange = (category: string) => {
     setSelectedCategory(category);
@@ -63,142 +74,150 @@ const BuyerMarketplace: React.FC = () => {
     });
   };
 
+  const handleMobileNavChange = (tab: 'browse' | 'search' | 'artisan-map' | 'my-orders' | 'cart') => {
+    if (tab === 'cart') {
+      setIsCartOpen(true);
+    } else if (tab === 'search') {
+      setShowSearchPanel(true);
+      setView('browse');
+    } else {
+      setShowSearchPanel(false);
+      setView(tab);
+    }
+  };
+
   if (view === 'artisan-map') {
     return (
-      <ArtisanMap 
-        onBack={() => setView('browse')} 
-        onSelectSeller={() => setView('browse')}
-      />
+      <>
+        <ArtisanMap 
+          onBack={() => setView('browse')} 
+          onSelectSeller={() => setView('browse')}
+        />
+        <MobileBottomNav 
+          activeTab="artisan-map" 
+          onTabChange={handleMobileNavChange}
+          cartCount={cart.length}
+        />
+      </>
     );
   }
 
   if (view === 'my-orders') {
-    return <BuyerCustomOrders onBack={() => setView('browse')} />;
+    return (
+      <>
+        <div className="pb-16 sm:pb-0">
+          <BuyerCustomOrders onBack={() => setView('browse')} />
+        </div>
+        <MobileBottomNav 
+          activeTab="my-orders" 
+          onTabChange={handleMobileNavChange}
+          cartCount={cart.length}
+        />
+      </>
+    );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
-      {/* Header */}
-      <div className="flex flex-col gap-4 mb-6 sm:mb-8">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
-          <div className="min-w-0 flex-1">
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground flex items-center gap-2">
-              <Store className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8 text-primary flex-shrink-0" />
-              <span className="truncate">Craft Stories Marketplace</span>
-            </h1>
-            <p className="text-sm sm:text-base text-muted-foreground mt-1">
-              Discover authentic handcrafted products from skilled Indian artisans
-            </p>
-          </div>
-          
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            <NotificationBell />
+    <>
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 pb-20 sm:pb-8">
+        {/* Header */}
+        <div className="flex flex-col gap-4 mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground flex items-center gap-2">
+                <Store className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8 text-primary flex-shrink-0" />
+                <span className="truncate">Craft Stories Marketplace</span>
+              </h1>
+              <p className="text-sm sm:text-base text-muted-foreground mt-1 hidden sm:block">
+                Discover authentic handcrafted products from skilled Indian artisans
+              </p>
+            </div>
             
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs sm:text-sm"
-              onClick={() => setView('artisan-map')}
-            >
-              <Map className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Find Artisans</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs sm:text-sm"
-              onClick={() => setView('my-orders')}
-            >
-              <MessageSquare className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">My Orders</span>
-            </Button>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs sm:text-sm relative"
-              onClick={() => setIsCartOpen(true)}
-            >
-              <ShoppingCart className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Cart</span>
-              {cart.length > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground text-[10px] sm:text-xs rounded-full h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center">
-                  {cart.length}
-                </span>
-              )}
-            </Button>
+            {/* Action Buttons - Hidden on mobile, shown on desktop */}
+            <div className="hidden sm:flex items-center gap-2 sm:gap-3 flex-wrap">
+              <NotificationBell />
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Search & Filters */}
-      <div className="bg-card border border-border rounded-lg sm:rounded-xl p-3 sm:p-4 mb-6 sm:mb-8">
-        <div className="flex flex-col gap-3 sm:gap-4">
-          {/* Search Input - Full width on all screens */}
-          <div className="relative w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
-            <Input
-              placeholder="Search for handcrafted products..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              className="pl-9 sm:pl-10 text-sm sm:text-base h-9 sm:h-10"
-            />
-          </div>
-          
-          {/* Filters Row */}
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-            <Select value={selectedCategory} onValueChange={handleCategoryChange}>
-              <SelectTrigger className="w-full sm:w-[180px] lg:w-[200px] h-9 sm:h-10 text-sm">
-                <Filter className="h-4 w-4 mr-2 flex-shrink-0" />
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                {CRAFT_CATEGORIES.map((cat) => (
-                  <SelectItem key={cat.value} value={cat.value}>
-                    {cat.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        {/* Search & Filters - Always visible on desktop, collapsible on mobile */}
+        <div className={`bg-card border border-border rounded-lg sm:rounded-xl p-3 sm:p-4 mb-6 sm:mb-8 ${showSearchPanel ? 'block' : 'hidden sm:block'}`}>
+          <div className="flex flex-col gap-3 sm:gap-4">
+            {/* Search Input - Full width on all screens */}
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+              <Input
+                placeholder="Search for handcrafted products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                className="pl-9 sm:pl-10 text-sm sm:text-base h-9 sm:h-10"
+              />
+            </div>
             
-            <Select value={sortBy} onValueChange={handleSortChange}>
-              <SelectTrigger className="w-full sm:w-[140px] lg:w-[160px] h-9 sm:h-10 text-sm">
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="created_at">Newest</SelectItem>
-                <SelectItem value="price">Price: Low to High</SelectItem>
-                <SelectItem value="title">Name</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Button 
-              onClick={handleSearch} 
-              size="sm" 
-              className="w-full sm:w-auto h-9 sm:h-10 text-sm"
-            >
-              Search
-            </Button>
+            {/* Filters Row */}
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+              <Select value={selectedCategory} onValueChange={handleCategoryChange}>
+                <SelectTrigger className="w-full sm:w-[180px] lg:w-[200px] h-9 sm:h-10 text-sm">
+                  <Filter className="h-4 w-4 mr-2 flex-shrink-0" />
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CRAFT_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select value={sortBy} onValueChange={handleSortChange}>
+                <SelectTrigger className="w-full sm:w-[140px] lg:w-[160px] h-9 sm:h-10 text-sm">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="created_at">Newest</SelectItem>
+                  <SelectItem value="price">Price: Low to High</SelectItem>
+                  <SelectItem value="title">Name</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Button 
+                onClick={() => {
+                  handleSearch();
+                  setShowSearchPanel(false);
+                }} 
+                size="sm" 
+                className="w-full sm:w-auto h-9 sm:h-10 text-sm"
+              >
+                Search
+              </Button>
+            </div>
           </div>
         </div>
+
+        {/* Products Grid with Pull-to-Refresh */}
+        <ProductGrid 
+          products={products} 
+          isLoading={isLoading}
+          onRefresh={handleRefresh}
+          enablePullToRefresh
+        />
+
+        {/* Shopping Cart Drawer */}
+        <ShoppingCartDrawer 
+          isOpen={isCartOpen} 
+          onClose={() => setIsCartOpen(false)} 
+        />
       </div>
 
-      {/* Products Grid */}
-      <ProductGrid 
-        products={products} 
-        isLoading={isLoading}
-        onRefresh={handleSearch}
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav 
+        activeTab={showSearchPanel ? 'search' : 'browse'} 
+        onTabChange={handleMobileNavChange}
+        cartCount={cart.length}
       />
-
-      {/* Shopping Cart Drawer */}
-      <ShoppingCartDrawer 
-        isOpen={isCartOpen} 
-        onClose={() => setIsCartOpen(false)} 
-      />
-    </div>
+    </>
   );
 };
 
