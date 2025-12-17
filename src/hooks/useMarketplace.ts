@@ -76,6 +76,11 @@ interface SearchParams {
   sortOrder?: 'asc' | 'desc';
   limit?: number;
   offset?: number;
+  // Advanced filters
+  materials?: string[];
+  minRating?: number;
+  customizableOnly?: boolean;
+  verifiedOnly?: boolean;
 }
 
 export const useMarketplace = () => {

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Heart, ShoppingCart, MapPin, Star, Eye, GitCompare } from 'lucide-react';
+import { Heart, ShoppingCart, MapPin, Star, Eye, GitCompare, Share2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Product, useMarketplace } from '@/hooks/useMarketplace';
 import ProductDetailModal from './ProductDetailModal';
 import QuickViewModal from './QuickViewModal';
+import ShareProductModal from './ShareProductModal';
 import { useHaptic } from '@/hooks/useHaptic';
 import { toast } from 'sonner';
 
@@ -17,6 +18,7 @@ interface ProductCardProps {
   onToggleComparison?: (product: Product) => { success: boolean; isInComparison: boolean };
   canAddToComparison?: boolean;
   onProductView?: (product: Product) => void;
+  onShare?: (product: Product) => void;
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({ 
@@ -26,10 +28,12 @@ const ProductCard: React.FC<ProductCardProps> = ({
   isInComparison = false,
   onToggleComparison,
   canAddToComparison = true,
-  onProductView
+  onProductView,
+  onShare
 }) => {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
+  const [isShareOpen, setIsShareOpen] = useState(false);
   const [localWishlisted, setLocalWishlisted] = useState(isWishlisted);
   const [localInComparison, setLocalInComparison] = useState(isInComparison);
   const { addToCart, toggleWishlist: defaultToggleWishlist } = useMarketplace();
@@ -100,6 +104,16 @@ const ProductCard: React.FC<ProductCardProps> = ({
     }
   };
 
+  const handleShare = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    haptic.tap();
+    if (onShare) {
+      onShare(product);
+    } else {
+      setIsShareOpen(true);
+    }
+  };
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -139,6 +153,14 @@ const ProductCard: React.FC<ProductCardProps> = ({
               onClick={handleAddToCart}
             >
               <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
+            </Button>
+            <Button
+              size="icon"
+              variant="secondary"
+              className="rounded-full h-8 w-8 sm:h-10 sm:w-10"
+              onClick={handleShare}
+            >
+              <Share2 className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
           </div>
 
@@ -271,6 +293,13 @@ const ProductCard: React.FC<ProductCardProps> = ({
             }
           }
         }}
+      />
+
+      {/* Share Modal */}
+      <ShareProductModal
+        product={product}
+        isOpen={isShareOpen}
+        onClose={() => setIsShareOpen(false)}
       />
     </>
   );
