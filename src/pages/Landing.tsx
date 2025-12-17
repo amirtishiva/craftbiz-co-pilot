@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Linkedin } from 'lucide-react';
+import { Linkedin, Sparkles, Store, FileText, Users, Palette, TrendingUp, Globe } from 'lucide-react';
 import artisanWoodworker from '@/assets/artisan-woodworker.jpg';
 import artisanTextile from '@/assets/artisan-textile.jpg';
 import artisanPotter from '@/assets/artisan-potter.jpg';
@@ -21,6 +21,45 @@ const heroImages = [
   { src: artisanJewelry, alt: 'Jewelry craftsman' },
   { src: artisanMetalworker, alt: 'Stone carver at work' },
   { src: artisanWoodworker, alt: 'Embroidery artist' },
+];
+
+const features = [
+  {
+    icon: Sparkles,
+    title: 'AI-Powered Business Plans',
+    description: 'Generate comprehensive business plans tailored for Indian markets with our intelligent AI assistant.',
+    color: 'hsl(16,75%,55%)',
+  },
+  {
+    icon: Store,
+    title: 'Craft Stories Marketplace',
+    description: 'Sell your handcrafted products directly to customers who appreciate authentic artisanal goods.',
+    color: 'hsl(25,60%,45%)',
+  },
+  {
+    icon: Palette,
+    title: 'Design Studio',
+    description: 'Create stunning logos, banners, and marketing materials with AI-powered design tools.',
+    color: 'hsl(35,70%,50%)',
+  },
+  {
+    icon: FileText,
+    title: 'Smart Marketing',
+    description: 'Generate social media content, product descriptions, and marketing campaigns automatically.',
+    color: 'hsl(16,75%,55%)',
+  },
+  {
+    icon: TrendingUp,
+    title: 'Financial Insights',
+    description: 'Get AI-driven financial analysis, pricing recommendations, and growth strategies.',
+    color: 'hsl(25,60%,45%)',
+  },
+  {
+    icon: Globe,
+    title: 'Local Supplier Network',
+    description: 'Connect with verified local suppliers and dealers to source quality materials.',
+    color: 'hsl(35,70%,50%)',
+  },
 ];
 
 const teamMembers = [
@@ -94,7 +133,7 @@ const Landing = () => {
       </div>
 
       {/* Header */}
-      <header className="relative z-10 w-full py-4 px-4 sm:px-8 lg:px-16">
+      <header className="relative z-10 w-full py-4 px-4 sm:px-8 lg:px-16 animate-[fadeSlideDown_0.6s_ease-out]">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center gap-2">
@@ -107,9 +146,8 @@ const Landing = () => {
 
           {/* Navigation */}
           <nav className="hidden lg:flex items-center gap-8">
-            <a href="#" className="text-[hsl(20,20%,30%)] hover:text-[hsl(25,80%,50%)] transition-colors font-medium">Craftsmen</a>
-            <a href="#" className="text-[hsl(20,20%,30%)] hover:text-[hsl(25,80%,50%)] transition-colors font-medium">Solutions</a>
-            <a href="#" className="text-[hsl(20,20%,30%)] hover:text-[hsl(25,80%,50%)] transition-colors font-medium">Pricing</a>
+            <a href="#features" className="text-[hsl(20,20%,30%)] hover:text-[hsl(25,80%,50%)] transition-colors font-medium">Features</a>
+            <a href="#team" className="text-[hsl(20,20%,30%)] hover:text-[hsl(25,80%,50%)] transition-colors font-medium">Team</a>
             <a href="#" className="text-[hsl(20,20%,30%)] hover:text-[hsl(25,80%,50%)] transition-colors font-medium">Community</a>
             <a href="#" className="text-[hsl(20,20%,30%)] hover:text-[hsl(25,80%,50%)] transition-colors font-medium">Contact</a>
           </nav>
@@ -137,14 +175,14 @@ const Landing = () => {
       <main className="relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-16 pt-8 pb-16">
           {/* Badge */}
-          <div className="flex justify-center mb-6">
+          <div className="flex justify-center mb-6 animate-[fadeSlideUp_0.6s_ease-out_0.1s_both]">
             <span className="inline-flex items-center px-5 py-2 rounded-full bg-[hsl(16,75%,55%)] text-white text-sm font-medium">
               Join over 10,000 thriving artisans
             </span>
           </div>
 
           {/* Headline with decorative elements */}
-          <div className="relative max-w-4xl mx-auto mb-6">
+          <div className="relative max-w-4xl mx-auto mb-6 animate-[fadeSlideUp_0.6s_ease-out_0.2s_both]">
             {/* Decorative arrow left */}
             <svg className="absolute -left-16 top-4 hidden xl:block w-12 h-12 text-[hsl(20,30%,25%)]" viewBox="0 0 50 50" fill="none">
               <path d="M5 40 Q20 35 35 25" stroke="currentColor" strokeWidth="2" fill="none"/>
@@ -169,21 +207,20 @@ const Landing = () => {
           </div>
 
           {/* Subheadline */}
-          <p className="text-center text-lg text-[hsl(20,20%,35%)] mb-10 max-w-2xl mx-auto">
+          <p className="text-center text-lg text-[hsl(20,20%,35%)] mb-10 max-w-2xl mx-auto animate-[fadeSlideUp_0.6s_ease-out_0.3s_both]">
             Transform your ideas into thriving businesses with AI-powered
             <br className="hidden sm:block" />
             tools and local connections
           </p>
 
           {/* Artisan Image Gallery - Wave Pattern */}
-          <div className="relative flex justify-center items-end gap-3 sm:gap-4 mb-8 px-4">
+          <div className="relative flex justify-center items-end gap-3 sm:gap-4 mb-8 px-4 animate-[fadeSlideUp_0.8s_ease-out_0.4s_both]">
             {/* Decorative brush stroke left */}
             <svg className="absolute -left-4 bottom-20 hidden lg:block w-16 h-24 text-[hsl(25,50%,55%)]" viewBox="0 0 60 90" fill="none">
               <path d="M50 10 Q30 30 40 50 Q50 70 30 85" stroke="currentColor" strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.5"/>
             </svg>
 
             {heroImages.map((image, index) => {
-              // Create wave pattern: tall-short-tall-short-tall-short
               const heights = [320, 280, 360, 300, 340, 280];
               const height = heights[index] || 300;
               const offsetY = index % 2 === 0 ? 0 : 40;
@@ -191,11 +228,12 @@ const Landing = () => {
               return (
                 <div
                   key={index}
-                  className="flex-shrink-0 rounded-2xl overflow-hidden shadow-lg"
+                  className="flex-shrink-0 rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
                   style={{
                     width: 'clamp(100px, 15vw, 180px)',
                     height: `clamp(${height * 0.6}px, ${height * 0.8}px, ${height}px)`,
                     transform: `translateY(${offsetY}px)`,
+                    animation: `fadeScaleIn 0.5s ease-out ${0.5 + index * 0.1}s both`,
                   }}
                 >
                   <img
@@ -216,7 +254,7 @@ const Landing = () => {
           </div>
 
           {/* CTA Section */}
-          <div className="flex flex-col items-center relative">
+          <div className="flex flex-col items-center relative animate-[fadeSlideUp_0.6s_ease-out_0.9s_both]">
             {/* Arrow pointing to button */}
             <svg className="absolute -right-20 -top-4 hidden xl:block w-16 h-16 text-[hsl(20,30%,25%)]" viewBox="0 0 60 60" fill="none">
               <path d="M10 5 Q25 20 45 35" stroke="currentColor" strokeWidth="2" fill="none"/>
@@ -226,7 +264,7 @@ const Landing = () => {
             <Button
               size="lg"
               onClick={handleGetStarted}
-              className="rounded-full bg-[hsl(16,75%,55%)] hover:bg-[hsl(16,75%,45%)] text-white text-lg px-12 py-7 shadow-lg hover:shadow-xl transition-all duration-300 font-semibold"
+              className="rounded-full bg-[hsl(16,75%,55%)] hover:bg-[hsl(16,75%,45%)] text-white text-lg px-12 py-7 shadow-lg hover:shadow-xl transition-all duration-300 font-semibold hover:scale-105"
             >
               Get Started
             </Button>
@@ -246,24 +284,86 @@ const Landing = () => {
           </div>
         </div>
 
-        {/* Team Section */}
-        <section className="py-20 px-4 sm:px-6 lg:px-8 bg-background">
+        {/* Features Section */}
+        <section id="features" className="py-20 px-4 sm:px-6 lg:px-8 bg-white/50">
           <div className="max-w-6xl mx-auto">
-            <h2 className="text-4xl sm:text-5xl font-bold text-center text-foreground mb-4">
-              Meet Our Team
-            </h2>
-            <p className="text-center text-muted-foreground mb-16 max-w-2xl mx-auto">
-              A passionate group of students committed to empowering Indian entrepreneurs with AI-powered business tools.
-            </p>
+            <div className="text-center mb-16">
+              <span className="inline-flex items-center px-4 py-1.5 rounded-full bg-[hsl(16,75%,55%)]/10 text-[hsl(16,75%,50%)] text-sm font-medium mb-4">
+                Powerful Features
+              </span>
+              <h2 className="text-4xl sm:text-5xl font-bold text-[hsl(20,30%,15%)] mb-4">
+                Everything You Need to Succeed
+              </h2>
+              <p className="text-lg text-[hsl(20,20%,40%)] max-w-2xl mx-auto">
+                From idea to thriving business – our AI-powered tools guide you every step of the way
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {features.map((feature, index) => (
+                <Card 
+                  key={index} 
+                  className="group border-none shadow-lg hover:shadow-xl transition-all duration-300 bg-white hover:-translate-y-1"
+                >
+                  <CardContent className="p-6">
+                    <div 
+                      className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5 transition-transform duration-300 group-hover:scale-110"
+                      style={{ backgroundColor: `${feature.color}15` }}
+                    >
+                      <feature.icon 
+                        className="w-7 h-7"
+                        style={{ color: feature.color }}
+                      />
+                    </div>
+                    
+                    <h3 className="text-xl font-semibold text-[hsl(20,30%,15%)] mb-3">
+                      {feature.title}
+                    </h3>
+                    
+                    <p className="text-[hsl(20,20%,40%)] leading-relaxed">
+                      {feature.description}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* CTA in features */}
+            <div className="text-center mt-12">
+              <Button
+                size="lg"
+                onClick={handleGetStarted}
+                className="rounded-full bg-[hsl(16,75%,55%)] hover:bg-[hsl(16,75%,45%)] text-white px-10 py-6 shadow-lg hover:shadow-xl transition-all duration-300 font-semibold"
+              >
+                Start Building Your Business
+              </Button>
+            </div>
+          </div>
+        </section>
+
+        {/* Team Section */}
+        <section id="team" className="py-20 px-4 sm:px-6 lg:px-8 bg-background">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-16">
+              <span className="inline-flex items-center px-4 py-1.5 rounded-full bg-[hsl(16,75%,55%)]/10 text-[hsl(16,75%,50%)] text-sm font-medium mb-4">
+                Our Team
+              </span>
+              <h2 className="text-4xl sm:text-5xl font-bold text-foreground mb-4">
+                Meet Our Team
+              </h2>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                A passionate group of students committed to empowering Indian entrepreneurs with AI-powered business tools.
+              </p>
+            </div>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
               {teamMembers.map((member, index) => (
                 <Card 
                   key={index} 
-                  className="group hover:shadow-xl transition-all duration-300 border-border overflow-hidden"
+                  className="group hover:shadow-xl transition-all duration-300 border-border overflow-hidden hover:-translate-y-1"
                 >
                   <CardContent className="p-6 flex flex-col items-center text-center">
-                    <div className="relative mb-6 w-40 h-40 rounded-full overflow-hidden ring-4 ring-primary/10 group-hover:ring-primary/30 transition-all duration-300">
+                    <div className="relative mb-6 w-40 h-40 rounded-full overflow-hidden ring-4 ring-[hsl(16,75%,55%)]/10 group-hover:ring-[hsl(16,75%,55%)]/30 transition-all duration-300">
                       <img 
                         src={member.image} 
                         alt={member.name}
@@ -287,7 +387,7 @@ const Landing = () => {
                       href={member.linkedin}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
+                      className="inline-flex items-center gap-2 text-[hsl(16,75%,55%)] hover:text-[hsl(16,75%,45%)] transition-colors"
                     >
                       <Linkedin className="w-5 h-5" />
                       <span className="text-sm font-medium">Connect on LinkedIn</span>
@@ -299,6 +399,42 @@ const Landing = () => {
           </div>
         </section>
       </main>
+
+      {/* CSS for animations */}
+      <style>{`
+        @keyframes fadeSlideUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        @keyframes fadeSlideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        @keyframes fadeScaleIn {
+          from {
+            opacity: 0;
+            transform: scale(0.9) translateY(var(--offset-y, 0));
+          }
+          to {
+            opacity: 1;
+            transform: scale(1) translateY(var(--offset-y, 0));
+          }
+        }
+      `}</style>
     </div>
   );
 };
