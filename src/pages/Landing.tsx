@@ -157,7 +157,7 @@ const Landing = () => {
                     height={400}
                     loading={index < 4 ? 'eager' : 'lazy'}
                     decoding={index < 4 ? 'sync' : 'async'}
-                    fetchPriority={index < 2 ? 'high' : undefined}
+                    fetchPriority={index < 4 ? 'high' : undefined}
                   />
                 </div>
               ))}
