@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Save, Loader2 } from 'lucide-react';
+import { Camera, Save, Loader2, MapPin, Phone, Eye } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,8 @@ const ShopSettings: React.FC = () => {
     artisan_story: '',
     years_of_experience: 0,
     craft_specialty: [] as string[],
+    location: '',
+    phone: '',
   });
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -25,33 +27,39 @@ const ShopSettings: React.FC = () => {
 
   useEffect(() => {
     if (sellerProfile) {
-      setFormData({
+      setFormData(prev => ({
+        ...prev,
         shop_name: sellerProfile.shop_name || '',
         shop_tagline: sellerProfile.shop_tagline || '',
         artisan_story: sellerProfile.artisan_story || '',
         years_of_experience: sellerProfile.years_of_experience || 0,
         craft_specialty: sellerProfile.craft_specialty || [],
-      });
+      }));
     }
-    fetchAvatar();
+    fetchProfileData();
   }, [sellerProfile]);
 
-  const fetchAvatar = async () => {
+  const fetchProfileData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('avatar_url')
+        .select('avatar_url, location, phone')
         .eq('user_id', user.id)
         .maybeSingle();
 
-      if (profile?.avatar_url) {
+      if (profile) {
         setAvatarUrl(profile.avatar_url);
+        setFormData(prev => ({
+          ...prev,
+          location: profile.location || '',
+          phone: profile.phone || '',
+        }));
       }
     } catch (error) {
-      console.error('Error fetching avatar:', error);
+      console.error('Error fetching profile data:', error);
     }
   };
 
@@ -116,12 +124,39 @@ const ShopSettings: React.FC = () => {
     setSaving(true);
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Update seller profile
       await updateSellerProfile({
         shop_name: formData.shop_name,
         shop_tagline: formData.shop_tagline || null,
         artisan_story: formData.artisan_story || null,
         years_of_experience: formData.years_of_experience || null,
         craft_specialty: formData.craft_specialty.length > 0 ? formData.craft_specialty : null,
+      });
+
+      // Update profiles table with location and phone (buyer-visible fields)
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          location: formData.location || null,
+          phone: formData.phone || null,
+        })
+        .eq('user_id', user.id);
+
+      if (profileError) throw profileError;
+
+      toast({
+        title: 'Shop settings saved',
+        description: 'Your shop information has been updated',
+      });
+    } catch (error: any) {
+      console.error('Save error:', error);
+      toast({
+        title: 'Save failed',
+        description: error.message || 'Failed to save settings',
+        variant: 'destructive',
       });
     } finally {
       setSaving(false);
@@ -138,7 +173,10 @@ const ShopSettings: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle>Shop Profile Photo</CardTitle>
-          <CardDescription>Upload a photo to represent your shop</CardDescription>
+          <CardDescription className="flex items-center gap-1">
+            <Eye className="h-3 w-3" />
+            Visible to buyers in the marketplace
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-6">
@@ -177,7 +215,10 @@ const ShopSettings: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle>Shop Information</CardTitle>
-          <CardDescription>Customize how your shop appears to buyers</CardDescription>
+          <CardDescription className="flex items-center gap-1">
+            <Eye className="h-3 w-3" />
+            This information is visible to buyers in the marketplace
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -246,6 +287,44 @@ const ShopSettings: React.FC = () => {
               <p className="text-xs text-muted-foreground">
                 {formData.artisan_story.length}/2000 characters
               </p>
+            </div>
+
+            <div className="border-t pt-6">
+              <h3 className="text-sm font-medium mb-4 flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                Contact & Location
+              </h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="location">Shop Location</Label>
+                  <Input
+                    id="location"
+                    value={formData.location}
+                    onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+                    placeholder="City, State"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Displayed to buyers on your products
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="phone" className="flex items-center gap-1">
+                    <Phone className="h-3 w-3" />
+                    Contact Phone
+                  </Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                    placeholder="+91 00000 00000"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    For order inquiries from buyers
+                  </p>
+                </div>
+              </div>
             </div>
 
             <Button type="submit" disabled={saving || isLoading}>

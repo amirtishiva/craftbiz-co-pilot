@@ -6,8 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Loader2, Upload, User } from "lucide-react";
+import { Loader2, Upload, User, Info } from "lucide-react";
 import { validateImage } from "@/lib/validation";
+import { useUserRoles } from "@/hooks/useUserRoles";
 
 interface Profile {
   avatar_url: string | null;
@@ -22,6 +23,7 @@ export const ProfileSettings = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const { isSeller } = useUserRoles();
   const [profile, setProfile] = useState<Profile>({
     avatar_url: null,
     business_name: null,
@@ -157,14 +159,41 @@ export const ProfileSettings = () => {
     <div className="container max-w-4xl mx-auto p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Profile Settings</h1>
-        <p className="text-muted-foreground mt-2">Manage your profile and business information</p>
+        <p className="text-muted-foreground mt-2">
+          {isSeller 
+            ? "Manage your personal account information. For marketplace-visible shop settings, go to Shop Settings."
+            : "Manage your profile and account information"
+          }
+        </p>
       </div>
+
+      {isSeller && (
+        <Card className="bg-muted/50 border-dashed">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <Info className="h-5 w-5 text-primary mt-0.5" />
+              <div className="text-sm">
+                <p className="font-medium">Seller Tip</p>
+                <p className="text-muted-foreground">
+                  To update your shop name, location, and contact info that buyers see in the marketplace, 
+                  use the <span className="font-medium">Shop Settings</span> tab in your seller dashboard.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <form onSubmit={handleSubmit}>
         <Card>
           <CardHeader>
-            <CardTitle>Avatar</CardTitle>
-            <CardDescription>Upload your profile picture</CardDescription>
+            <CardTitle>Profile Picture</CardTitle>
+            <CardDescription>
+              {isSeller 
+                ? "Your personal profile picture (also used as shop photo if not set separately)"
+                : "Upload your profile picture"
+              }
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-6">
@@ -199,27 +228,36 @@ export const ProfileSettings = () => {
 
         <Card className="mt-6">
           <CardHeader>
-            <CardTitle>Business Details</CardTitle>
-            <CardDescription>Your craft business information</CardDescription>
+            <CardTitle>{isSeller ? "Personal Details" : "Account Details"}</CardTitle>
+            <CardDescription>
+              {isSeller 
+                ? "Your personal information (not shown to buyers)"
+                : "Your account information"
+              }
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="business_name">Business Name</Label>
+                <Label htmlFor="business_name">
+                  {isSeller ? "Display Name" : "Name"}
+                </Label>
                 <Input
                   id="business_name"
                   value={profile.business_name || ""}
                   onChange={(e) => setProfile({ ...profile, business_name: e.target.value })}
-                  placeholder="Your craft business name"
+                  placeholder={isSeller ? "Your name" : "Your name"}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="business_type">Business Type</Label>
+                <Label htmlFor="business_type">
+                  {isSeller ? "Primary Craft" : "Interests"}
+                </Label>
                 <Input
                   id="business_type"
                   value={profile.business_type || ""}
                   onChange={(e) => setProfile({ ...profile, business_type: e.target.value })}
-                  placeholder="e.g., Pottery, Jewelry, Textiles"
+                  placeholder={isSeller ? "e.g., Pottery, Jewelry" : "e.g., Handmade goods, Art"}
                 />
               </div>
             </div>
@@ -232,8 +270,13 @@ export const ProfileSettings = () => {
                   type="tel"
                   value={profile.phone || ""}
                   onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                  placeholder="+1 (555) 000-0000"
+                  placeholder="+91 00000 00000"
                 />
+                {isSeller && (
+                  <p className="text-xs text-muted-foreground">
+                    For account recovery. Update Shop Settings for buyer contact.
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="location">Location</Label>
@@ -243,16 +286,24 @@ export const ProfileSettings = () => {
                   onChange={(e) => setProfile({ ...profile, location: e.target.value })}
                   placeholder="City, State"
                 />
+                {isSeller && (
+                  <p className="text-xs text-muted-foreground">
+                    Update Shop Settings to change marketplace location.
+                  </p>
+                )}
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="bio">Bio</Label>
+              <Label htmlFor="bio">{isSeller ? "Personal Bio" : "Bio"}</Label>
               <Textarea
                 id="bio"
                 value={profile.bio || ""}
                 onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
-                placeholder="Tell us about your craft business..."
+                placeholder={isSeller 
+                  ? "A bit about yourself (your artisan story is in Shop Settings)"
+                  : "Tell us about yourself..."
+                }
                 className="min-h-[100px]"
               />
             </div>
