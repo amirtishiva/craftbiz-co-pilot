@@ -148,8 +148,6 @@ const Landing = () => {
           <nav className="hidden lg:flex items-center gap-8">
             <a href="#features" className="text-[hsl(20,20%,30%)] hover:text-[hsl(25,80%,50%)] transition-colors font-medium">Features</a>
             <a href="#team" className="text-[hsl(20,20%,30%)] hover:text-[hsl(25,80%,50%)] transition-colors font-medium">Team</a>
-            <a href="#" className="text-[hsl(20,20%,30%)] hover:text-[hsl(25,80%,50%)] transition-colors font-medium">Community</a>
-            <a href="#" className="text-[hsl(20,20%,30%)] hover:text-[hsl(25,80%,50%)] transition-colors font-medium">Contact</a>
           </nav>
 
           {/* Auth Buttons */}
