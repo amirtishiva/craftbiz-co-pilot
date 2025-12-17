@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Heart, ShoppingCart, MapPin, Star, Clock, Package, Truck, MessageSquare, Palette } from 'lucide-react';
+import { Heart, ShoppingCart, MapPin, Star, Clock, Package, Truck, MessageSquare, Palette, BadgeCheck } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Product, useMarketplace } from '@/hooks/useMarketplace';
 import CustomOrderModal from './CustomOrderModal';
 import ProductReviews from './ProductReviews';
@@ -114,13 +115,25 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </Button>
               </div>
               
-              <div className="flex items-center gap-2 mt-2">
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
                 <Badge variant="secondary">{product.category}</Badge>
                 {product.is_customizable && (
                   <Badge variant="outline">Customizable</Badge>
                 )}
                 {product.seller_profile?.is_verified && (
-                  <Badge className="bg-green-500 text-white">Verified</Badge>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white flex items-center gap-1">
+                          <BadgeCheck className="h-3 w-3" />
+                          Verified Artisan
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs max-w-xs">This seller has been verified by CraftBizz for authenticity, quality craftsmanship, and reliability.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
               </div>
             </div>
@@ -128,13 +141,23 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             {/* Seller Info */}
             {product.seller_profile && (
               <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <div className="relative w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                   <span className="text-lg font-bold text-primary">
                     {product.seller_profile.shop_name?.charAt(0)}
                   </span>
+                  {product.seller_profile.is_verified && (
+                    <div className="absolute -bottom-0.5 -right-0.5 bg-emerald-500 rounded-full p-0.5">
+                      <BadgeCheck className="h-3 w-3 text-white" />
+                    </div>
+                  )}
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium text-foreground">{product.seller_profile.shop_name}</p>
+                  <p className="font-medium text-foreground flex items-center gap-1.5">
+                    {product.seller_profile.shop_name}
+                    {product.seller_profile.is_verified && (
+                      <span className="text-xs text-emerald-600 font-normal">Verified</span>
+                    )}
+                  </p>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     {product.seller_profile.rating > 0 && (
                       <span className="flex items-center gap-1">

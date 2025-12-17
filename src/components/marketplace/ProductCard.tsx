@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Heart, ShoppingCart, MapPin, Star, Eye, GitCompare, Share2 } from 'lucide-react';
+import { Heart, ShoppingCart, MapPin, Star, Eye, GitCompare, Share2, BadgeCheck } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Product, useMarketplace } from '@/hooks/useMarketplace';
 import ProductDetailModal from './ProductDetailModal';
 import QuickViewModal from './QuickViewModal';
@@ -200,9 +201,19 @@ const ProductCard: React.FC<ProductCardProps> = ({
               </Badge>
             )}
             {product.seller_profile?.is_verified && (
-              <Badge className="bg-green-500 text-white text-[10px] sm:text-xs px-1.5 py-0.5 sm:px-2 sm:py-1">
-                Verified
-              </Badge>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] sm:text-xs px-1.5 py-0.5 sm:px-2 sm:py-1 flex items-center gap-1">
+                      <BadgeCheck className="h-3 w-3" />
+                      Verified
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">Trusted artisan verified by CraftBizz</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
           </div>
         </div>
@@ -220,7 +231,12 @@ const ProductCard: React.FC<ProductCardProps> = ({
             {/* Seller Info */}
             {product.seller_profile && (
               <div className="flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs lg:text-sm text-muted-foreground">
-                <span className="font-medium truncate">{product.seller_profile.shop_name}</span>
+                <span className="font-medium truncate flex items-center gap-1">
+                  {product.seller_profile.shop_name}
+                  {product.seller_profile.is_verified && (
+                    <BadgeCheck className="h-3 w-3 text-emerald-500 flex-shrink-0" />
+                  )}
+                </span>
                 {product.seller_profile.rating > 0 && (
                   <span className="flex items-center gap-0.5 flex-shrink-0">
                     <Star className="h-2.5 w-2.5 sm:h-3 sm:w-3 fill-yellow-400 text-yellow-400" />
