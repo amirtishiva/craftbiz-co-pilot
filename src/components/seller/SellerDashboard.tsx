@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Plus, Package, ShoppingBag, TrendingUp, Star, Settings, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Plus, Package, ShoppingBag, TrendingUp, Star, Settings, MessageSquare, BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import ProductForm from './ProductForm';
 import SellerProductList from './SellerProductList';
 import CustomRequestsList from './CustomRequestsList';
+import SellerAnalytics from './SellerAnalytics';
 
 interface SellerDashboardProps {
   onBack: () => void;
@@ -157,6 +158,10 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ onBack }) => {
       <Tabs defaultValue="products" className="space-y-6">
         <TabsList>
           <TabsTrigger value="products">My Products</TabsTrigger>
+          <TabsTrigger value="analytics" className="gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Analytics
+          </TabsTrigger>
           <TabsTrigger value="custom-requests">Custom Requests</TabsTrigger>
           <TabsTrigger value="orders">Orders</TabsTrigger>
           <TabsTrigger value="settings">Shop Settings</TabsTrigger>
@@ -164,6 +169,10 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ onBack }) => {
 
         <TabsContent value="products">
           <SellerProductList onAddProduct={() => setShowProductForm(true)} />
+        </TabsContent>
+
+        <TabsContent value="analytics">
+          <SellerAnalytics />
         </TabsContent>
 
         <TabsContent value="custom-requests">

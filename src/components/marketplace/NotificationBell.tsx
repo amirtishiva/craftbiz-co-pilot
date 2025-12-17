@@ -19,8 +19,20 @@ const getNotificationIcon = (type: string) => {
       return <Package className="h-5 w-5 text-green-500" />;
     case 'custom_order_accepted':
       return <CheckCircle className="h-5 w-5 text-primary" />;
+    case 'custom_order_rejected':
+      return <Package className="h-5 w-5 text-destructive" />;
     case 'new_review':
       return <Star className="h-5 w-5 text-yellow-500" />;
+    case 'new_order':
+      return <Package className="h-5 w-5 text-green-500" />;
+    case 'order_status_confirmed':
+      return <CheckCircle className="h-5 w-5 text-blue-500" />;
+    case 'order_status_shipped':
+      return <Package className="h-5 w-5 text-purple-500" />;
+    case 'order_status_delivered':
+      return <CheckCircle className="h-5 w-5 text-green-500" />;
+    case 'order_status_cancelled':
+      return <Package className="h-5 w-5 text-destructive" />;
     default:
       return <Bell className="h-5 w-5 text-muted-foreground" />;
   }
