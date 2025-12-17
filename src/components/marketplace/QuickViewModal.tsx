@@ -13,6 +13,7 @@ interface QuickViewModalProps {
   onViewFull: () => void;
   isWishlisted: boolean;
   onToggleWishlist: () => void;
+  onOpen?: () => void;
 }
 
 const QuickViewModal: React.FC<QuickViewModalProps> = ({ 
@@ -21,12 +22,20 @@ const QuickViewModal: React.FC<QuickViewModalProps> = ({
   onClose, 
   onViewFull,
   isWishlisted,
-  onToggleWishlist
+  onToggleWishlist,
+  onOpen
 }) => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const { addToCart } = useMarketplace();
   const haptic = useHaptic();
+
+  // Call onOpen when modal opens
+  React.useEffect(() => {
+    if (isOpen && product && onOpen) {
+      onOpen();
+    }
+  }, [isOpen, product, onOpen]);
 
   if (!product) return null;
 
