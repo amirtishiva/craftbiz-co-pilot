@@ -9,7 +9,8 @@ import ProductForm from './ProductForm';
 import SellerProductList from './SellerProductList';
 import CustomRequestsList from './CustomRequestsList';
 import SellerAnalytics from './SellerAnalytics';
-
+import ShopSettings from './ShopSettings';
+import OrderManagement from './OrderManagement';
 interface SellerDashboardProps {
   onBack: () => void;
 }
@@ -190,31 +191,11 @@ const SellerDashboard: React.FC<SellerDashboardProps> = ({ onBack }) => {
         </TabsContent>
 
         <TabsContent value="orders">
-          <Card>
-            <CardHeader>
-              <CardTitle>Orders</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <ShoppingBag className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                <p>No orders yet. Start listing products to receive orders!</p>
-              </div>
-            </CardContent>
-          </Card>
+          <OrderManagement />
         </TabsContent>
 
         <TabsContent value="settings">
-          <Card>
-            <CardHeader>
-              <CardTitle>Shop Settings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <Settings className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                <p>Shop settings coming soon</p>
-              </div>
-            </CardContent>
-          </Card>
+          <ShopSettings />
         </TabsContent>
       </Tabs>
     </div>
