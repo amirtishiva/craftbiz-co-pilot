@@ -43,7 +43,11 @@ Deno.serve(async (req) => {
     const googleApiKey = Deno.env.get('Google_Map_API_Key');
     
     if (!googleApiKey) {
-      throw new Error('Google Maps API key not configured');
+      console.error('Missing Google Maps API key configuration');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Service configuration error', data: [], count: 0 }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Build search query for Google Places API
@@ -95,8 +99,11 @@ Deno.serve(async (req) => {
     const placesData = await placesResponse.json();
 
     if (placesData.status !== 'OK' && placesData.status !== 'ZERO_RESULTS') {
-      console.error('Google Places API error:', placesData);
-      throw new Error(`Google Places API error: ${placesData.status}`);
+      console.error('Places API error:', placesData.status);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to search suppliers. Please try again.', data: [], count: 0 }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Transform Google Places results to supplier format
@@ -188,7 +195,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message || 'An error occurred while searching suppliers',
+        error: 'Failed to search suppliers. Please try again.',
         data: [],
         count: 0
       }),

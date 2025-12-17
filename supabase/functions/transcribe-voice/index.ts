@@ -26,12 +26,12 @@ serve(async (req) => {
     const OPENAI_API_KEY = Deno.env.get('Open_API');
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
-    if (!OPENAI_API_KEY) {
-      throw new Error('OpenAI API key is not configured');
-    }
-    
-    if (!LOVABLE_API_KEY) {
-      throw new Error('Lovable API key is not configured');
+    if (!OPENAI_API_KEY || !LOVABLE_API_KEY) {
+      console.error('Missing required API key configuration');
+      return new Response(
+        JSON.stringify({ error: 'Service configuration error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log('Transcribing audio with OpenAI Whisper API');
@@ -61,8 +61,11 @@ serve(async (req) => {
 
     if (!whisperResponse.ok) {
       const errorText = await whisperResponse.text();
-      console.error('Whisper API error:', whisperResponse.status, errorText);
-      throw new Error(`Whisper API error: ${whisperResponse.status}`);
+      console.error('Transcription API error:', whisperResponse.status, errorText);
+      return new Response(
+        JSON.stringify({ error: 'Failed to transcribe audio. Please try again.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const whisperData = await whisperResponse.json();
@@ -102,17 +105,18 @@ serve(async (req) => {
         if (!translationResponse.ok) {
           const errorText = await translationResponse.text();
           console.error('Translation API error:', translationResponse.status, errorText);
-          throw new Error(`Translation API error: ${translationResponse.status} - ${errorText}`);
-        }
-
-        const translationData = await translationResponse.json();
-        translatedText = translationData.choices[0].message.content.trim();
-        
-        if (!translatedText || translatedText.length === 0) {
-          console.error('Translation returned empty text');
+          // Don't throw - translation is optional, continue with original text
           translatedText = null;
         } else {
-          console.log('Successfully translated text:', translatedText);
+          const translationData = await translationResponse.json();
+          translatedText = translationData.choices[0].message.content.trim();
+          
+          if (!translatedText || translatedText.length === 0) {
+            console.error('Translation returned empty text');
+            translatedText = null;
+          } else {
+            console.log('Successfully translated text:', translatedText);
+          }
         }
       } catch (error) {
         console.error('Translation failed:', error);
@@ -148,7 +152,7 @@ serve(async (req) => {
     }
     
     return new Response(
-      JSON.stringify({ error: error.message || 'An error occurred' }),
+      JSON.stringify({ error: 'Failed to transcribe audio. Please try again.' }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

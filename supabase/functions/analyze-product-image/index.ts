@@ -24,7 +24,11 @@ serve(async (req) => {
 
     const OPENAI_API_KEY = Deno.env.get('Open_API');
     if (!OPENAI_API_KEY) {
-      throw new Error('OpenAI API key is not configured');
+      console.error('Missing OpenAI API key configuration');
+      return new Response(
+        JSON.stringify({ error: 'Service configuration error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const systemPrompt = `You are an expert product analyst. Analyze the uploaded image and identify the EXACT product shown.
@@ -84,17 +88,22 @@ RESPONSE FORMAT - Return ONLY valid JSON (no markdown, no extra text):
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenAI API error - Status:', response.status);
-      console.error('OpenAI API error - Details:', errorText);
-      throw new Error(`OpenAI API failed: ${response.status} - ${errorText}`);
+      console.error('Image analysis API error:', response.status, errorText);
+      return new Response(
+        JSON.stringify({ error: 'Failed to analyze image. Please try again.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const data = await response.json();
     console.log('OpenAI API response received successfully');
     
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-      console.error('Invalid OpenAI response structure:', JSON.stringify(data));
-      throw new Error('Invalid response structure from OpenAI');
+      console.error('Invalid response structure received');
+      return new Response(
+        JSON.stringify({ error: 'Failed to analyze image. Please try again.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const content = data.choices[0].message.content.trim();
@@ -119,13 +128,19 @@ RESPONSE FORMAT - Return ONLY valid JSON (no markdown, no extra text):
       
       // Validate required fields
       if (!analysis.productName || !analysis.category || !analysis.suggestedIdea) {
-        throw new Error('Missing required fields in analysis');
+        console.error('Missing required fields in analysis');
+        return new Response(
+          JSON.stringify({ error: 'Failed to extract product details. Please try a clearer image.' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
       
     } catch (e) {
-      console.error('❌ JSON parsing failed:', e.message);
-      console.error('Raw content that failed:', content);
-      throw new Error(`Failed to parse AI response as JSON: ${e.message}`);
+      console.error('JSON parsing failed:', e.message);
+      return new Response(
+        JSON.stringify({ error: 'Failed to process image analysis. Please try again.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     return new Response(
@@ -151,7 +166,7 @@ RESPONSE FORMAT - Return ONLY valid JSON (no markdown, no extra text):
     }
     
     return new Response(
-      JSON.stringify({ error: error.message || 'An error occurred' }),
+      JSON.stringify({ error: 'Failed to analyze product image. Please try again.' }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
