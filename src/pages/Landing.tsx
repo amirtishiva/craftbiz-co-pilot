@@ -74,17 +74,32 @@ const Landing = () => {
   }, [navigate]);
 
   useEffect(() => {
-    // Auto-scroll animation for carousel - smooth continuous scrolling
-    const interval = setInterval(() => {
-      setScrollPosition((prev) => {
-        const cardWidth = 326; // 320px width + 6px gap
-        const maxScroll = artisanImages.length * cardWidth;
-        const newPosition = prev + 1;
-        return newPosition >= maxScroll ? 0 : newPosition;
-      });
-    }, 30);
+    // Auto-scroll animation for carousel using requestAnimationFrame for better performance
+    let animationId: number;
+    let lastTime = 0;
+    const speed = 0.5; // pixels per frame at 60fps
+    
+    const animate = (currentTime: number) => {
+      if (lastTime === 0) lastTime = currentTime;
+      const deltaTime = currentTime - lastTime;
+      
+      // Only update every ~30ms to reduce main thread work
+      if (deltaTime >= 30) {
+        setScrollPosition((prev) => {
+          const cardWidth = 326; // 320px width + 6px gap
+          const maxScroll = artisanImages.length * cardWidth;
+          const newPosition = prev + speed * (deltaTime / 16.67);
+          return newPosition >= maxScroll ? 0 : newPosition;
+        });
+        lastTime = currentTime;
+      }
+      
+      animationId = requestAnimationFrame(animate);
+    };
+    
+    animationId = requestAnimationFrame(animate);
 
-    return () => clearInterval(interval);
+    return () => cancelAnimationFrame(animationId);
   }, []);
 
   const handleGetStarted = () => {
