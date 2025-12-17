@@ -25,6 +25,9 @@ import ComparisonBar from './ComparisonBar';
 import ProductComparisonModal from './ProductComparisonModal';
 import RecentlyViewedSection from './RecentlyViewedSection';
 import QuickViewModal from './QuickViewModal';
+import SearchAutocomplete from './SearchAutocomplete';
+import AdvancedFilters from './AdvancedFilters';
+import ShareProductModal from './ShareProductModal';
 
 const CRAFT_CATEGORIES = [
   { value: 'all', label: 'All Categories', emoji: '✨' },
@@ -70,6 +73,13 @@ const BuyerMarketplace: React.FC = () => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isComparisonModalOpen, setIsComparisonModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [shareProduct, setShareProduct] = useState<any>(null);
+  
+  // Advanced filter states
+  const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
+  const [minRating, setMinRating] = useState<number | undefined>();
+  const [customizableOnly, setCustomizableOnly] = useState(false);
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
 
   const { isLoading, products, searchProducts, cart, fetchCart } = useMarketplace();
   const { wishlistItems, wishlistProductIds, toggleWishlist, count: wishlistCount } = useWishlist();
@@ -97,6 +107,10 @@ const BuyerMarketplace: React.FC = () => {
   const activeFilterCount = [
     selectedCategory !== 'all',
     selectedPriceRange !== 'all' || minPrice !== undefined || maxPrice !== undefined,
+    selectedMaterials.length > 0,
+    minRating !== undefined,
+    customizableOnly,
+    verifiedOnly
   ].filter(Boolean).length;
 
   useEffect(() => {
@@ -132,9 +146,13 @@ const BuyerMarketplace: React.FC = () => {
       minPrice,
       maxPrice,
       sortBy: sortField,
-      sortOrder
+      sortOrder,
+      materials: selectedMaterials.length > 0 ? selectedMaterials : undefined,
+      minRating,
+      customizableOnly: customizableOnly || undefined,
+      verifiedOnly: verifiedOnly || undefined
     });
-  }, [searchQuery, selectedCategory, minPrice, maxPrice, sortBy, searchProducts]);
+  }, [searchQuery, selectedCategory, minPrice, maxPrice, sortBy, selectedMaterials, minRating, customizableOnly, verifiedOnly, searchProducts]);
 
   const handleSearch = useCallback(() => {
     executeSearch();
@@ -155,7 +173,11 @@ const BuyerMarketplace: React.FC = () => {
       minPrice,
       maxPrice,
       sortBy: sortField,
-      sortOrder
+      sortOrder,
+      materials: selectedMaterials.length > 0 ? selectedMaterials : undefined,
+      minRating,
+      customizableOnly: customizableOnly || undefined,
+      verifiedOnly: verifiedOnly || undefined
     });
   };
 
@@ -221,6 +243,10 @@ const BuyerMarketplace: React.FC = () => {
     setCustomMinPrice('');
     setCustomMaxPrice('');
     setSortBy('created_at');
+    setSelectedMaterials([]);
+    setMinRating(undefined);
+    setCustomizableOnly(false);
+    setVerifiedOnly(false);
     searchProducts({});
   };
 
@@ -235,6 +261,11 @@ const BuyerMarketplace: React.FC = () => {
   const handleRecentProductClick = (product: any) => {
     addToRecentlyViewed(product);
     setSelectedProduct(product);
+  };
+
+  const handleApplyAdvancedFilters = () => {
+    executeSearch();
+    setIsFilterOpen(false);
   };
 
   const handleMobileNavChange = (tab: 'browse' | 'search' | 'artisan-map' | 'my-orders' | 'cart') => {
@@ -386,17 +417,16 @@ const BuyerMarketplace: React.FC = () => {
           <div className="flex flex-col gap-3 sm:gap-4">
             {/* Search Input Row */}
             <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
-                <Input
-                  placeholder="Search for handcrafted products..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                  className="pl-9 sm:pl-10 text-sm sm:text-base h-9 sm:h-10"
-                  disabled={isOffline}
-                />
-              </div>
+              <SearchAutocomplete
+                value={searchQuery}
+                onChange={setSearchQuery}
+                onSearch={(query) => {
+                  setSearchQuery(query);
+                  handleSearch();
+                }}
+                disabled={isOffline}
+                className="flex-1"
+              />
               <Button 
                 onClick={handleSearch} 
                 size="sm" 
@@ -489,6 +519,20 @@ const BuyerMarketplace: React.FC = () => {
 
                     <Separator />
 
+                    {/* Advanced Filters */}
+                    <AdvancedFilters
+                      selectedMaterials={selectedMaterials}
+                      onMaterialsChange={setSelectedMaterials}
+                      minRating={minRating}
+                      onRatingChange={setMinRating}
+                      customizableOnly={customizableOnly}
+                      onCustomizableChange={setCustomizableOnly}
+                      verifiedOnly={verifiedOnly}
+                      onVerifiedChange={setVerifiedOnly}
+                    />
+
+                    <Separator />
+
                     {/* Category Selection */}
                     <div className="space-y-3">
                       <Label className="text-sm font-medium">Category</Label>
@@ -498,7 +542,6 @@ const BuyerMarketplace: React.FC = () => {
                             key={cat.value}
                             onClick={() => {
                               handleCategoryChange(cat.value);
-                              setIsFilterOpen(false);
                             }}
                             className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
                               selectedCategory === cat.value
@@ -515,17 +558,25 @@ const BuyerMarketplace: React.FC = () => {
 
                     <Separator />
 
-                    {/* Clear All */}
-                    <Button 
-                      variant="outline" 
-                      onClick={() => {
-                        clearAllFilters();
-                        setIsFilterOpen(false);
-                      }}
-                      className="w-full"
-                    >
-                      Clear All Filters
-                    </Button>
+                    {/* Apply and Clear Buttons */}
+                    <div className="space-y-2">
+                      <Button 
+                        onClick={handleApplyAdvancedFilters}
+                        className="w-full"
+                      >
+                        Apply Filters
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          clearAllFilters();
+                          setIsFilterOpen(false);
+                        }}
+                        className="w-full"
+                      >
+                        Clear All Filters
+                      </Button>
+                    </div>
                   </div>
                 </SheetContent>
               </Sheet>
@@ -659,6 +710,13 @@ const BuyerMarketplace: React.FC = () => {
             }}
           />
         )}
+
+        {/* Share Modal */}
+        <ShareProductModal
+          product={shareProduct}
+          isOpen={!!shareProduct}
+          onClose={() => setShareProduct(null)}
+        />
       </div>
 
       {/* Mobile Bottom Navigation */}

@@ -24,14 +24,19 @@ serve(async (req) => {
       sortBy = 'created_at',
       sortOrder = 'desc',
       limit = 20,
-      offset = 0
+      offset = 0,
+      // New filters
+      materials,
+      minRating,
+      customizableOnly,
+      verifiedOnly
     } = await req.json();
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    console.log("Searching products:", { query, category, minPrice, maxPrice });
+    console.log("Searching products:", { query, category, minPrice, maxPrice, materials, minRating, customizableOnly, verifiedOnly });
 
     // Query products with images and seller profile info
     let dbQuery = supabase
@@ -64,6 +69,16 @@ serve(async (req) => {
     // Seller filter
     if (sellerId) {
       dbQuery = dbQuery.eq('seller_id', sellerId);
+    }
+
+    // Customizable filter
+    if (customizableOnly) {
+      dbQuery = dbQuery.eq('is_customizable', true);
+    }
+
+    // Materials filter (check if any of the specified materials are in the array)
+    if (materials && materials.length > 0) {
+      dbQuery = dbQuery.overlaps('materials_used', materials);
     }
 
     // Sorting
@@ -104,6 +119,19 @@ serve(async (req) => {
             ? sellerProfileMap.get(product.seller.user_id) 
             : null
         }));
+
+        // Apply rating and verified filters after joining with seller_profiles
+        if (minRating !== undefined) {
+          resultsWithSellerProfiles = resultsWithSellerProfiles.filter(
+            p => p.seller_profile?.rating >= minRating
+          );
+        }
+
+        if (verifiedOnly) {
+          resultsWithSellerProfiles = resultsWithSellerProfiles.filter(
+            p => p.seller_profile?.is_verified === true
+          );
+        }
       }
     }
 
