@@ -5,3 +5,5 @@ export { default as SellerOnboarding } from './SellerOnboarding';
 export { default as ProductForm } from './ProductForm';
 export { default as CustomRequestsList } from './CustomRequestsList';
 export { default as SellerAnalytics } from './SellerAnalytics';
+export { default as ShopSettings } from './ShopSettings';
+export { default as OrderManagement } from './OrderManagement';
