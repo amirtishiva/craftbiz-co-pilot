@@ -11,7 +11,7 @@ import DesignStudio from '@/components/design/DesignStudio';
 import MarketingHub from '@/components/marketing/MarketingHub';
 import SuppliersMap from '@/components/suppliers/SuppliersMap';
 import Marketplace from '@/components/marketplace/Marketplace';
-import SellerDashboard from '@/components/marketplace/SellerDashboard';
+import { SellerDashboard } from '@/components/seller';
 import { ProfileSettings } from '@/components/profile/ProfileSettings';
 import { AccountSettings } from '@/components/profile/AccountSettings';
 import { RoleGuard } from '@/components/auth/RoleGuard';
@@ -70,6 +70,11 @@ const Index = () => {
     if (isBuyerOnly && tab !== 'marketplace' && tab !== 'profile' && tab !== 'account') {
       return;
     }
+    // Sellers cannot access marketplace tab - redirect to dashboard
+    if (isSeller && tab === 'marketplace') {
+      setActiveTab('dashboard');
+      return;
+    }
     setActiveTab(tab);
   };
 
@@ -86,7 +91,7 @@ const Index = () => {
       }
     }
 
-    // Full access for sellers
+    // Full access for sellers (NO marketplace)
     switch (activeTab) {
       case 'dashboard':
         return <Dashboard onTabChange={handleTabChange} />;
@@ -100,15 +105,13 @@ const Index = () => {
         return <MarketingHub />;
       case 'suppliers':
         return <SuppliersMap />;
-      case 'marketplace':
-        return <Marketplace />;
       case 'seller-dashboard':
         return (
           <RoleGuard 
             requiredRole="seller" 
-            onAccessDenied={() => handleTabChange('marketplace')}
+            onAccessDenied={() => handleTabChange('dashboard')}
           >
-            <SellerDashboard onBack={() => handleTabChange('marketplace')} />
+            <SellerDashboard onBack={() => handleTabChange('dashboard')} />
           </RoleGuard>
         );
       case 'profile':
