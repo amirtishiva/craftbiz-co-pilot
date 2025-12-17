@@ -81,10 +81,16 @@ serve(async (req) => {
       dbQuery = dbQuery.overlaps('materials_used', materials);
     }
 
-    // Sorting
-    const validSortFields = ['created_at', 'price', 'title'];
-    const sortField = validSortFields.includes(sortBy) ? sortBy : 'created_at';
-    dbQuery = dbQuery.order(sortField, { ascending: sortOrder === 'asc' });
+    // Sorting - handle special cases separately, standard ones in DB query
+    const standardSortFields = ['created_at', 'price', 'title'];
+    const isStandardSort = standardSortFields.includes(sortBy);
+    
+    if (isStandardSort) {
+      dbQuery = dbQuery.order(sortBy, { ascending: sortOrder === 'asc' });
+    } else {
+      // Default order for non-standard sorts (will be re-sorted later)
+      dbQuery = dbQuery.order('created_at', { ascending: false });
+    }
 
     // Pagination
     dbQuery = dbQuery.range(offset, offset + limit - 1);
@@ -96,42 +102,81 @@ serve(async (req) => {
       throw error;
     }
 
-    // Fetch seller profiles for the products
+    // Fetch seller profiles and order counts for the products
     let resultsWithSellerProfiles = products || [];
     if (products && products.length > 0) {
       const userIds = products
         .map(p => p.seller?.user_id)
         .filter(Boolean);
       
+      const productIds = products.map(p => p.id);
+      
+      // Fetch seller profiles
+      let sellerProfileMap = new Map();
       if (userIds.length > 0) {
         const { data: sellerProfiles } = await supabase
           .from('seller_profiles')
-          .select('user_id, shop_name, rating, is_verified')
+          .select('user_id, shop_name, rating, is_verified, total_sales')
           .in('user_id', userIds);
         
-        const sellerProfileMap = new Map(
+        sellerProfileMap = new Map(
           sellerProfiles?.map(sp => [sp.user_id, sp]) || []
         );
+      }
+      
+      // Fetch order counts for popularity sorting
+      let orderCountMap = new Map();
+      if (sortBy === 'popularity' && productIds.length > 0) {
+        const { data: orderItems } = await supabase
+          .from('order_items')
+          .select('product_id, quantity')
+          .in('product_id', productIds);
         
-        resultsWithSellerProfiles = products.map(product => ({
-          ...product,
-          seller_profile: product.seller?.user_id 
-            ? sellerProfileMap.get(product.seller.user_id) 
-            : null
-        }));
-
-        // Apply rating and verified filters after joining with seller_profiles
-        if (minRating !== undefined) {
-          resultsWithSellerProfiles = resultsWithSellerProfiles.filter(
-            p => p.seller_profile?.rating >= minRating
-          );
+        if (orderItems) {
+          orderItems.forEach(item => {
+            const currentCount = orderCountMap.get(item.product_id) || 0;
+            orderCountMap.set(item.product_id, currentCount + (item.quantity || 1));
+          });
         }
+      }
+      
+      resultsWithSellerProfiles = products.map(product => ({
+        ...product,
+        seller_profile: product.seller?.user_id 
+          ? sellerProfileMap.get(product.seller.user_id) 
+          : null,
+        order_count: orderCountMap.get(product.id) || 0
+      }));
 
-        if (verifiedOnly) {
-          resultsWithSellerProfiles = resultsWithSellerProfiles.filter(
-            p => p.seller_profile?.is_verified === true
-          );
-        }
+      // Apply rating and verified filters after joining with seller_profiles
+      if (minRating !== undefined) {
+        resultsWithSellerProfiles = resultsWithSellerProfiles.filter(
+          p => p.seller_profile?.rating >= minRating
+        );
+      }
+
+      if (verifiedOnly) {
+        resultsWithSellerProfiles = resultsWithSellerProfiles.filter(
+          p => p.seller_profile?.is_verified === true
+        );
+      }
+      
+      // Sort by rating if requested
+      if (sortBy === 'rating') {
+        resultsWithSellerProfiles.sort((a, b) => {
+          const ratingA = a.seller_profile?.rating || 0;
+          const ratingB = b.seller_profile?.rating || 0;
+          return sortOrder === 'asc' ? ratingA - ratingB : ratingB - ratingA;
+        });
+      }
+      
+      // Sort by popularity (order count) if requested
+      if (sortBy === 'popularity') {
+        resultsWithSellerProfiles.sort((a, b) => {
+          const countA = a.order_count || 0;
+          const countB = b.order_count || 0;
+          return sortOrder === 'asc' ? countA - countB : countB - countA;
+        });
       }
     }
 

@@ -56,6 +56,8 @@ const SORT_OPTIONS = [
   { value: 'price_asc', label: 'Price: Low to High' },
   { value: 'price_desc', label: 'Price: High to Low' },
   { value: 'title', label: 'Name: A to Z' },
+  { value: 'rating', label: 'Seller Rating' },
+  { value: 'popularity', label: 'Most Popular' },
 ];
 
 const BuyerMarketplace: React.FC = () => {
@@ -133,6 +135,10 @@ const BuyerMarketplace: React.FC = () => {
         return { sortBy: 'price', sortOrder: 'desc' as const };
       case 'title':
         return { sortBy: 'title', sortOrder: 'asc' as const };
+      case 'rating':
+        return { sortBy: 'rating', sortOrder: 'desc' as const };
+      case 'popularity':
+        return { sortBy: 'popularity', sortOrder: 'desc' as const };
       default:
         return { sortBy: 'created_at', sortOrder: 'desc' as const };
     }
