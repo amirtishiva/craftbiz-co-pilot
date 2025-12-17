@@ -11,6 +11,10 @@ interface ProductGridProps {
   enablePullToRefresh?: boolean;
   wishlistProductIds?: Set<string>;
   onToggleWishlist?: (productId: string) => Promise<void>;
+  comparisonProductIds?: Set<string>;
+  onToggleComparison?: (product: Product) => { success: boolean; isInComparison: boolean };
+  canAddToComparison?: boolean;
+  onProductView?: (product: Product) => void;
 }
 
 const ProductGrid: React.FC<ProductGridProps> = ({ 
@@ -19,7 +23,11 @@ const ProductGrid: React.FC<ProductGridProps> = ({
   onRefresh,
   enablePullToRefresh = false,
   wishlistProductIds,
-  onToggleWishlist
+  onToggleWishlist,
+  comparisonProductIds,
+  onToggleComparison,
+  canAddToComparison,
+  onProductView
 }) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -117,6 +125,10 @@ const ProductGrid: React.FC<ProductGridProps> = ({
             product={product}
             isWishlisted={wishlistProductIds?.has(product.id) || false}
             onToggleWishlist={onToggleWishlist}
+            isInComparison={comparisonProductIds?.has(product.id) || false}
+            onToggleComparison={onToggleComparison}
+            canAddToComparison={canAddToComparison}
+            onProductView={onProductView}
           />
         ))}
       </div>

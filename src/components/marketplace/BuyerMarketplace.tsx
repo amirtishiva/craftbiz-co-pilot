@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Filter, Store, X, SlidersHorizontal, IndianRupee, Heart } from 'lucide-react';
+import { Search, Filter, Store, X, SlidersHorizontal, IndianRupee, Heart, GitCompare } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { useMarketplace } from '@/hooks/useMarketplace';
 import { useWishlist } from '@/hooks/useWishlist';
+import { useProductComparison } from '@/hooks/useProductComparison';
+import { useRecentlyViewed } from '@/hooks/useRecentlyViewed';
 import { useOfflineProducts } from '@/hooks/useOfflineProducts';
 import { useBackgroundSync } from '@/hooks/useBackgroundSync';
 import ProductGrid from './ProductGrid';
@@ -19,6 +21,10 @@ import NotificationBell from './NotificationBell';
 import MobileBottomNav from './MobileBottomNav';
 import OfflineIndicator from './OfflineIndicator';
 import WishlistView from './WishlistView';
+import ComparisonBar from './ComparisonBar';
+import ProductComparisonModal from './ProductComparisonModal';
+import RecentlyViewedSection from './RecentlyViewedSection';
+import QuickViewModal from './QuickViewModal';
 
 const CRAFT_CATEGORIES = [
   { value: 'all', label: 'All Categories', emoji: '✨' },
@@ -62,11 +68,27 @@ const BuyerMarketplace: React.FC = () => {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [showSearchPanel, setShowSearchPanel] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isComparisonModalOpen, setIsComparisonModalOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
   const { isLoading, products, searchProducts, cart, fetchCart } = useMarketplace();
   const { wishlistItems, wishlistProductIds, toggleWishlist, count: wishlistCount } = useWishlist();
+  const { 
+    comparisonProducts, 
+    comparisonCount, 
+    maxItems: maxComparisonItems,
+    toggleComparison, 
+    removeFromComparison, 
+    clearComparison, 
+    isInComparison,
+    canAddMore: canAddToComparison
+  } = useProductComparison();
+  const { recentProducts, addToRecentlyViewed, clearRecentlyViewed } = useRecentlyViewed();
   const { cachedProducts, isOffline, isCached, cacheTimestamp, cacheProductsData } = useOfflineProducts();
   const { pendingCount, isSyncing, syncNow } = useBackgroundSync();
+
+  // Create comparison product IDs set for efficient lookup
+  const comparisonProductIds = new Set(comparisonProducts.map(p => p.id));
 
   // Use cached products when offline
   const displayProducts = isOffline && cachedProducts.length > 0 ? cachedProducts : products;
@@ -206,6 +228,15 @@ const BuyerMarketplace: React.FC = () => {
     await toggleWishlist(productId);
   };
 
+  const handleProductView = (product: any) => {
+    addToRecentlyViewed(product);
+  };
+
+  const handleRecentProductClick = (product: any) => {
+    addToRecentlyViewed(product);
+    setSelectedProduct(product);
+  };
+
   const handleMobileNavChange = (tab: 'browse' | 'search' | 'artisan-map' | 'my-orders' | 'cart') => {
     if (tab === 'cart') {
       setIsCartOpen(true);
@@ -295,6 +326,20 @@ const BuyerMarketplace: React.FC = () => {
             
             {/* Action Buttons - Hidden on mobile, shown on desktop */}
             <div className="hidden sm:flex items-center gap-2 sm:gap-3 flex-wrap">
+              {comparisonCount > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsComparisonModalOpen(true)}
+                  className="gap-2"
+                >
+                  <GitCompare className="h-4 w-4" />
+                  Compare
+                  <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] flex items-center justify-center text-xs">
+                    {comparisonCount}
+                  </Badge>
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -549,6 +594,14 @@ const BuyerMarketplace: React.FC = () => {
           </div>
         )}
 
+        {/* Recently Viewed Section */}
+        <RecentlyViewedSection
+          products={recentProducts}
+          onClear={clearRecentlyViewed}
+          onProductClick={handleRecentProductClick}
+          wishlistProductIds={wishlistProductIds}
+        />
+
         {/* Results Count */}
         <div className="flex items-center justify-between mb-4">
           <p className="text-sm text-muted-foreground">
@@ -564,6 +617,10 @@ const BuyerMarketplace: React.FC = () => {
           enablePullToRefresh={!isOffline}
           wishlistProductIds={wishlistProductIds}
           onToggleWishlist={handleToggleWishlist}
+          comparisonProductIds={comparisonProductIds}
+          onToggleComparison={toggleComparison}
+          canAddToComparison={canAddToComparison}
+          onProductView={handleProductView}
         />
 
         {/* Shopping Cart Drawer */}
@@ -571,6 +628,37 @@ const BuyerMarketplace: React.FC = () => {
           isOpen={isCartOpen} 
           onClose={() => setIsCartOpen(false)} 
         />
+
+        {/* Comparison Bar */}
+        <ComparisonBar
+          products={comparisonProducts}
+          onRemove={removeFromComparison}
+          onClear={clearComparison}
+          onCompare={() => setIsComparisonModalOpen(true)}
+          maxItems={maxComparisonItems}
+        />
+
+        {/* Comparison Modal */}
+        <ProductComparisonModal
+          products={comparisonProducts}
+          isOpen={isComparisonModalOpen}
+          onClose={() => setIsComparisonModalOpen(false)}
+          onRemove={removeFromComparison}
+        />
+
+        {/* Quick View Modal for Recently Viewed */}
+        {selectedProduct && (
+          <QuickViewModal
+            product={selectedProduct}
+            isOpen={!!selectedProduct}
+            onClose={() => setSelectedProduct(null)}
+            onViewFull={() => setSelectedProduct(null)}
+            isWishlisted={wishlistProductIds.has(selectedProduct.id)}
+            onToggleWishlist={async () => {
+              await toggleWishlist(selectedProduct.id);
+            }}
+          />
+        )}
       </div>
 
       {/* Mobile Bottom Navigation */}

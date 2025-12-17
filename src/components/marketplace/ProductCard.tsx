@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, ShoppingCart, MapPin, Star, Eye } from 'lucide-react';
+import { Heart, ShoppingCart, MapPin, Star, Eye, GitCompare } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,23 +7,38 @@ import { Product, useMarketplace } from '@/hooks/useMarketplace';
 import ProductDetailModal from './ProductDetailModal';
 import QuickViewModal from './QuickViewModal';
 import { useHaptic } from '@/hooks/useHaptic';
+import { toast } from 'sonner';
 
 interface ProductCardProps {
   product: Product;
   isWishlisted?: boolean;
   onToggleWishlist?: (productId: string) => Promise<void>;
+  isInComparison?: boolean;
+  onToggleComparison?: (product: Product) => { success: boolean; isInComparison: boolean };
+  canAddToComparison?: boolean;
+  onProductView?: (product: Product) => void;
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({ 
   product, 
   isWishlisted = false,
-  onToggleWishlist 
+  onToggleWishlist,
+  isInComparison = false,
+  onToggleComparison,
+  canAddToComparison = true,
+  onProductView
 }) => {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
   const [localWishlisted, setLocalWishlisted] = useState(isWishlisted);
+  const [localInComparison, setLocalInComparison] = useState(isInComparison);
   const { addToCart, toggleWishlist: defaultToggleWishlist } = useMarketplace();
   const haptic = useHaptic();
+
+  // Sync comparison state with prop
+  React.useEffect(() => {
+    setLocalInComparison(isInComparison);
+  }, [isInComparison]);
 
   // Sync local state with prop
   React.useEffect(() => {
@@ -60,12 +75,29 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const handleQuickView = (e: React.MouseEvent) => {
     e.stopPropagation();
     haptic.tap();
+    onProductView?.(product);
     setIsQuickViewOpen(true);
   };
 
   const handleCardClick = () => {
     haptic.tap();
+    onProductView?.(product);
     setIsQuickViewOpen(true);
+  };
+
+  const handleToggleComparison = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    haptic.selection();
+    
+    if (onToggleComparison) {
+      const result = onToggleComparison(product);
+      if (result.success) {
+        setLocalInComparison(result.isInComparison);
+        toast.success(result.isInComparison ? 'Added to comparison' : 'Removed from comparison');
+      } else if (!result.isInComparison && !canAddToComparison) {
+        toast.error('Maximum 4 products can be compared');
+      }
+    }
   };
 
   const formatPrice = (price: number) => {
@@ -110,18 +142,33 @@ const ProductCard: React.FC<ProductCardProps> = ({
             </Button>
           </div>
 
-          {/* Wishlist Button */}
-          <button
-            onClick={handleWishlistToggle}
-            className="absolute top-2 right-2 sm:top-3 sm:right-3 p-1.5 sm:p-2 rounded-full bg-white/80 hover:bg-white transition-all duration-200 active:scale-90"
-            style={{ WebkitTapHighlightColor: 'transparent' }}
-          >
-            <Heart 
-              className={`h-4 w-4 sm:h-5 sm:w-5 transition-all duration-200 ${
-                localWishlisted ? 'fill-red-500 text-red-500 scale-110' : 'text-gray-600'
-              }`} 
-            />
-          </button>
+          {/* Action Buttons - Top Right */}
+          <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex flex-col gap-1.5">
+            <button
+              onClick={handleWishlistToggle}
+              className="p-1.5 sm:p-2 rounded-full bg-white/80 hover:bg-white transition-all duration-200 active:scale-90"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
+            >
+              <Heart 
+                className={`h-4 w-4 sm:h-5 sm:w-5 transition-all duration-200 ${
+                  localWishlisted ? 'fill-red-500 text-red-500 scale-110' : 'text-gray-600'
+                }`} 
+              />
+            </button>
+            {onToggleComparison && (
+              <button
+                onClick={handleToggleComparison}
+                className={`p-1.5 sm:p-2 rounded-full transition-all duration-200 active:scale-90 ${
+                  localInComparison 
+                    ? 'bg-primary text-primary-foreground' 
+                    : 'bg-white/80 hover:bg-white text-gray-600'
+                }`}
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+              >
+                <GitCompare className="h-4 w-4 sm:h-5 sm:w-5" />
+              </button>
+            )}
+          </div>
 
           {/* Badges */}
           <div className="absolute top-2 left-2 sm:top-3 sm:left-3 flex flex-col gap-1 sm:gap-2">
