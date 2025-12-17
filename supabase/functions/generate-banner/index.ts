@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,6 +20,23 @@ const BANNER_SIZE_DIMENSIONS: Record<string, { width: number; height: number }> 
   'leaderboard-ad': { width: 728, height: 90 },
 };
 
+const BannerRequestSchema = z.object({
+  bannerSize: z.string().min(1).max(50),
+  customWidth: z.number().int().min(100).max(5000).optional(),
+  customHeight: z.number().int().min(100).max(5000).optional(),
+  inputType: z.enum(['text', 'image']).optional(),
+  headline: z.string().min(1).max(200),
+  subheadline: z.string().max(300).optional().nullable(),
+  ctaText: z.string().max(100).optional().nullable(),
+  styleTheme: z.string().min(1).max(100),
+  colorScheme: z.string().min(1).max(100),
+  primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
+  secondaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
+  textDescription: z.string().max(1000).optional().nullable(),
+  referenceImageData: z.string().max(10485760).optional().nullable(),
+  planId: z.string().uuid().optional().nullable()
+});
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -27,15 +45,23 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      throw new Error('No authorization header');
+      console.error('Missing authorization header');
+      return new Response(
+        JSON.stringify({ error: 'Authentication required', success: false }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
 
-    if (!lovableApiKey) {
-      throw new Error('LOVABLE_API_KEY not configured');
+    if (!supabaseUrl || !supabaseKey || !lovableApiKey) {
+      console.error('Missing required environment configuration');
+      return new Response(
+        JSON.stringify({ error: 'Service configuration error', success: false }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey, {
@@ -45,9 +71,16 @@ serve(async (req) => {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
-      throw new Error('Unauthorized');
+      console.error('User authentication failed');
+      return new Response(
+        JSON.stringify({ error: 'Authentication failed', success: false }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
+    const body = await req.json();
+    const validatedData = BannerRequestSchema.parse(body);
+    
     const {
       bannerSize,
       customWidth,
@@ -63,17 +96,26 @@ serve(async (req) => {
       textDescription,
       referenceImageData,
       planId,
-    } = await req.json();
+    } = validatedData;
 
     // Get dimensions
     let width: number, height: number;
     if (bannerSize === 'custom') {
+      if (!customWidth || !customHeight) {
+        return new Response(
+          JSON.stringify({ error: 'Custom dimensions required for custom banner size', success: false }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       width = customWidth;
       height = customHeight;
     } else {
       const dimensions = BANNER_SIZE_DIMENSIONS[bannerSize];
       if (!dimensions) {
-        throw new Error('Invalid banner size');
+        return new Response(
+          JSON.stringify({ error: 'Invalid banner size selected', success: false }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
       width = dimensions.width;
       height = dimensions.height;
@@ -209,9 +251,20 @@ OUTPUT: Ultra high resolution marketing banner optimized for digital use. ${widt
     );
   } catch (error) {
     console.error('Error in generate-banner function:', error);
+    
+    // Handle Zod validation errors
+    if (error.name === 'ZodError') {
+      const firstError = error.errors?.[0];
+      const message = firstError?.message || 'Invalid input data';
+      return new Response(
+        JSON.stringify({ error: message, success: false }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: 'Failed to generate banner. Please try again.',
         success: false 
       }),
       {

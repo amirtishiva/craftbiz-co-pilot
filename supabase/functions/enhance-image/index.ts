@@ -1,9 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const EnhanceImageSchema = z.object({
+  imageData: z.string()
+    .min(1, { message: "Image data is required" })
+    .max(10485760, { message: "Image size exceeds 10MB limit" }),
+  enhancementType: z.string().max(100).optional()
+});
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -11,15 +19,16 @@ serve(async (req) => {
   }
 
   try {
-    const { imageData, enhancementType } = await req.json();
-
-    if (!imageData) {
-      throw new Error('Image data is required');
-    }
+    const body = await req.json();
+    const { imageData, enhancementType } = EnhanceImageSchema.parse(body);
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
+      console.error('Missing LOVABLE_API_KEY configuration');
+      return new Response(
+        JSON.stringify({ error: 'Service configuration error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log('Step 1: Analyzing product image...');
@@ -52,8 +61,11 @@ serve(async (req) => {
     });
 
     if (!analysisResponse.ok) {
-      console.error('Analysis failed:', analysisResponse.status);
-      throw new Error('Image analysis failed');
+      console.error('Image analysis failed:', analysisResponse.status);
+      return new Response(
+        JSON.stringify({ error: 'Failed to analyze image. Please try again.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const analysisData = await analysisResponse.json();
@@ -107,8 +119,11 @@ CRITICAL: Keep the exact product unchanged - only improve visual quality, lighti
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
-      throw new Error(`AI Gateway error: ${response.status}`);
+      console.error('Image enhancement failed:', response.status, errorText);
+      return new Response(
+        JSON.stringify({ error: 'Failed to enhance image. Please try again.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const data = await response.json();
@@ -117,8 +132,11 @@ CRITICAL: Keep the exact product unchanged - only improve visual quality, lighti
     const enhancedImageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
     if (!enhancedImageUrl) {
-      console.error('No enhanced image in response:', JSON.stringify(data));
-      throw new Error('No enhanced image generated');
+      console.error('No enhanced image in response');
+      return new Response(
+        JSON.stringify({ error: 'Failed to generate enhanced image. Please try again.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     return new Response(
@@ -128,8 +146,19 @@ CRITICAL: Keep the exact product unchanged - only improve visual quality, lighti
 
   } catch (error) {
     console.error('Error in enhance-image function:', error);
+    
+    // Handle Zod validation errors
+    if (error.name === 'ZodError') {
+      const firstError = error.errors?.[0];
+      const message = firstError?.message || 'Invalid input data';
+      return new Response(
+        JSON.stringify({ error: message }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     return new Response(
-      JSON.stringify({ error: error.message || 'Failed to enhance image' }),
+      JSON.stringify({ error: 'Failed to enhance image. Please try again.' }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

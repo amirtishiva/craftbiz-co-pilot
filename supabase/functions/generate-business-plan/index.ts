@@ -1,11 +1,17 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const BusinessPlanRequestSchema = z.object({
+  ideaId: z.string().uuid({ message: "Valid idea ID is required" }),
+  businessName: z.string().min(1).max(200).optional()
+});
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -13,19 +19,30 @@ serve(async (req) => {
   }
 
   try {
-    const { ideaId, businessName } = await req.json();
-
-    if (!ideaId) {
-      throw new Error('Idea ID is required');
-    }
+    const body = await req.json();
+    const { ideaId, businessName } = BusinessPlanRequestSchema.parse(body);
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      throw new Error('Authorization header required');
+      console.error('Missing authorization header');
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+
+    if (!supabaseUrl || !supabaseKey || !LOVABLE_API_KEY) {
+      console.error('Missing required environment configuration');
+      return new Response(
+        JSON.stringify({ error: 'Service configuration error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Get the user's idea
@@ -36,12 +53,11 @@ serve(async (req) => {
       .single();
 
     if (ideaError || !idea) {
-      throw new Error('Idea not found');
-    }
-
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+      console.error('Idea not found:', ideaId);
+      return new Response(
+        JSON.stringify({ error: 'Business idea not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const systemPrompt = `You are an expert business consultant specializing in helping Indian entrepreneurs create concise, actionable business plans. You understand the Indian market and provide clear, structured insights.
@@ -133,8 +149,11 @@ Focus on specific, actionable, and measurable information relevant to the Indian
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Lovable AI API error:', response.status, errorText);
-      throw new Error(`Lovable AI API error: ${response.status} - ${errorText}`);
+      console.error('AI API error:', response.status, errorText);
+      return new Response(
+        JSON.stringify({ error: 'Failed to generate business plan. Please try again.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const data = await response.json();
@@ -156,10 +175,17 @@ Focus on specific, actionable, and measurable information relevant to the Indian
           planContent = JSON.parse(content);
         } catch (e) {
           console.error('Failed to parse AI response:', e);
-          throw new Error('AI did not return valid business plan data');
+          return new Response(
+            JSON.stringify({ error: 'Failed to process business plan data. Please try again.' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
       } else {
-        throw new Error('No content received from AI');
+        console.error('No content received from AI');
+        return new Response(
+          JSON.stringify({ error: 'Failed to generate business plan content. Please try again.' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
     }
 
@@ -187,7 +213,10 @@ Focus on specific, actionable, and measurable information relevant to the Indian
 
     if (planError) {
       console.error('Error saving business plan:', planError);
-      throw new Error('Failed to save business plan');
+      return new Response(
+        JSON.stringify({ error: 'Failed to save business plan. Please try again.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log('Business plan generated and saved:', businessPlan.id);
@@ -200,8 +229,19 @@ Focus on specific, actionable, and measurable information relevant to the Indian
     );
   } catch (error) {
     console.error('Error in generate-business-plan function:', error);
+    
+    // Handle Zod validation errors
+    if (error.name === 'ZodError') {
+      const firstError = error.errors?.[0];
+      const message = firstError?.message || 'Invalid input data';
+      return new Response(
+        JSON.stringify({ error: message }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: 'Failed to generate business plan. Please try again.' }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

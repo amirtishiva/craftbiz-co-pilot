@@ -133,13 +133,16 @@ export const AccountSettings = () => {
 
     setDeleteLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("No user found");
+      // Call secure edge function to delete account
+      const { data, error } = await supabase.functions.invoke('delete-account');
 
-      // Delete the user account - this will cascade delete all related data
-      const { error } = await supabase.auth.admin.deleteUser(user.id);
+      if (error) {
+        throw new Error(error.message || "Failed to delete account");
+      }
 
-      if (error) throw error;
+      if (!data?.success) {
+        throw new Error(data?.error || "Failed to delete account");
+      }
 
       // Sign out and redirect
       await supabase.auth.signOut();
