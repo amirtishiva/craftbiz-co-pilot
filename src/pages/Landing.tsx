@@ -153,6 +153,11 @@ const Landing = () => {
                     src={image}
                     alt={`Artisan craftsmanship ${index + 1}`}
                     className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                    width={320}
+                    height={400}
+                    loading={index < 4 ? 'eager' : 'lazy'}
+                    decoding={index < 4 ? 'sync' : 'async'}
+                    fetchPriority={index < 2 ? 'high' : undefined}
                   />
                 </div>
               ))}
@@ -245,6 +250,10 @@ const Landing = () => {
                         src={member.image} 
                         alt={member.name}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                        width={160}
+                        height={160}
+                        loading="lazy"
+                        decoding="async"
                       />
                     </div>
                     
