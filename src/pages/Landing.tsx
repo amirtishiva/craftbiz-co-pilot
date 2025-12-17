@@ -74,32 +74,46 @@ const Landing = () => {
   }, [navigate]);
 
   useEffect(() => {
-    // Auto-scroll animation for carousel using requestAnimationFrame for better performance
+    // Defer animation start to reduce initial main thread work
     let animationId: number;
-    let lastTime = 0;
-    const speed = 0.5; // pixels per frame at 60fps
+    let timeoutId: ReturnType<typeof setTimeout>;
     
-    const animate = (currentTime: number) => {
-      if (lastTime === 0) lastTime = currentTime;
-      const deltaTime = currentTime - lastTime;
+    const startAnimation = () => {
+      let lastTime = 0;
+      const speed = 0.5;
       
-      // Only update every ~30ms to reduce main thread work
-      if (deltaTime >= 30) {
-        setScrollPosition((prev) => {
-          const cardWidth = 326; // 320px width + 6px gap
-          const maxScroll = artisanImages.length * cardWidth;
-          const newPosition = prev + speed * (deltaTime / 16.67);
-          return newPosition >= maxScroll ? 0 : newPosition;
-        });
-        lastTime = currentTime;
-      }
+      const animate = (currentTime: number) => {
+        if (lastTime === 0) lastTime = currentTime;
+        const deltaTime = currentTime - lastTime;
+        
+        // Only update every ~50ms to reduce main thread work
+        if (deltaTime >= 50) {
+          setScrollPosition((prev) => {
+            const cardWidth = 326;
+            const maxScroll = artisanImages.length * cardWidth;
+            const newPosition = prev + speed * (deltaTime / 16.67);
+            return newPosition >= maxScroll ? 0 : newPosition;
+          });
+          lastTime = currentTime;
+        }
+        
+        animationId = requestAnimationFrame(animate);
+      };
       
       animationId = requestAnimationFrame(animate);
     };
     
-    animationId = requestAnimationFrame(animate);
+    // Start animation after page is interactive
+    if ('requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(() => startAnimation(), { timeout: 2000 });
+    } else {
+      timeoutId = setTimeout(startAnimation, 1000);
+    }
 
-    return () => cancelAnimationFrame(animationId);
+    return () => {
+      cancelAnimationFrame(animationId);
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   const handleGetStarted = () => {
