@@ -126,7 +126,7 @@ const SellerOnboarding: React.FC<SellerOnboardingProps> = ({ onComplete, onBack 
     <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <Button variant="ghost" onClick={onBack} className="mb-6">
         <ArrowLeft className="h-4 w-4 mr-2" />
-        Back to Marketplace
+        Back to Dashboard
       </Button>
 
       <Card>
