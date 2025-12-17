@@ -28,7 +28,7 @@ import QuickViewModal from './QuickViewModal';
 import SearchAutocomplete from './SearchAutocomplete';
 import AdvancedFilters from './AdvancedFilters';
 import ShareProductModal from './ShareProductModal';
-
+import BuyerOrderHistory from './BuyerOrderHistory';
 const CRAFT_CATEGORIES = [
   { value: 'all', label: 'All Categories', emoji: '✨' },
   { value: 'pottery', label: 'Pottery & Ceramics', emoji: '🏺' },
@@ -305,8 +305,11 @@ const BuyerMarketplace: React.FC = () => {
   if (view === 'my-orders') {
     return (
       <>
-        <div className="pb-16 sm:pb-0 px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
-          <OrderTracking onBack={() => setView('browse')} />
+        <div className="max-w-4xl mx-auto pb-16 sm:pb-0 px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
+          <Button variant="ghost" onClick={() => setView('browse')} className="mb-4">
+            ← Back to Shop
+          </Button>
+          <BuyerOrderHistory />
         </div>
         <MobileBottomNav 
           activeTab="my-orders" 

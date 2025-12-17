@@ -9,3 +9,4 @@ export { default as OrderTracking } from '../marketplace/OrderTracking';
 export { default as ShoppingCartDrawer } from '../marketplace/ShoppingCartDrawer';
 export { default as BuyerCustomOrders } from '../marketplace/BuyerCustomOrders';
 export { default as MobileBottomNav } from '../marketplace/MobileBottomNav';
+export { default as BuyerOrderHistory } from '../marketplace/BuyerOrderHistory';
