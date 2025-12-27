@@ -95,13 +95,35 @@ Deno.serve(async (req) => {
     placesUrl.searchParams.append('key', googleApiKey);
 
     console.log('Calling Google Places API...');
+    console.log('Places API URL (without key):', placesUrl.toString().replace(googleApiKey, '***'));
+    
     const placesResponse = await fetch(placesUrl.toString());
     const placesData = await placesResponse.json();
 
+    console.log('Places API response status:', placesData.status);
+    
     if (placesData.status !== 'OK' && placesData.status !== 'ZERO_RESULTS') {
-      console.error('Places API error:', placesData.status);
+      console.error('Places API error:', placesData.status, placesData.error_message || '');
+      
+      // Provide more specific error messages
+      let errorMessage = 'Failed to search suppliers. Please try again.';
+      if (placesData.status === 'REQUEST_DENIED') {
+        errorMessage = 'Google Places API access denied. Please ensure the Places API is enabled for your API key.';
+        console.error('REQUEST_DENIED - Ensure Places API is enabled in Google Cloud Console');
+      } else if (placesData.status === 'OVER_QUERY_LIMIT') {
+        errorMessage = 'API quota exceeded. Please try again later.';
+      } else if (placesData.status === 'INVALID_REQUEST') {
+        errorMessage = 'Invalid search request.';
+      }
+      
       return new Response(
-        JSON.stringify({ success: false, error: 'Failed to search suppliers. Please try again.', data: [], count: 0 }),
+        JSON.stringify({ 
+          success: false, 
+          error: errorMessage, 
+          details: placesData.error_message || placesData.status,
+          data: [], 
+          count: 0 
+        }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
