@@ -34,15 +34,24 @@ serve(async (req) => {
 
     console.log("Analyzing financial strategy for:", businessName);
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
     }
 
     const systemPrompt = `You are an expert financial advisor specializing in Indian startups and small businesses. 
 Your role is to analyze financial data and provide actionable, specific, and realistic strategic recommendations.
 Focus on practical advice tailored to the Indian business environment, considering local market conditions, 
-regulations, and growth opportunities.`;
+regulations, and growth opportunities.
+
+You MUST respond with a valid JSON object containing these exact fields:
+- cashFlowAnalysis: string (2-3 sentences analyzing cash flow health and sustainability)
+- pricingRecommendation: string (2-3 sentences about pricing strategy optimization)
+- growthOpportunities: array of 3-4 strings (specific growth opportunities for this business)
+- riskMitigation: array of 2-3 strings (key financial risks and how to address them)
+- actionItems: array of 3-5 strings (immediate, specific action steps to improve financial position)
+
+Return ONLY the JSON object, no additional text.`;
 
     const userPrompt = `Analyze the following financial data for "${businessName}":
 
@@ -60,71 +69,31 @@ Calculated Projections:
 - Break-even Period: ${projections.breakEvenMonths} months
 - Yearly Revenue: ₹${projections.yearlyRevenue}
 
-Provide strategic financial recommendations focusing on:
-1. Cash flow health and sustainability
-2. Pricing strategy optimization
-3. Growth opportunities specific to this business
-4. Risk mitigation strategies
-5. Immediate action items for improvement`;
+Provide strategic financial recommendations as a JSON object.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
-        ],
-        tools: [
+        contents: [
           {
-            type: "function",
-            function: {
-              name: "provide_financial_strategy",
-              description: "Provide structured financial strategy recommendations",
-              parameters: {
-                type: "object",
-                properties: {
-                  cashFlowAnalysis: {
-                    type: "string",
-                    description: "2-3 sentences analyzing cash flow health and sustainability"
-                  },
-                  pricingRecommendation: {
-                    type: "string",
-                    description: "2-3 sentences about pricing strategy optimization"
-                  },
-                  growthOpportunities: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "3-4 specific growth opportunities for this business"
-                  },
-                  riskMitigation: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "2-3 key financial risks and how to address them"
-                  },
-                  actionItems: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "3-5 immediate, specific action steps to improve financial position"
-                  }
-                },
-                required: ["cashFlowAnalysis", "pricingRecommendation", "growthOpportunities", "riskMitigation", "actionItems"],
-                additionalProperties: false
-              }
-            }
+            parts: [
+              { text: `${systemPrompt}\n\n${userPrompt}` }
+            ]
           }
         ],
-        tool_choice: { type: "function", function: { name: "provide_financial_strategy" } }
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2048,
+        }
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Lovable AI error:", response.status, errorText);
+      console.error("Gemini API error:", response.status, errorText);
       
       if (response.status === 429) {
         return new Response(
@@ -132,28 +101,28 @@ Provide strategic financial recommendations focusing on:
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Payment required. Please add credits to your workspace." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
 
-      throw new Error(`AI gateway error: ${response.status}`);
+      throw new Error(`AI API error: ${response.status}`);
     }
 
     const aiResponse = await response.json();
     console.log("AI Response received");
 
-    // Extract insights from tool call
+    // Extract and parse the response
+    const content = aiResponse.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+    
     let insights;
-    if (aiResponse.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments) {
-      const argsString = aiResponse.choices[0].message.tool_calls[0].function.arguments;
-      insights = typeof argsString === 'string' ? JSON.parse(argsString) : argsString;
-      console.log("Successfully extracted financial strategy from tool call");
-    } else {
-      throw new Error("No tool call found in AI response");
+    try {
+      // Try to extract JSON from the response
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        insights = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error("No JSON found in response");
+      }
+    } catch (parseError) {
+      console.error("Failed to parse AI response:", parseError, content);
+      throw new Error("Failed to parse financial strategy response");
     }
 
     return new Response(

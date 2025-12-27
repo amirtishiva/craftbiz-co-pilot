@@ -23,9 +23,9 @@ serve(async (req) => {
     const body = await req.json();
     const { content, targetLanguage } = TranslationSchema.parse(body);
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    if (!GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY is not configured');
     }
 
     const languageNames: { [key: string]: string } = {
@@ -58,29 +58,34 @@ ${content}`;
 
     console.log('Translating business plan to:', targetLanguage);
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
+        contents: [
+          {
+            parts: [
+              { text: `${systemPrompt}\n\n${userPrompt}` }
+            ]
+          }
         ],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 8192,
+        }
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Lovable AI API error:', response.status, errorText);
+      console.error('Gemini API error:', response.status, errorText);
       throw new Error(`Translation API error: ${response.status}`);
     }
 
     const data = await response.json();
-    const translatedContent = data.choices[0].message.content;
+    const translatedContent = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
     console.log('Translation completed successfully');
 

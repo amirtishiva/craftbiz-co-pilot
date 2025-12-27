@@ -20,9 +20,9 @@ serve(async (req) => {
     const body = await req.json();
     const { ideaText } = IdeaSchema.parse(body);
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('Lovable API key is not configured');
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    if (!GEMINI_API_KEY) {
+      throw new Error('Gemini API key is not configured');
     }
 
     const systemPrompt = `You are an expert AI business content writer.
@@ -44,44 +44,46 @@ Example Output:
 
     const userPrompt = `Now refine this business idea:\n\n"${ideaText}"`;
 
-    console.log('Refining idea with Lovable AI:', ideaText);
+    console.log('Refining idea with Gemini AI:', ideaText);
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
+        contents: [
+          {
+            parts: [
+              { text: `${systemPrompt}\n\n${userPrompt}` }
+            ]
+          }
         ],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 1024,
+        }
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Lovable AI API error:', response.status, errorText);
+      console.error('Gemini API error:', response.status, errorText);
       
       if (response.status === 429) {
         throw new Error('Rate limit exceeded. Please try again later.');
-      }
-      if (response.status === 402) {
-        throw new Error('Payment required. Please add credits to your workspace.');
       }
       
       throw new Error(`AI API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-    const refinedIdea = data.choices[0]?.message?.content?.trim() || '';
+    const refinedIdea = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
 
     console.log('Refined idea:', refinedIdea);
 
     if (!refinedIdea) {
-      console.error('Empty refined idea returned from OpenAI');
+      console.error('Empty refined idea returned from Gemini');
       throw new Error('Failed to generate refined idea');
     }
 
