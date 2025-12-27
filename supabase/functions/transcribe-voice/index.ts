@@ -1,4 +1,3 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
@@ -23,18 +22,18 @@ serve(async (req) => {
     const body = await req.json();
     const { audioData } = AudioSchema.parse(body);
 
-    const OPENAI_API_KEY = Deno.env.get('Open_API');
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const ELEVENLABS_API_KEY = Deno.env.get('ELEVENLABS_API_KEY');
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
     
-    if (!OPENAI_API_KEY || !LOVABLE_API_KEY) {
-      console.error('Missing required API key configuration');
+    if (!ELEVENLABS_API_KEY) {
+      console.error('Missing ELEVENLABS_API_KEY configuration');
       return new Response(
         JSON.stringify({ error: 'Service configuration error' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Transcribing audio with OpenAI Whisper API');
+    console.log('Transcribing audio with ElevenLabs Speech-to-Text API');
 
     // Convert base64 to binary
     const base64Audio = audioData.includes('base64,') 
@@ -43,73 +42,80 @@ serve(async (req) => {
     
     const binaryAudio = Uint8Array.from(atob(base64Audio), c => c.charCodeAt(0));
     
-    // Create form data for Whisper API
+    // Create form data for ElevenLabs API
     const formData = new FormData();
     const audioBlob = new Blob([binaryAudio], { type: 'audio/webm' });
     formData.append('file', audioBlob, 'audio.webm');
-    formData.append('model', 'whisper-1');
-    formData.append('response_format', 'verbose_json');
+    formData.append('model_id', 'scribe_v1');
+    formData.append('tag_audio_events', 'false');
+    formData.append('diarize', 'false');
 
-    // Step 1: Transcribe with Whisper
-    const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    // Step 1: Transcribe with ElevenLabs
+    const elevenLabsResponse = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'xi-api-key': ELEVENLABS_API_KEY,
       },
       body: formData,
     });
 
-    if (!whisperResponse.ok) {
-      const errorText = await whisperResponse.text();
-      console.error('Transcription API error:', whisperResponse.status, errorText);
+    if (!elevenLabsResponse.ok) {
+      const errorText = await elevenLabsResponse.text();
+      console.error('ElevenLabs API error:', elevenLabsResponse.status, errorText);
       return new Response(
         JSON.stringify({ error: 'Failed to transcribe audio. Please try again.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const whisperData = await whisperResponse.json();
-    const transcribedText = whisperData.text;
-    const detectedLanguage = whisperData.language || 'en';
+    const elevenLabsData = await elevenLabsResponse.json();
+    const transcribedText = elevenLabsData.text;
+    // ElevenLabs returns language_code in ISO 639-3 format (e.g., 'eng', 'hin')
+    const detectedLanguage = elevenLabsData.language_code || 'eng';
 
     console.log('Transcribed text:', transcribedText, 'Language:', detectedLanguage);
 
-    // Step 2: If not English, translate using GPT-5 Mini
+    // Step 2: If not English, translate using Gemini API
     let translatedText = null;
     
-    if (detectedLanguage !== 'en') {
+    if (detectedLanguage !== 'eng' && detectedLanguage !== 'en' && GEMINI_API_KEY) {
       console.log('Detected non-English language, translating to English...');
       
       try {
-        const translationResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'google/gemini-2.5-flash',
-            messages: [
-              { 
-                role: 'system', 
-                content: 'You are a professional translator. Your ONLY task is to translate the given text into clear, natural English. Respond with ONLY the English translation - no explanations, no labels, no additional text whatsoever. Just the pure English translation.'
-              },
-              { 
-                role: 'user', 
-                content: transcribedText
+        const translationResponse = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              contents: [
+                {
+                  role: 'user',
+                  parts: [
+                    {
+                      text: `You are a professional translator. Your ONLY task is to translate the following text into clear, natural English. Respond with ONLY the English translation - no explanations, no labels, no additional text whatsoever. Just the pure English translation.\n\nText to translate:\n${transcribedText}`
+                    }
+                  ]
+                }
+              ],
+              generationConfig: {
+                temperature: 0.3,
+                maxOutputTokens: 2048,
               }
-            ],
-          }),
-        });
+            }),
+          }
+        );
 
         if (!translationResponse.ok) {
           const errorText = await translationResponse.text();
-          console.error('Translation API error:', translationResponse.status, errorText);
+          console.error('Gemini Translation API error:', translationResponse.status, errorText);
           // Don't throw - translation is optional, continue with original text
           translatedText = null;
         } else {
           const translationData = await translationResponse.json();
-          translatedText = translationData.choices[0].message.content.trim();
+          translatedText = translationData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
           
           if (!translatedText || translatedText.length === 0) {
             console.error('Translation returned empty text');
