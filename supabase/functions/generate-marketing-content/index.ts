@@ -36,9 +36,9 @@ serve(async (req) => {
       user = authUser;
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('Lovable API key is not configured');
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    if (!GEMINI_API_KEY) {
+      throw new Error('Gemini API key is not configured');
     }
 
     // Analyze image if image-based generation
@@ -46,32 +46,31 @@ serve(async (req) => {
     if (inputType === 'image' && imageData) {
       console.log('Analyzing image for marketing context...');
       
-      const visionResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const visionResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
+          contents: [
             {
-              role: 'user',
-              content: [
+              parts: [
                 {
-                  type: 'text',
                   text: 'Analyze this image and provide: 1) Product/subject type, 2) Visual style and mood, 3) Color palette and theme, 4) Setting/background context, 5) Key visual elements for marketing. Be detailed but concise.'
                 },
                 {
-                  type: 'image_url',
-                  image_url: {
-                    url: imageData
+                  inlineData: {
+                    mimeType: imageData.startsWith('data:image/png') ? 'image/png' : 'image/jpeg',
+                    data: imageData.replace(/^data:image\/[a-z]+;base64,/, '')
                   }
                 }
               ]
             }
           ],
-          max_tokens: 500
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 500,
+          }
         }),
       });
 
@@ -82,7 +81,7 @@ serve(async (req) => {
       }
 
       const visionData = await visionResponse.json();
-      imageAnalysis = visionData.choices?.[0]?.message?.content || '';
+      imageAnalysis = visionData.candidates?.[0]?.content?.parts?.[0]?.text || '';
       console.log('Image analysis complete:', imageAnalysis.substring(0, 200));
     }
 
@@ -221,41 +220,44 @@ Return ONLY the marketing content text, no explanations or additional formatting
       }
     }
 
-    console.log('Generating marketing content with Lovable AI (Gemini 2.5 Flash)');
+    console.log('Generating marketing content with Gemini AI');
     console.log('Input type:', inputType);
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
+        contents: [
+          {
+            parts: [
+              { text: `${systemPrompt}\n\n${userPrompt}` }
+            ]
+          }
         ],
-        max_tokens: 800,
-        temperature: 0.7,
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 800,
+        }
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Lovable AI API error:', response.status, errorText);
-      throw new Error(`Lovable AI API error: ${response.status} - ${errorText}`);
+      console.error('Gemini API error:', response.status, errorText);
+      throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-    console.log('Lovable AI response received');
+    console.log('Gemini AI response received');
     
-    if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
-      console.error('Invalid OpenAI response structure:', data);
-      throw new Error('Invalid response from OpenAI API');
+    const generatedContent = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+    
+    if (!generatedContent) {
+      console.error('Empty response from Gemini API');
+      throw new Error('Failed to generate marketing content');
     }
-    
-    const generatedContent = data.choices[0].message.content.trim();
     
     console.log('Marketing content generated successfully. Length:', generatedContent.length);
     console.log('Generated content preview:', generatedContent.substring(0, 200));

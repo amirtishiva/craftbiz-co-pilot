@@ -21,14 +21,13 @@ serve(async (req) => {
     const body = await req.json();
     const { userPrompt, promptType, businessName } = PromptSchema.parse(body);
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    if (!GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY not configured');
     }
 
     console.log('Refining user prompt:', userPrompt);
 
-    // Create system prompt based on prompt type
     let systemPrompt = '';
     
     if (promptType === 'scene') {
@@ -49,11 +48,7 @@ Important guidelines:
 - Ensure lighting direction and shadows are consistent
 - Maintain professional marketing photography standards
 - Do not change the core intent of the user's description
-- Output only the refined prompt, no explanations
-
-Example:
-User: "Place the product on a wooden café table with natural morning light"
-Refined: "Professional product photography showing the item placed on a weathered oak café table. Soft golden morning sunlight streams from a nearby window, creating warm highlights and gentle shadows. Background shows a subtly blurred café interior with warm earth tones. Shallow depth of field keeps the product sharp and prominent. Photorealistic, marketing-ready composition."`;
+- Output only the refined prompt, no explanations`;
     } else if (promptType === 'logo') {
       const businessNameContext = businessName ? ` for "${businessName}"` : '';
       systemPrompt = `You are an expert AI prompt engineer specializing in logo design. Refine the user's prompt to be more detailed and effective for AI logo generation${businessNameContext}. Maintain the business name exactly as provided${businessNameContext ? `: "${businessName}"` : ''}. Output only the refined prompt with specific design elements, colors, style preferences, and visual characteristics while keeping the original intent.`;
@@ -61,29 +56,34 @@ Refined: "Professional product photography showing the item placed on a weathere
       systemPrompt = `You are an expert AI prompt engineer. Refine the user's prompt to be more detailed, specific, and effective for AI generation while maintaining their original intent. Output only the refined prompt.`;
     }
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ]
+        contents: [
+          {
+            parts: [
+              { text: `${systemPrompt}\n\nUser prompt: ${userPrompt}` }
+            ]
+          }
+        ],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 512,
+        }
       })
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
-      throw new Error(`AI Gateway error: ${response.status}`);
+      console.error('Gemini API error:', response.status, errorText);
+      throw new Error(`Gemini API error: ${response.status}`);
     }
 
     const data = await response.json();
-    const refinedPrompt = data.choices?.[0]?.message?.content;
+    const refinedPrompt = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
 
     if (!refinedPrompt) {
       console.error('No refined prompt in response:', JSON.stringify(data));
@@ -100,7 +100,6 @@ Refined: "Professional product photography showing the item placed on a weathere
   } catch (error) {
     console.error('Error in refine-prompt function:', error);
     
-    // Handle Zod validation errors
     if (error.name === 'ZodError') {
       const firstError = error.errors?.[0];
       const message = firstError?.message || 'Invalid input data';

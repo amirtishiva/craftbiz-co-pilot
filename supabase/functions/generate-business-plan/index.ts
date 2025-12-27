@@ -33,9 +33,9 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 
-    if (!supabaseUrl || !supabaseKey || !LOVABLE_API_KEY) {
+    if (!supabaseUrl || !supabaseKey || !GEMINI_API_KEY) {
       console.error('Missing required environment configuration');
       return new Response(
         JSON.stringify({ error: 'Service configuration error' }),
@@ -62,94 +62,53 @@ serve(async (req) => {
 
     const systemPrompt = `You are an expert business consultant specializing in helping Indian entrepreneurs create concise, actionable business plans. You understand the Indian market and provide clear, structured insights.
 
-CRITICAL FORMATTING INSTRUCTIONS:
-- Each section must have EXACTLY 3-5 bullet points
-- Format each bullet point as: "• " followed by 1-2 sentences
-- Each bullet point MUST be on a new line (use \\n to separate)
-- Example format:
-  "• First key point goes here. Additional detail if needed.\\n• Second point here.\\n• Third point here."
-- Use specific numbers and data relevant to India when possible
-- Be concise and actionable - no lengthy paragraphs
-- You MUST return valid JSON with properly formatted bullet points
-- Use the tool call to return structured data`;
+CRITICAL: You MUST respond with a valid JSON object containing exactly these 10 fields:
+- executiveSummary: string with 3-5 bullet points using "• " prefix and newlines
+- marketAnalysis: string with 3-5 bullet points using "• " prefix and newlines
+- targetCustomers: string with 3-5 bullet points using "• " prefix and newlines
+- competitiveAdvantage: string with 3-5 bullet points using "• " prefix and newlines
+- revenueModel: string with 3-5 bullet points using "• " prefix and newlines
+- marketingStrategy: string with 3-5 bullet points using "• " prefix and newlines
+- operationsPlan: string with 3-5 bullet points using "• " prefix and newlines
+- financialProjections: string with 3-5 bullet points using "• " prefix and newlines
+- riskAnalysis: string with 3-5 bullet points using "• " prefix and newlines
+- implementationTimeline: string with 3-5 bullet points using "• " prefix and newlines
+
+Each bullet point should be 1-2 sentences. Use specific numbers and data relevant to India.
+Return ONLY the JSON object, no additional text.`;
 
     const userPrompt = `Business Idea: ${idea.refined_idea || idea.original_text}
 Business Name: ${businessName || 'Not specified'}
 
-Generate a concise business plan with EXACTLY 3-5 bullet points per section.
-
-FORMAT REQUIREMENTS:
-- Each bullet point MUST start with "• " 
-- Each bullet point MUST be on a new line (use \\n)
-- Each bullet point should be 1-2 sentences maximum
-- Example: "• Point one.\\n• Point two.\\n• Point three."
-
-SECTIONS REQUIRED:
-1. Executive Summary
-2. Market Analysis  
-3. Target Customers
-4. Competitive Advantage
-5. Revenue Model
-6. Marketing Strategy
-7. Operations Plan
-8. Financial Projections
-9. Risk Analysis
-10. Implementation Timeline
+Generate a business plan as a JSON object with all 10 sections. Each section should have 3-5 bullet points formatted as "• Point one.\\n• Point two.\\n• Point three."
 
 Focus on specific, actionable, and measurable information relevant to the Indian market.`;
 
     console.log('Generating business plan for idea:', ideaId);
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        tools: [
+        contents: [
           {
-            type: "function",
-            function: {
-              name: "create_business_plan",
-              description: "Create a comprehensive business plan with all required sections",
-              parameters: {
-                type: "object",
-                properties: {
-                  executiveSummary: { type: "string", description: "3-5 bullet points. Format: '• Point one.\\n• Point two.\\n• Point three.' Each 1-2 sentences." },
-                  marketAnalysis: { type: "string", description: "3-5 bullet points. Format: '• Point one.\\n• Point two.\\n• Point three.' Each 1-2 sentences." },
-                  targetCustomers: { type: "string", description: "3-5 bullet points. Format: '• Point one.\\n• Point two.\\n• Point three.' Each 1-2 sentences." },
-                  competitiveAdvantage: { type: "string", description: "3-5 bullet points. Format: '• Point one.\\n• Point two.\\n• Point three.' Each 1-2 sentences." },
-                  revenueModel: { type: "string", description: "3-5 bullet points. Format: '• Point one.\\n• Point two.\\n• Point three.' Each 1-2 sentences." },
-                  marketingStrategy: { type: "string", description: "3-5 bullet points. Format: '• Point one.\\n• Point two.\\n• Point three.' Each 1-2 sentences." },
-                  operationsPlan: { type: "string", description: "3-5 bullet points. Format: '• Point one.\\n• Point two.\\n• Point three.' Each 1-2 sentences." },
-                  financialProjections: { type: "string", description: "3-5 bullet points. Format: '• Point one.\\n• Point two.\\n• Point three.' Each 1-2 sentences." },
-                  riskAnalysis: { type: "string", description: "3-5 bullet points. Format: '• Point one.\\n• Point two.\\n• Point three.' Each 1-2 sentences." },
-                  implementationTimeline: { type: "string", description: "3-5 bullet points. Format: '• Point one.\\n• Point two.\\n• Point three.' Each 1-2 sentences." }
-                },
-                required: [
-                  "executiveSummary", "marketAnalysis", "targetCustomers", 
-                  "competitiveAdvantage", "revenueModel", "marketingStrategy",
-                  "operationsPlan", "financialProjections", "riskAnalysis", 
-                  "implementationTimeline"
-                ],
-                additionalProperties: false
-              }
-            }
+            parts: [
+              { text: `${systemPrompt}\n\n${userPrompt}` }
+            ]
           }
         ],
-        tool_choice: { type: "function", function: { name: "create_business_plan" } }
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 4096,
+        }
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI API error:', response.status, errorText);
+      console.error('Gemini API error:', response.status, errorText);
       return new Response(
         JSON.stringify({ error: 'Failed to generate business plan. Please try again.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -159,34 +118,24 @@ Focus on specific, actionable, and measurable information relevant to the Indian
     const data = await response.json();
     console.log('AI Response received');
     
-    // Extract tool call result
-    let planContent;
-    const toolCalls = data.choices[0].message.tool_calls;
+    // Extract and parse the response
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
     
-    if (toolCalls && toolCalls.length > 0) {
-      const toolCall = toolCalls[0];
-      planContent = JSON.parse(toolCall.function.arguments);
-      console.log('Successfully extracted business plan from tool call');
-    } else {
-      // Fallback: try to parse content directly
-      const content = data.choices[0].message.content?.trim();
-      if (content) {
-        try {
-          planContent = JSON.parse(content);
-        } catch (e) {
-          console.error('Failed to parse AI response:', e);
-          return new Response(
-            JSON.stringify({ error: 'Failed to process business plan data. Please try again.' }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
+    let planContent;
+    try {
+      // Try to extract JSON from the response
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        planContent = JSON.parse(jsonMatch[0]);
       } else {
-        console.error('No content received from AI');
-        return new Response(
-          JSON.stringify({ error: 'Failed to generate business plan content. Please try again.' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        throw new Error("No JSON found in response");
       }
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', parseError, content);
+      return new Response(
+        JSON.stringify({ error: 'Failed to process business plan data. Please try again.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Save business plan to database
