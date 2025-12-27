@@ -28,9 +28,12 @@ Deno.serve(async (req) => {
     }
 
     const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`;
+    console.log('Geocode API URL (without key):', geocodeUrl.replace(apiKey, '***'));
     
     const response = await fetch(geocodeUrl);
     const data = await response.json();
+
+    console.log('Geocode API response status:', data.status);
 
     if (data.status === 'OK' && data.results && data.results.length > 0) {
       const location = data.results[0].geometry.location;
@@ -48,8 +51,18 @@ Deno.serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } else {
-      console.error('Geocoding failed:', data.status, data.error_message);
-      throw new Error(data.error_message || 'Geocoding failed');
+      console.error('Geocoding failed:', data.status, data.error_message || '');
+      
+      let errorMessage = 'Geocoding failed';
+      if (data.status === 'REQUEST_DENIED') {
+        errorMessage = 'Geocoding API access denied. Please ensure the Geocoding API is enabled.';
+      } else if (data.status === 'OVER_QUERY_LIMIT') {
+        errorMessage = 'API quota exceeded.';
+      } else if (data.status === 'ZERO_RESULTS') {
+        errorMessage = 'No results found for this address.';
+      }
+      
+      throw new Error(data.error_message || errorMessage);
     }
 
   } catch (error) {
