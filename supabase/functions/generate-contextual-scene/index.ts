@@ -5,6 +5,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper function to extract base64 data from data URL
+function extractBase64(dataUrl: string): { data: string; mimeType: string } {
+  if (dataUrl.startsWith('data:')) {
+    const matches = dataUrl.match(/^data:(.+);base64,(.+)$/);
+    if (matches) {
+      return { data: matches[2], mimeType: matches[1] };
+    }
+  }
+  return { data: dataUrl, mimeType: 'image/png' };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -17,33 +28,33 @@ serve(async (req) => {
       throw new Error('Image data is required');
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    if (!GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY not configured');
     }
+
+    const imageInfo = extractBase64(imageData);
 
     console.log(`Step 1: Analyzing product for ${contextType} scene generation...`);
 
     // First, analyze the product to create adaptive scenes
-    const analysisResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const analysisResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
+        contents: [
           {
-            role: 'user',
-            content: [
+            parts: [
               {
-                type: 'text',
                 text: 'Analyze this product and describe: 1) Product type and category, 2) Color palette and materials, 3) Size and proportions, 4) Suitable environment/context, 5) Target audience and brand positioning. Keep it concise.'
               },
               {
-                type: 'image_url',
-                image_url: { url: imageData }
+                inlineData: {
+                  mimeType: imageInfo.mimeType,
+                  data: imageInfo.data
+                }
               }
             ]
           }
@@ -57,7 +68,7 @@ serve(async (req) => {
     }
 
     const analysisData = await analysisResponse.json();
-    const productAnalysis = analysisData.choices?.[0]?.message?.content || '';
+    const productAnalysis = analysisData.candidates?.[0]?.content?.parts?.[0]?.text || '';
     console.log('Product analysis for scene:', productAnalysis);
 
     console.log(`Step 2: Generating unique ${contextType} contextual scene...`);
@@ -150,51 +161,51 @@ CRITICAL INSTRUCTIONS:
 - Product must remain sharp and in focus while background can have subtle depth of field`;
 
 
-    // Call Lovable AI with Nano Banana model for scene generation
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Call Gemini API for scene generation
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-image-preview',
-        messages: [
+        contents: [
           {
-            role: 'user',
-            content: [
+            parts: [
+              { text: fullPrompt },
               {
-                type: 'text',
-                text: fullPrompt
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: imageData
+                inlineData: {
+                  mimeType: imageInfo.mimeType,
+                  data: imageInfo.data
                 }
               }
             ]
           }
         ],
-        modalities: ['image', 'text']
+        generationConfig: {
+          responseModalities: ["TEXT", "IMAGE"]
+        }
       })
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
-      throw new Error(`AI Gateway error: ${response.status}`);
+      console.error('Gemini API error:', response.status, errorText);
+      throw new Error(`Gemini API error: ${response.status}`);
     }
 
     const data = await response.json();
     console.log('Scene generation response received');
 
-    const sceneUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    // Extract base64 image from Gemini response
+    const parts = data.candidates?.[0]?.content?.parts || [];
+    const imagePart = parts.find((part: any) => part.inlineData?.mimeType?.startsWith('image/'));
 
-    if (!sceneUrl) {
+    if (!imagePart?.inlineData?.data) {
       console.error('No scene image in response:', JSON.stringify(data));
       throw new Error('No scene generated');
     }
+
+    const sceneUrl = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
 
     return new Response(
       JSON.stringify({ sceneUrl }),

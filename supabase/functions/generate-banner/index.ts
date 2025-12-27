@@ -37,6 +37,17 @@ const BannerRequestSchema = z.object({
   planId: z.string().uuid().optional().nullable()
 });
 
+// Helper function to extract base64 data from data URL
+function extractBase64(dataUrl: string): { data: string; mimeType: string } {
+  if (dataUrl.startsWith('data:')) {
+    const matches = dataUrl.match(/^data:(.+);base64,(.+)$/);
+    if (matches) {
+      return { data: matches[2], mimeType: matches[1] };
+    }
+  }
+  return { data: dataUrl, mimeType: 'image/png' };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -54,9 +65,9 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
 
-    if (!supabaseUrl || !supabaseKey || !lovableApiKey) {
+    if (!supabaseUrl || !supabaseKey || !geminiApiKey) {
       console.error('Missing required environment configuration');
       return new Response(
         JSON.stringify({ error: 'Service configuration error', success: false }),
@@ -159,48 +170,49 @@ OUTPUT: Ultra high resolution marketing banner optimized for digital use. ${widt
     for (let i = 0; i < 3; i++) {
       console.log(`Generating variant ${i + 1}...`);
       
-      const messages: any[] = [
-        {
-          role: 'user',
-          content: inputType === 'image' && referenceImageData 
-            ? [
-                { type: 'text', text: variants[i] },
-                {
-                  type: 'image_url',
-                  image_url: { url: referenceImageData }
-                }
-              ]
-            : variants[i]
-        }
-      ];
+      const parts: any[] = [{ text: variants[i] }];
+      
+      if (inputType === 'image' && referenceImageData) {
+        const imageInfo = extractBase64(referenceImageData);
+        parts.push({
+          inlineData: {
+            mimeType: imageInfo.mimeType,
+            data: imageInfo.data
+          }
+        });
+      }
 
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${geminiApiKey}`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${lovableApiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash-image-preview',
-          messages,
-          modalities: ['image', 'text']
+          contents: [{ parts }],
+          generationConfig: {
+            responseModalities: ["TEXT", "IMAGE"]
+          }
         }),
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`AI API error for variant ${i + 1}:`, response.status, errorText);
+        console.error(`Gemini API error for variant ${i + 1}:`, response.status, errorText);
         throw new Error(`Failed to generate banner variant ${i + 1}`);
       }
 
       const data = await response.json();
-      const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      
+      // Extract base64 image from Gemini response
+      const responseParts = data.candidates?.[0]?.content?.parts || [];
+      const imagePart = responseParts.find((part: any) => part.inlineData?.mimeType?.startsWith('image/'));
 
-      if (!imageUrl) {
+      if (!imagePart?.inlineData?.data) {
         console.error('No image in response:', JSON.stringify(data));
         throw new Error(`No image generated for variant ${i + 1}`);
       }
 
+      const imageUrl = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
       generatedBanners.push(imageUrl);
       console.log(`Variant ${i + 1} generated successfully`);
     }
