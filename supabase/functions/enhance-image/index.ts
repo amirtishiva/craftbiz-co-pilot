@@ -13,6 +13,18 @@ const EnhanceImageSchema = z.object({
   enhancementType: z.string().max(100).optional()
 });
 
+// Helper function to extract base64 data from data URL
+function extractBase64(dataUrl: string): { data: string; mimeType: string } {
+  if (dataUrl.startsWith('data:')) {
+    const matches = dataUrl.match(/^data:(.+);base64,(.+)$/);
+    if (matches) {
+      return { data: matches[2], mimeType: matches[1] };
+    }
+  }
+  // Assume it's already base64
+  return { data: dataUrl, mimeType: 'image/png' };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -22,9 +34,9 @@ serve(async (req) => {
     const body = await req.json();
     const { imageData, enhancementType } = EnhanceImageSchema.parse(body);
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      console.error('Missing LOVABLE_API_KEY configuration');
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    if (!GEMINI_API_KEY) {
+      console.error('Missing GEMINI_API_KEY configuration');
       return new Response(
         JSON.stringify({ error: 'Service configuration error' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -33,26 +45,26 @@ serve(async (req) => {
 
     console.log('Step 1: Analyzing product image...');
 
+    const imageInfo = extractBase64(imageData);
+
     // First, analyze the image to understand product characteristics
-    const analysisResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const analysisResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
+        contents: [
           {
-            role: 'user',
-            content: [
+            parts: [
               {
-                type: 'text',
                 text: 'Analyze this product image and describe: 1) Product type/category, 2) Dominant colors and materials, 3) Current lighting quality, 4) Texture and finish, 5) Brand tone (luxury/casual/artisan/modern). Be concise but detailed.'
               },
               {
-                type: 'image_url',
-                image_url: { url: imageData }
+                inlineData: {
+                  mimeType: imageInfo.mimeType,
+                  data: imageInfo.data
+                }
               }
             ]
           }
@@ -69,7 +81,7 @@ serve(async (req) => {
     }
 
     const analysisData = await analysisResponse.json();
-    const productAnalysis = analysisData.choices?.[0]?.message?.content || '';
+    const productAnalysis = analysisData.candidates?.[0]?.content?.parts?.[0]?.text || '';
     console.log('Product analysis:', productAnalysis);
 
     console.log('Step 2: Enhancing image based on analysis...');
@@ -87,33 +99,29 @@ Enhance this product image with the following improvements:
 
 CRITICAL: Keep the exact product unchanged - only improve visual quality, lighting, and presentation. Do not alter the product itself, its shape, or core features.`;
 
-    // Call Lovable AI with Nano Banana model for image enhancement
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Call Gemini API for image enhancement
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-image-preview',
-        messages: [
+        contents: [
           {
-            role: 'user',
-            content: [
+            parts: [
+              { text: enhancementPrompt },
               {
-                type: 'text',
-                text: enhancementPrompt
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: imageData
+                inlineData: {
+                  mimeType: imageInfo.mimeType,
+                  data: imageInfo.data
                 }
               }
             ]
           }
         ],
-        modalities: ['image', 'text']
+        generationConfig: {
+          responseModalities: ["TEXT", "IMAGE"]
+        }
       })
     });
 
@@ -129,15 +137,19 @@ CRITICAL: Keep the exact product unchanged - only improve visual quality, lighti
     const data = await response.json();
     console.log('AI response received');
 
-    const enhancedImageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    // Extract base64 image from Gemini response
+    const parts = data.candidates?.[0]?.content?.parts || [];
+    const imagePart = parts.find((part: any) => part.inlineData?.mimeType?.startsWith('image/'));
 
-    if (!enhancedImageUrl) {
+    if (!imagePart?.inlineData?.data) {
       console.error('No enhanced image in response');
       return new Response(
         JSON.stringify({ error: 'Failed to generate enhanced image. Please try again.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const enhancedImageUrl = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
 
     return new Response(
       JSON.stringify({ enhancedImage: enhancedImageUrl }),

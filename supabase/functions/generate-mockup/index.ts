@@ -7,6 +7,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper function to fetch image and convert to base64
+async function imageUrlToBase64(url: string): Promise<{ data: string; mimeType: string }> {
+  if (url.startsWith('data:')) {
+    const matches = url.match(/^data:(.+);base64,(.+)$/);
+    if (matches) {
+      return { data: matches[2], mimeType: matches[1] };
+    }
+  }
+  
+  const response = await fetch(url);
+  const arrayBuffer = await response.arrayBuffer();
+  const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+  const contentType = response.headers.get('content-type') || 'image/png';
+  return { data: base64, mimeType: contentType };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -35,9 +51,9 @@ serve(async (req) => {
       throw new Error('Invalid authentication');
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('Lovable API key is not configured');
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    if (!GEMINI_API_KEY) {
+      throw new Error('Gemini API key is not configured');
     }
 
     const productDescriptions: Record<string, string> = {
@@ -49,50 +65,54 @@ serve(async (req) => {
 
     const editPrompt = `${productDescriptions[productType] || `Place this logo on a ${productType}`}. ${style || 'Clean, modern photography with neutral background'}. Maintain logo colors and quality. Professional lighting and realistic mockup.`;
 
-    console.log('Generating mockup with nano-banana (image editing):', editPrompt);
+    console.log('Generating mockup with Gemini (image editing):', editPrompt);
     console.log('Using logo URL:', logoUrl);
 
-    const imageResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Convert logo URL to base64
+    const logoImage = await imageUrlToBase64(logoUrl);
+
+    const imageResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-image-preview',
-        messages: [
+        contents: [
           {
-            role: 'user',
-            content: [
+            parts: [
+              { text: editPrompt },
               {
-                type: 'text',
-                text: editPrompt
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: logoUrl
+                inlineData: {
+                  mimeType: logoImage.mimeType,
+                  data: logoImage.data
                 }
               }
             ]
           }
         ],
-        modalities: ['image', 'text']
+        generationConfig: {
+          responseModalities: ["TEXT", "IMAGE"]
+        }
       }),
     });
 
     if (!imageResponse.ok) {
       const errorText = await imageResponse.text();
-      console.error('Nano-banana API error:', imageResponse.status, errorText);
+      console.error('Gemini API error:', imageResponse.status, errorText);
       throw new Error(`Image generation error: ${imageResponse.status}`);
     }
 
     const imageData = await imageResponse.json();
-    const mockupUrl = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    
+    // Extract base64 image from Gemini response
+    const parts = imageData.candidates?.[0]?.content?.parts || [];
+    const imagePart = parts.find((part: any) => part.inlineData?.mimeType?.startsWith('image/'));
 
-    if (!mockupUrl) {
+    if (!imagePart?.inlineData?.data) {
       throw new Error('No mockup image generated in response');
     }
+
+    const mockupUrl = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
 
     console.log('Mockup generated successfully with selected logo');
 

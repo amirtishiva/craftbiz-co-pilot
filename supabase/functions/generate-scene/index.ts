@@ -35,52 +35,55 @@ serve(async (req) => {
       throw new Error('Invalid authentication');
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('Lovable API key is not configured');
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    if (!GEMINI_API_KEY) {
+      throw new Error('Gemini API key is not configured');
     }
 
     const styleGuide = style || 'Photographic';
     
-    // Ensure the prompt is specific and detailed enough for image generation
     const prompt = `Create a detailed ${styleGuide.toLowerCase()} style image: ${description}. Professional composition with excellent lighting. High quality, photorealistic details.${aspectRatio ? ` Aspect ratio: ${aspectRatio}` : ''}`;
 
-    console.log('Generating scene with nano-banana:', prompt);
+    console.log('Generating scene with Gemini:', prompt);
 
-    const imageResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const imageResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-image-preview',
-        messages: [
+        contents: [
           {
-            role: 'user',
-            content: prompt
+            parts: [
+              { text: prompt }
+            ]
           }
         ],
-        modalities: ['image', 'text']
+        generationConfig: {
+          responseModalities: ["TEXT", "IMAGE"]
+        }
       }),
     });
 
     if (!imageResponse.ok) {
       const errorText = await imageResponse.text();
-      console.error('Nano-banana API error:', imageResponse.status, errorText);
+      console.error('Gemini API error:', imageResponse.status, errorText);
       throw new Error(`Image generation error: ${imageResponse.status}`);
     }
 
     const imageData = await imageResponse.json();
-    console.log('Nano-banana response structure:', JSON.stringify(imageData, null, 2));
+    console.log('Gemini response structure:', JSON.stringify(imageData, null, 2));
     
-    const sceneUrl = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-
-    if (!sceneUrl) {
+    // Extract base64 image from Gemini response
+    const parts = imageData.candidates?.[0]?.content?.parts || [];
+    const imagePart = parts.find((part: any) => part.inlineData?.mimeType?.startsWith('image/'));
+    
+    if (!imagePart?.inlineData?.data) {
       console.error('Failed to extract scene URL. Full response:', JSON.stringify(imageData));
-      console.error('Message object:', JSON.stringify(imageData.choices?.[0]?.message));
       throw new Error(`No scene image generated in response. Check logs for details.`);
     }
+
+    const sceneUrl = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
 
     console.log('Scene generated successfully');
 
