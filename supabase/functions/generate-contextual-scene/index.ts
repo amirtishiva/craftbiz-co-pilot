@@ -1,9 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const ContextualSceneSchema = z.object({
+  imageData: z.string().min(1, { message: "Image data is required" }).max(10485760, { message: "Image size exceeds 10MB limit" }),
+  contextType: z.enum(['studio', 'lifestyle', 'outdoor', 'luxury', 'minimalist', 'vintage', 'custom'], 
+    { errorMap: () => ({ message: "Invalid context type" }) }),
+  contextDescription: z.string().max(500).optional()
+});
 
 // Helper function to extract base64 data from data URL
 function extractBase64(dataUrl: string): { data: string; mimeType: string } {
@@ -22,15 +30,16 @@ serve(async (req) => {
   }
 
   try {
-    const { imageData, contextType, contextDescription } = await req.json();
-
-    if (!imageData) {
-      throw new Error('Image data is required');
-    }
+    const body = await req.json();
+    const { imageData, contextType, contextDescription } = ContextualSceneSchema.parse(body);
 
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
     if (!GEMINI_API_KEY) {
-      throw new Error('GEMINI_API_KEY not configured');
+      console.error('Missing GEMINI_API_KEY configuration');
+      return new Response(
+        JSON.stringify({ error: 'Service configuration error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const imageInfo = extractBase64(imageData);
@@ -64,7 +73,10 @@ serve(async (req) => {
 
     if (!analysisResponse.ok) {
       console.error('Product analysis failed:', analysisResponse.status);
-      throw new Error('Product analysis failed');
+      return new Response(
+        JSON.stringify({ error: 'Product analysis failed. Please try again.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const analysisData = await analysisResponse.json();
@@ -142,7 +154,7 @@ serve(async (req) => {
         break;
         
       default:
-        scenePrompt = `Custom marketing scene: ${contextDescription}. Professional composition with thoughtful lighting and complementary background elements.`;
+        scenePrompt = `Custom marketing scene: ${contextDescription || 'Professional product photography'}. Professional composition with thoughtful lighting and complementary background elements.`;
     }
 
     const fullPrompt = `Product Analysis: ${productAnalysis}
@@ -190,7 +202,18 @@ CRITICAL INSTRUCTIONS:
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Gemini API error:', response.status, errorText);
-      throw new Error(`Gemini API error: ${response.status}`);
+      
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      return new Response(
+        JSON.stringify({ error: 'Failed to generate scene. Please try again.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const data = await response.json();
@@ -202,7 +225,10 @@ CRITICAL INSTRUCTIONS:
 
     if (!imagePart?.inlineData?.data) {
       console.error('No scene image in response:', JSON.stringify(data));
-      throw new Error('No scene generated');
+      return new Response(
+        JSON.stringify({ error: 'No scene generated. Please try a different context.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const sceneUrl = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
@@ -214,6 +240,17 @@ CRITICAL INSTRUCTIONS:
 
   } catch (error) {
     console.error('Error in generate-contextual-scene function:', error);
+    
+    // Handle Zod validation errors
+    if (error.name === 'ZodError') {
+      const firstError = error.errors?.[0];
+      const message = firstError?.message || 'Invalid input data';
+      return new Response(
+        JSON.stringify({ error: message }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     return new Response(
       JSON.stringify({ error: error.message || 'Failed to generate scene' }),
       { 

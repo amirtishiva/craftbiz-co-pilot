@@ -1,11 +1,17 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const SceneRequestSchema = z.object({
+  description: z.string().trim().min(10, { message: "Scene description must be at least 10 characters" }).max(2000, { message: "Description exceeds 2000 character limit" }),
+  style: z.string().max(100).optional(),
+  aspectRatio: z.string().max(20).optional()
+});
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -13,15 +19,15 @@ serve(async (req) => {
   }
 
   try {
-    const { description, style, aspectRatio } = await req.json();
-
-    if (!description || description.trim().length < 10) {
-      throw new Error('Scene description must be at least 10 characters and describe what you want to generate');
-    }
+    const body = await req.json();
+    const { description, style, aspectRatio } = SceneRequestSchema.parse(body);
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      throw new Error('Authorization header required');
+      return new Response(
+        JSON.stringify({ error: 'Authorization required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -32,12 +38,19 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     
     if (userError || !user) {
-      throw new Error('Invalid authentication');
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
     if (!GEMINI_API_KEY) {
-      throw new Error('Gemini API key is not configured');
+      console.error('Missing GEMINI_API_KEY configuration');
+      return new Response(
+        JSON.stringify({ error: 'Service configuration error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const styleGuide = style || 'Photographic';
@@ -68,11 +81,22 @@ serve(async (req) => {
     if (!imageResponse.ok) {
       const errorText = await imageResponse.text();
       console.error('Gemini API error:', imageResponse.status, errorText);
-      throw new Error(`Image generation error: ${imageResponse.status}`);
+      
+      if (imageResponse.status === 429) {
+        return new Response(
+          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      return new Response(
+        JSON.stringify({ error: 'Failed to generate scene. Please try again.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const imageData = await imageResponse.json();
-    console.log('Gemini response structure:', JSON.stringify(imageData, null, 2));
+    console.log('Gemini response received');
     
     // Extract base64 image from Gemini response
     const parts = imageData.candidates?.[0]?.content?.parts || [];
@@ -80,7 +104,10 @@ serve(async (req) => {
     
     if (!imagePart?.inlineData?.data) {
       console.error('Failed to extract scene URL. Full response:', JSON.stringify(imageData));
-      throw new Error(`No scene image generated in response. Check logs for details.`);
+      return new Response(
+        JSON.stringify({ error: 'No scene image generated. Please try a different description.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const sceneUrl = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
@@ -95,8 +122,19 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('Error in generate-scene function:', error);
+    
+    // Handle Zod validation errors
+    if (error.name === 'ZodError') {
+      const firstError = error.errors?.[0];
+      const message = firstError?.message || 'Invalid input data';
+      return new Response(
+        JSON.stringify({ error: message }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error.message || 'Failed to generate scene' }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
