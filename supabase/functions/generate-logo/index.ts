@@ -1,11 +1,17 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const LogoRequestSchema = z.object({
+  prompt: z.string().trim().min(5, { message: "Prompt must be at least 5 characters" }).max(2000, { message: "Prompt exceeds 2000 character limit" }),
+  businessName: z.string().max(200).optional(),
+  count: z.number().int().min(1).max(5).optional().default(1)
+});
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -13,18 +19,18 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, businessName, count = 1 } = await req.json();
-    
-    if (!prompt) {
-      throw new Error('Prompt is required');
-    }
+    const body = await req.json();
+    const { prompt, businessName, count } = LogoRequestSchema.parse(body);
     
     // Parse prompts if multiple variations are provided (separated by |||)
     const prompts = prompt.includes('|||') ? prompt.split('|||').map((p: string) => p.trim()) : [prompt];
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      throw new Error('Authorization header required');
+      return new Response(
+        JSON.stringify({ error: 'Authorization required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -36,25 +42,32 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     
     if (userError || !user) {
-      throw new Error('Invalid authentication');
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
     if (!GEMINI_API_KEY) {
-      throw new Error('Gemini API key is not configured');
+      console.error('Missing GEMINI_API_KEY configuration');
+      return new Response(
+        JSON.stringify({ error: 'Service configuration error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log('Generating', count, 'logo(s) with Gemini');
 
     // Generate logos - use count directly, repeat base prompt if needed
-    const logoUrls = [];
+    const logoUrls: string[] = [];
     
     for (let i = 0; i < count; i++) {
       // Use different prompts if available, otherwise use the base prompt
       const currentPrompt = prompts[i % prompts.length];
       let attemptCount = 0;
       let success = false;
-      let logoUrl = null;
+      let logoUrl: string | null = null;
       
       // Try up to 2 times with simplified prompt on retry
       while (attemptCount < 2 && !success) {
@@ -87,6 +100,14 @@ serve(async (req) => {
             const errorText = await imageResponse.text();
             console.error('Gemini API error:', imageResponse.status, errorText);
             attemptCount++;
+            
+            if (imageResponse.status === 429) {
+              return new Response(
+                JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
+                { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              );
+            }
+            
             if (attemptCount >= 2) {
               throw new Error(`Image generation error: ${imageResponse.status}`);
             }
@@ -110,9 +131,11 @@ serve(async (req) => {
         } catch (error) {
           attemptCount++;
           if (attemptCount >= 2) {
-            throw error;
+            console.error(`Failed to generate logo ${i + 1} after 2 attempts:`, error);
+            // Don't throw, just skip this logo
+          } else {
+            console.log(`Retrying logo ${i + 1} with simplified prompt...`);
           }
-          console.log(`Retrying logo ${i + 1} with simplified prompt...`);
         }
       }
       
@@ -122,7 +145,10 @@ serve(async (req) => {
     }
 
     if (logoUrls.length === 0) {
-      throw new Error('Failed to generate any logos');
+      return new Response(
+        JSON.stringify({ error: 'Failed to generate any logos. Please try again with a different prompt.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     return new Response(
@@ -133,8 +159,19 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('Error in generate-logo function:', error);
+    
+    // Handle Zod validation errors
+    if (error.name === 'ZodError') {
+      const firstError = error.errors?.[0];
+      const message = firstError?.message || 'Invalid input data';
+      return new Response(
+        JSON.stringify({ error: message }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error.message || 'Failed to generate logos' }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

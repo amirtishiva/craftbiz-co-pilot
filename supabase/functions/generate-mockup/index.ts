@@ -1,11 +1,17 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const MockupRequestSchema = z.object({
+  logoUrl: z.string().min(1, { message: "Logo URL is required" }).max(10485760, { message: "Logo data exceeds 10MB limit" }),
+  productType: z.enum(['tshirt', 'mug', 'phone', 'bag'], { errorMap: () => ({ message: "Invalid product type. Must be: tshirt, mug, phone, or bag" }) }),
+  style: z.string().max(200).optional()
+});
 
 // Helper function to fetch image and convert to base64
 async function imageUrlToBase64(url: string): Promise<{ data: string; mimeType: string }> {
@@ -29,15 +35,15 @@ serve(async (req) => {
   }
 
   try {
-    const { logoUrl, productType, style } = await req.json();
-
-    if (!logoUrl || !productType) {
-      throw new Error('Logo URL and product type are required');
-    }
+    const body = await req.json();
+    const { logoUrl, productType, style } = MockupRequestSchema.parse(body);
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      throw new Error('Authorization header required');
+      return new Response(
+        JSON.stringify({ error: 'Authorization required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -48,12 +54,19 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     
     if (userError || !user) {
-      throw new Error('Invalid authentication');
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
     if (!GEMINI_API_KEY) {
-      throw new Error('Gemini API key is not configured');
+      console.error('Missing GEMINI_API_KEY configuration');
+      return new Response(
+        JSON.stringify({ error: 'Service configuration error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const productDescriptions: Record<string, string> = {
@@ -63,10 +76,9 @@ serve(async (req) => {
       'bag': 'Place this logo on a tote bag. Professional product photography with clean background, realistic fabric texture, logo prominently displayed'
     };
 
-    const editPrompt = `${productDescriptions[productType] || `Place this logo on a ${productType}`}. ${style || 'Clean, modern photography with neutral background'}. Maintain logo colors and quality. Professional lighting and realistic mockup.`;
+    const editPrompt = `${productDescriptions[productType]}. ${style || 'Clean, modern photography with neutral background'}. Maintain logo colors and quality. Professional lighting and realistic mockup.`;
 
     console.log('Generating mockup with Gemini (image editing):', editPrompt);
-    console.log('Using logo URL:', logoUrl);
 
     // Convert logo URL to base64
     const logoImage = await imageUrlToBase64(logoUrl);
@@ -99,7 +111,18 @@ serve(async (req) => {
     if (!imageResponse.ok) {
       const errorText = await imageResponse.text();
       console.error('Gemini API error:', imageResponse.status, errorText);
-      throw new Error(`Image generation error: ${imageResponse.status}`);
+      
+      if (imageResponse.status === 429) {
+        return new Response(
+          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      return new Response(
+        JSON.stringify({ error: 'Failed to generate mockup. Please try again.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const imageData = await imageResponse.json();
@@ -109,12 +132,16 @@ serve(async (req) => {
     const imagePart = parts.find((part: any) => part.inlineData?.mimeType?.startsWith('image/'));
 
     if (!imagePart?.inlineData?.data) {
-      throw new Error('No mockup image generated in response');
+      console.error('No mockup image in response:', JSON.stringify(imageData));
+      return new Response(
+        JSON.stringify({ error: 'No mockup image generated. Please try again.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const mockupUrl = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
 
-    console.log('Mockup generated successfully with selected logo');
+    console.log('Mockup generated successfully');
 
     return new Response(
       JSON.stringify({ mockupUrl, productType, prompt: editPrompt }),
@@ -124,8 +151,19 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('Error in generate-mockup function:', error);
+    
+    // Handle Zod validation errors
+    if (error.name === 'ZodError') {
+      const firstError = error.errors?.[0];
+      const message = firstError?.message || 'Invalid input data';
+      return new Response(
+        JSON.stringify({ error: message }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error.message || 'Failed to generate mockup' }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

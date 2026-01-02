@@ -1,10 +1,17 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const RefineContentSchema = z.object({
+  content: z.string().trim().min(1, { message: "Content is required" }).max(5000, { message: "Content exceeds 5000 character limit" }),
+  contentType: z.string().max(50).optional(),
+  audienceType: z.string().max(50).optional(),
+  socialMediaType: z.string().max(50).optional()
+});
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -12,23 +19,23 @@ serve(async (req) => {
   }
 
   try {
-    const { content, contentType, audienceType, socialMediaType } = await req.json();
+    const body = await req.json();
+    const { content, contentType, audienceType, socialMediaType } = RefineContentSchema.parse(body);
 
     console.log('Refine request received:', { 
-      contentLength: content?.length, 
+      contentLength: content.length, 
       contentType, 
       audienceType, 
       socialMediaType 
     });
 
-    if (!content || content.trim() === '') {
-      throw new Error('Content is required for refinement');
-    }
-
-    const OPENAI_API_KEY = Deno.env.get('Open_API');
-    if (!OPENAI_API_KEY) {
-      console.error('OpenAI API key not found in environment');
-      throw new Error('OpenAI API key is not configured');
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    if (!GEMINI_API_KEY) {
+      console.error('Gemini API key not found in environment');
+      return new Response(
+        JSON.stringify({ error: 'Service configuration error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Platform-specific refinement guidelines
@@ -72,45 +79,57 @@ Make it:
 
 CRITICAL: Return ONLY the refined content text. No explanations, no meta-commentary, no formatting markers, no hashtags.`;
 
-    console.log('Refining marketing content with OpenAI GPT-4o');
-    console.log('System prompt:', systemPrompt);
-    console.log('User prompt:', userPrompt);
+    console.log('Refining marketing content with Gemini AI');
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
+        contents: [
+          {
+            parts: [
+              { text: `${systemPrompt}\n\n${userPrompt}` }
+            ]
+          }
         ],
-        max_tokens: 500,
-        temperature: 0.7,
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 500,
+        }
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenAI API error:', response.status, errorText);
-      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+      console.error('Gemini API error:', response.status, errorText);
+      
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      return new Response(
+        JSON.stringify({ error: 'Failed to refine content. Please try again.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const data = await response.json();
-    console.log('OpenAI response:', JSON.stringify(data, null, 2));
-    
-    if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
-      console.error('Invalid OpenAI response structure:', data);
-      throw new Error('Invalid response from OpenAI API');
+    const refinedContent = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+    if (!refinedContent) {
+      console.error('Empty refined content from Gemini API');
+      return new Response(
+        JSON.stringify({ error: 'Failed to generate refined content. Please try again.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
-    
-    const refinedContent = data.choices[0].message.content.trim();
 
     console.log('Content refined successfully. Length:', refinedContent.length);
-    console.log('Refined content preview:', refinedContent.substring(0, 200));
 
     return new Response(
       JSON.stringify({ refinedContent }),
@@ -120,8 +139,19 @@ CRITICAL: Return ONLY the refined content text. No explanations, no meta-comment
     );
   } catch (error) {
     console.error('Error in refine-marketing-content function:', error);
+    
+    // Handle Zod validation errors
+    if (error.name === 'ZodError') {
+      const firstError = error.errors?.[0];
+      const message = firstError?.message || 'Invalid input data';
+      return new Response(
+        JSON.stringify({ error: message }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error.message || 'Failed to refine content' }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
