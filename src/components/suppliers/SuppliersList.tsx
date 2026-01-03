@@ -357,21 +357,21 @@ const SuppliersList: React.FC = () => {
                       </Button>
 
                       <div className="p-3 bg-muted rounded-lg space-y-2">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Phone className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">
+                        <div className="flex items-start gap-2 text-sm">
+                          <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                          <span className="text-muted-foreground break-all line-clamp-1">
                             {supplier.contact_phone}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Mail className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">
+                        <div className="flex items-start gap-2 text-sm">
+                          <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                          <span className="text-muted-foreground break-all line-clamp-1 max-w-[200px] truncate" title={supplier.contact_email}>
                             {supplier.contact_email}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <MapPin className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground text-xs">{supplier.address}</span>
+                        <div className="flex items-start gap-2 text-sm">
+                          <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                          <span className="text-muted-foreground text-xs line-clamp-2">{supplier.address}</span>
                         </div>
                       </div>
                     </div>

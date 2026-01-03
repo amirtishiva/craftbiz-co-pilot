@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+import { z, ZodError } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -95,11 +95,11 @@ ${content}`;
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in translate-business-plan function:', error);
     
     // Handle Zod validation errors
-    if (error.name === 'ZodError') {
+    if (error instanceof ZodError) {
       const firstError = error.errors?.[0];
       const message = firstError?.message || 'Invalid input data';
       return new Response(
@@ -111,8 +111,9 @@ ${content}`;
       );
     }
     
+    const errorMessage = error instanceof Error ? error.message : 'An error occurred';
     return new Response(
-      JSON.stringify({ error: error.message || 'An error occurred' }),
+      JSON.stringify({ error: errorMessage }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

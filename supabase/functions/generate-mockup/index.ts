@@ -1,15 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
-import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+import { z, ZodError } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const VALID_PRODUCT_TYPES = ['tshirt', 'mug', 'phone', 'bag', 'poster', 'hoodie', 'cap'] as const;
+
 const MockupRequestSchema = z.object({
   logoUrl: z.string().min(1, { message: "Logo URL is required" }).max(10485760, { message: "Logo data exceeds 10MB limit" }),
-  productType: z.enum(['tshirt', 'mug', 'phone', 'bag'], { errorMap: () => ({ message: "Invalid product type. Must be: tshirt, mug, phone, or bag" }) }),
+  productType: z.string().min(1, { message: "Product type is required" }),
   style: z.string().max(200).optional()
 });
 
@@ -37,6 +39,19 @@ serve(async (req) => {
   try {
     const body = await req.json();
     const { logoUrl, productType, style } = MockupRequestSchema.parse(body);
+
+    // Validate product type with helpful error message
+    const normalizedProductType = productType.toLowerCase().trim();
+    const validTypes = [...VALID_PRODUCT_TYPES];
+    
+    if (!validTypes.includes(normalizedProductType as typeof VALID_PRODUCT_TYPES[number])) {
+      return new Response(
+        JSON.stringify({ 
+          error: `Invalid product type "${productType}". Must be one of: ${validTypes.join(', ')}` 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -73,10 +88,13 @@ serve(async (req) => {
       'tshirt': 'Place this logo on a white t-shirt chest area. Professional product photography with clean background, realistic fabric texture, centered composition',
       'mug': 'Place this logo on a white ceramic coffee mug. Professional product photography with clean background, realistic ceramic texture, front-facing view',
       'phone': 'Place this logo on a phone case. Professional product photography with clean background, realistic case texture, clear logo visibility',
-      'bag': 'Place this logo on a tote bag. Professional product photography with clean background, realistic fabric texture, logo prominently displayed'
+      'bag': 'Place this logo on a tote bag. Professional product photography with clean background, realistic fabric texture, logo prominently displayed',
+      'poster': 'Place this logo on a poster in a frame. Professional photography with clean background, high-quality print appearance',
+      'hoodie': 'Place this logo on a hoodie chest area. Professional product photography with clean background, realistic fabric texture',
+      'cap': 'Place this logo on a baseball cap front. Professional product photography with clean background, realistic cap texture'
     };
 
-    const editPrompt = `${productDescriptions[productType]}. ${style || 'Clean, modern photography with neutral background'}. Maintain logo colors and quality. Professional lighting and realistic mockup.`;
+    const editPrompt = `${productDescriptions[normalizedProductType] || productDescriptions['tshirt']}. ${style || 'Clean, modern photography with neutral background'}. Maintain logo colors and quality. Professional lighting and realistic mockup.`;
 
     console.log('Generating mockup with Gemini (image editing):', editPrompt);
 
@@ -129,7 +147,9 @@ serve(async (req) => {
     
     // Extract base64 image from Gemini response
     const parts = imageData.candidates?.[0]?.content?.parts || [];
-    const imagePart = parts.find((part: any) => part.inlineData?.mimeType?.startsWith('image/'));
+    const imagePart = parts.find((part: { inlineData?: { mimeType?: string; data?: string } }) => 
+      part.inlineData?.mimeType?.startsWith('image/')
+    );
 
     if (!imagePart?.inlineData?.data) {
       console.error('No mockup image in response:', JSON.stringify(imageData));
@@ -144,16 +164,16 @@ serve(async (req) => {
     console.log('Mockup generated successfully');
 
     return new Response(
-      JSON.stringify({ mockupUrl, productType, prompt: editPrompt }),
+      JSON.stringify({ mockupUrl, productType: normalizedProductType, prompt: editPrompt }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in generate-mockup function:', error);
     
     // Handle Zod validation errors
-    if (error.name === 'ZodError') {
+    if (error instanceof ZodError) {
       const firstError = error.errors?.[0];
       const message = firstError?.message || 'Invalid input data';
       return new Response(
@@ -162,8 +182,9 @@ serve(async (req) => {
       );
     }
     
+    const errorMessage = error instanceof Error ? error.message : 'Failed to generate mockup';
     return new Response(
-      JSON.stringify({ error: error.message || 'Failed to generate mockup' }),
+      JSON.stringify({ error: errorMessage }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+import { z, ZodError } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -97,10 +97,10 @@ Important guidelines:
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in refine-prompt function:', error);
     
-    if (error.name === 'ZodError') {
+    if (error instanceof ZodError) {
       const firstError = error.errors?.[0];
       const message = firstError?.message || 'Invalid input data';
       return new Response(
@@ -112,8 +112,9 @@ Important guidelines:
       );
     }
     
+    const errorMessage = error instanceof Error ? error.message : 'Failed to refine prompt';
     return new Response(
-      JSON.stringify({ error: error.message || 'Failed to refine prompt' }),
+      JSON.stringify({ error: errorMessage }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

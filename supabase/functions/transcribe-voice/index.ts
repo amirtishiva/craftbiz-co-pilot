@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+import { z, ZodError } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -124,8 +124,8 @@ serve(async (req) => {
             console.log('Successfully translated text:', translatedText);
           }
         }
-      } catch (error) {
-        console.error('Translation failed:', error);
+      } catch (translationError) {
+        console.error('Translation failed:', translationError);
         // Translation failed, will return null and frontend will use original text
         translatedText = null;
       }
@@ -141,11 +141,11 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in transcribe-voice function:', error);
     
     // Handle Zod validation errors
-    if (error.name === 'ZodError') {
+    if (error instanceof ZodError) {
       const firstError = error.errors?.[0];
       const message = firstError?.message || 'Invalid input data';
       return new Response(

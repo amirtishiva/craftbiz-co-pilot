@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+import { z, ZodError } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,8 +22,8 @@ const BANNER_SIZE_DIMENSIONS: Record<string, { width: number; height: number }> 
 
 const BannerRequestSchema = z.object({
   bannerSize: z.string().min(1).max(50),
-  customWidth: z.number().int().min(100).max(5000).optional(),
-  customHeight: z.number().int().min(100).max(5000).optional(),
+  customWidth: z.number().int().min(100).max(5000).optional().nullable(),
+  customHeight: z.number().int().min(100).max(5000).optional().nullable(),
   inputType: z.enum(['text', 'image']).optional(),
   headline: z.string().min(1).max(200),
   subheadline: z.string().max(300).optional().nullable(),
@@ -170,7 +170,7 @@ OUTPUT: Ultra high resolution marketing banner optimized for digital use. ${widt
     for (let i = 0; i < 3; i++) {
       console.log(`Generating variant ${i + 1}...`);
       
-      const parts: any[] = [{ text: variants[i] }];
+      const parts: { text?: string; inlineData?: { mimeType: string; data: string } }[] = [{ text: variants[i] }];
       
       if (inputType === 'image' && referenceImageData) {
         const imageInfo = extractBase64(referenceImageData);
@@ -205,7 +205,9 @@ OUTPUT: Ultra high resolution marketing banner optimized for digital use. ${widt
       
       // Extract base64 image from Gemini response
       const responseParts = data.candidates?.[0]?.content?.parts || [];
-      const imagePart = responseParts.find((part: any) => part.inlineData?.mimeType?.startsWith('image/'));
+      const imagePart = responseParts.find((part: { inlineData?: { mimeType?: string; data?: string } }) => 
+        part.inlineData?.mimeType?.startsWith('image/')
+      );
 
       if (!imagePart?.inlineData?.data) {
         console.error('No image in response:', JSON.stringify(data));
@@ -261,11 +263,11 @@ OUTPUT: Ultra high resolution marketing banner optimized for digital use. ${widt
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in generate-banner function:', error);
     
     // Handle Zod validation errors
-    if (error.name === 'ZodError') {
+    if (error instanceof ZodError) {
       const firstError = error.errors?.[0];
       const message = firstError?.message || 'Invalid input data';
       return new Response(
