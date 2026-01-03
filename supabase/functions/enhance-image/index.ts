@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+import { z, ZodError } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -139,7 +139,9 @@ CRITICAL: Keep the exact product unchanged - only improve visual quality, lighti
 
     // Extract base64 image from Gemini response
     const parts = data.candidates?.[0]?.content?.parts || [];
-    const imagePart = parts.find((part: any) => part.inlineData?.mimeType?.startsWith('image/'));
+    const imagePart = parts.find((part: { inlineData?: { mimeType?: string; data?: string } }) => 
+      part.inlineData?.mimeType?.startsWith('image/')
+    );
 
     if (!imagePart?.inlineData?.data) {
       console.error('No enhanced image in response');
@@ -156,11 +158,11 @@ CRITICAL: Keep the exact product unchanged - only improve visual quality, lighti
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in enhance-image function:', error);
     
     // Handle Zod validation errors
-    if (error.name === 'ZodError') {
+    if (error instanceof ZodError) {
       const firstError = error.errors?.[0];
       const message = firstError?.message || 'Invalid input data';
       return new Response(

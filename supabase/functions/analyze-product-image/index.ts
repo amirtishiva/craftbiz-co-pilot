@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+import { z, ZodError } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -157,8 +157,9 @@ Return ONLY the JSON object, no additional text or markdown formatting.`;
         );
       }
       
-    } catch (e) {
-      console.error('JSON parsing failed:', e.message, 'Content:', content.substring(0, 500));
+    } catch (parseError: unknown) {
+      const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown parsing error';
+      console.error('JSON parsing failed:', errorMessage, 'Content:', content.substring(0, 500));
       return new Response(
         JSON.stringify({ error: 'Failed to process image analysis. Please try again.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -171,11 +172,11 @@ Return ONLY the JSON object, no additional text or markdown formatting.`;
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in analyze-product-image function:', error);
     
     // Handle Zod validation errors
-    if (error.name === 'ZodError') {
+    if (error instanceof ZodError) {
       const firstError = error.errors?.[0];
       const message = firstError?.message || 'Invalid input data';
       return new Response(

@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1';
-import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+import { z, ZodError } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,6 +16,22 @@ const SearchSchema = z.object({
   }).optional(),
   maxDistance: z.number().positive().max(500).optional()
 });
+
+interface Supplier {
+  id: string;
+  name: string;
+  category: string;
+  city: string;
+  address: string;
+  contact_phone: string;
+  contact_email: string;
+  rating: number;
+  latitude: number | null;
+  longitude: number | null;
+  description: string;
+  website_url: string | null;
+  distance: number | null;
+}
 
 // Map categories to Google Places types
 const categoryToPlaceType: Record<string, string> = {
@@ -129,8 +145,17 @@ Deno.serve(async (req) => {
     }
 
     // Transform Google Places results to supplier format
-    const suppliers = (placesData.results || []).slice(0, 15).map((place: any) => {
-      const supplier = {
+    const suppliers: Supplier[] = (placesData.results || []).slice(0, 15).map((place: {
+      place_id: string;
+      name: string;
+      formatted_address: string;
+      formatted_phone_number?: string;
+      rating?: number;
+      geometry?: { location?: { lat: number; lng: number } };
+      types?: string[];
+      website?: string;
+    }) => {
+      const supplier: Supplier = {
         id: place.place_id,
         name: place.name,
         category: params.category && params.category !== 'all-categories' ? params.category : 'General',
@@ -143,7 +168,7 @@ Deno.serve(async (req) => {
         longitude: place.geometry?.location?.lng || null,
         description: place.types?.join(', ') || 'Supplier',
         website_url: place.website || null,
-        distance: null as number | null
+        distance: null
       };
 
       // Calculate distance if user location provided
@@ -167,13 +192,13 @@ Deno.serve(async (req) => {
     // Filter by max distance if specified
     let filteredSuppliers = suppliers;
     if (params.maxDistance && params.userLocation) {
-      filteredSuppliers = suppliers.filter(s => 
+      filteredSuppliers = suppliers.filter((s: Supplier) => 
         s.distance === null || s.distance <= params.maxDistance!
       );
     }
 
     // Sort by distance if available, otherwise by rating
-    filteredSuppliers.sort((a, b) => {
+    filteredSuppliers.sort((a: Supplier, b: Supplier) => {
       if (a.distance !== null && b.distance !== null) {
         return a.distance - b.distance;
       }
@@ -193,11 +218,11 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in search-suppliers:', error);
     
     // Handle Zod validation errors
-    if (error.name === 'ZodError') {
+    if (error instanceof ZodError) {
       const firstError = error.errors?.[0];
       const message = firstError?.message || 'Invalid input data';
       return new Response(
