@@ -57,6 +57,16 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // Dashboard specific colors
+        "stat-ideas": "hsl(var(--stat-ideas))",
+        "stat-plans": "hsl(var(--stat-plans))",
+        "stat-designs": "hsl(var(--stat-designs))",
+        "stat-marketing": "hsl(var(--stat-marketing))",
+        "accent-orange": "hsl(var(--accent-orange))",
+        "success-green": "hsl(var(--success-green))",
+        "info-blue": "hsl(var(--info-blue))",
+        "warning-amber": "hsl(var(--warning-amber))",
+        "purple-accent": "hsl(var(--purple-accent))",
       },
       borderRadius: {
         lg: "var(--radius)",
