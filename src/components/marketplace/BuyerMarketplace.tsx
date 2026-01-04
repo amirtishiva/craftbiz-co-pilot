@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Filter, Store, X, SlidersHorizontal, IndianRupee, Heart, GitCompare } from 'lucide-react';
+import { Search, X, SlidersHorizontal, IndianRupee, Heart, GitCompare, ShoppingCart, Sparkles } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +16,6 @@ import { useBackgroundSync } from '@/hooks/useBackgroundSync';
 import ProductGrid from './ProductGrid';
 import ShoppingCartDrawer from './ShoppingCartDrawer';
 import ArtisanMap from './ArtisanMap';
-import OrderTracking from './OrderTracking';
 import NotificationBell from './NotificationBell';
 import MobileBottomNav from './MobileBottomNav';
 import OfflineIndicator from './OfflineIndicator';
@@ -29,6 +28,7 @@ import SearchAutocomplete from './SearchAutocomplete';
 import AdvancedFilters from './AdvancedFilters';
 import ShareProductModal from './ShareProductModal';
 import BuyerOrderHistory from './BuyerOrderHistory';
+
 const CRAFT_CATEGORIES = [
   { value: 'all', label: 'All Categories', emoji: '✨' },
   { value: 'pottery', label: 'Pottery & Ceramics', emoji: '🏺' },
@@ -340,7 +340,7 @@ const BuyerMarketplace: React.FC = () => {
 
   return (
     <>
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 pb-20 sm:pb-8">
+      <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20 pb-20 sm:pb-8">
         {/* Offline Indicator */}
         <OfflineIndicator 
           isOffline={isOffline} 
@@ -351,337 +351,376 @@ const BuyerMarketplace: React.FC = () => {
           onSyncNow={syncNow}
         />
 
-        {/* Header */}
-        <div className="flex flex-col gap-4 mb-6 sm:mb-8">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
-            <div className="min-w-0 flex-1">
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground flex items-center gap-2">
-                <Store className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8 text-primary flex-shrink-0" />
-                <span className="truncate">Craft Stories Marketplace</span>
-              </h1>
-              <p className="text-sm sm:text-base text-muted-foreground mt-1 hidden sm:block">
-                Discover authentic handcrafted products from skilled Indian artisans
-              </p>
-            </div>
-            
-            {/* Action Buttons - Hidden on mobile, shown on desktop */}
-            <div className="hidden sm:flex items-center gap-2 sm:gap-3 flex-wrap">
-              {comparisonCount > 0 && (
+        {/* Modern Hero Header */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-primary/10 to-accent/5 border-b border-border/50">
+          <div className="absolute inset-0 bg-grid-pattern opacity-5" />
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10 relative">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-6">
+              {/* Title Section */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 bg-primary/10 rounded-xl">
+                    <Sparkles className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
+                  </div>
+                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+                    CraftBiz Marketplace
+                  </h1>
+                </div>
+                <p className="text-sm sm:text-base text-muted-foreground max-w-xl">
+                  Discover authentic handcrafted products from skilled Indian artisans
+                </p>
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                {comparisonCount > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsComparisonModalOpen(true)}
+                    className="gap-2 bg-background/80 backdrop-blur-sm hover:bg-background border-border/50 shadow-sm"
+                  >
+                    <GitCompare className="h-4 w-4" />
+                    <span className="hidden sm:inline">Compare</span>
+                    <Badge variant="secondary" className="h-5 min-w-[20px] flex items-center justify-center text-xs bg-primary/10 text-primary">
+                      {comparisonCount}
+                    </Badge>
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setIsComparisonModalOpen(true)}
-                  className="gap-2"
+                  onClick={() => setIsCartOpen(true)}
+                  className="gap-2 bg-background/80 backdrop-blur-sm hover:bg-background border-border/50 shadow-sm"
                 >
-                  <GitCompare className="h-4 w-4" />
-                  Compare
-                  <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] flex items-center justify-center text-xs">
-                    {comparisonCount}
-                  </Badge>
+                  <ShoppingCart className="h-4 w-4" />
+                  <span className="hidden sm:inline">Cart</span>
+                  {cart.length > 0 && (
+                    <Badge variant="secondary" className="h-5 min-w-[20px] flex items-center justify-center text-xs bg-primary/10 text-primary">
+                      {cart.length}
+                    </Badge>
+                  )}
                 </Button>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setView('wishlist')}
-                className="gap-2"
-              >
-                <Heart className="h-4 w-4" />
-                Wishlist
-                {wishlistCount > 0 && (
-                  <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] flex items-center justify-center text-xs">
-                    {wishlistCount}
-                  </Badge>
-                )}
-              </Button>
-              <NotificationBell />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setView('wishlist')}
+                  className="gap-2 bg-background/80 backdrop-blur-sm hover:bg-background border-border/50 shadow-sm"
+                >
+                  <Heart className="h-4 w-4" />
+                  <span className="hidden sm:inline">Wishlist</span>
+                  {wishlistCount > 0 && (
+                    <Badge variant="secondary" className="h-5 min-w-[20px] flex items-center justify-center text-xs bg-primary/10 text-primary">
+                      {wishlistCount}
+                    </Badge>
+                  )}
+                </Button>
+                <NotificationBell />
+              </div>
+            </div>
+
+            {/* Category Pills - Modern Horizontal Scroll */}
+            <div className="mt-6 -mx-4 px-4 sm:mx-0 sm:px-0">
+              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory">
+                {CRAFT_CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.value}
+                    onClick={() => handleCategoryChange(cat.value)}
+                    disabled={isOffline}
+                    className={`snap-start flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 shadow-sm ${
+                      selectedCategory === cat.value
+                        ? 'bg-primary text-primary-foreground shadow-primary/25'
+                        : 'bg-background/80 backdrop-blur-sm text-foreground hover:bg-background hover:shadow-md border border-border/50'
+                    } disabled:opacity-50`}
+                  >
+                    <span className="text-base">{cat.emoji}</span>
+                    <span>{cat.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Quick Category Chips */}
-        <div className="mb-4 overflow-x-auto scrollbar-hide">
-          <div className="flex gap-2 pb-2">
-            {CRAFT_CATEGORIES.map((cat) => (
-              <button
-                key={cat.value}
-                onClick={() => handleCategoryChange(cat.value)}
-                disabled={isOffline}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
-                  selectedCategory === cat.value
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                } disabled:opacity-50`}
-              >
-                <span>{cat.emoji}</span>
-                <span className="hidden sm:inline">{cat.label}</span>
-                <span className="sm:hidden">{cat.value === 'all' ? 'All' : cat.label.split(' ')[0]}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* Main Content */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {/* Search & Filters Card */}
+          <div className={`bg-card/80 backdrop-blur-sm border border-border/50 rounded-2xl p-4 sm:p-5 mb-6 shadow-sm ${showSearchPanel ? 'block' : 'hidden sm:block'}`}>
+            <div className="flex flex-col gap-4">
+              {/* Search Input Row */}
+              <div className="flex gap-3">
+                <div className="flex-1 relative">
+                  <SearchAutocomplete
+                    value={searchQuery}
+                    onChange={setSearchQuery}
+                    onSearch={(query) => {
+                      setSearchQuery(query);
+                      handleSearch();
+                    }}
+                    disabled={isOffline}
+                    className="w-full"
+                  />
+                </div>
+                <Button 
+                  onClick={handleSearch} 
+                  className="h-10 px-6 rounded-xl shadow-sm"
+                  disabled={isOffline}
+                >
+                  <Search className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Search</span>
+                </Button>
+              </div>
+              
+              {/* Filters Row */}
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                {/* Price Range Select */}
+                <Select value={selectedPriceRange} onValueChange={handlePriceRangeChange} disabled={isOffline}>
+                  <SelectTrigger className="w-[140px] sm:w-[160px] h-10 rounded-xl bg-background/50 border-border/50">
+                    <IndianRupee className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+                    <SelectValue placeholder="Price" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRICE_RANGES.map((range) => (
+                      <SelectItem key={range.value} value={range.value}>
+                        {range.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-        {/* Search & Filters */}
-        <div className={`bg-card border border-border rounded-lg sm:rounded-xl p-3 sm:p-4 mb-4 ${showSearchPanel ? 'block' : 'hidden sm:block'}`}>
-          <div className="flex flex-col gap-3 sm:gap-4">
-            {/* Search Input Row */}
-            <div className="flex gap-2">
-              <SearchAutocomplete
-                value={searchQuery}
-                onChange={setSearchQuery}
-                onSearch={(query) => {
-                  setSearchQuery(query);
-                  handleSearch();
-                }}
-                disabled={isOffline}
-                className="flex-1"
-              />
-              <Button 
-                onClick={handleSearch} 
-                size="sm" 
-                className="h-9 sm:h-10 px-4"
-                disabled={isOffline}
-              >
-                Search
-              </Button>
-            </div>
-            
-            {/* Filters Row */}
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Price Range Select */}
-              <Select value={selectedPriceRange} onValueChange={handlePriceRangeChange} disabled={isOffline}>
-                <SelectTrigger className="w-[140px] sm:w-[160px] h-9 text-sm">
-                  <IndianRupee className="h-3.5 w-3.5 mr-1 flex-shrink-0" />
-                  <SelectValue placeholder="Price" />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRICE_RANGES.map((range) => (
-                    <SelectItem key={range.value} value={range.value}>
-                      {range.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                {/* Sort Select */}
+                <Select value={sortBy} onValueChange={handleSortChange} disabled={isOffline}>
+                  <SelectTrigger className="w-[140px] sm:w-[170px] h-10 rounded-xl bg-background/50 border-border/50">
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SORT_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-              {/* Sort Select */}
-              <Select value={sortBy} onValueChange={handleSortChange} disabled={isOffline}>
-                <SelectTrigger className="w-[140px] sm:w-[170px] h-9 text-sm">
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  {SORT_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                {/* Advanced Filters Button */}
+                <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+                  <SheetTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-10 gap-2 rounded-xl bg-background/50 border-border/50" disabled={isOffline}>
+                      <SlidersHorizontal className="h-4 w-4" />
+                      <span className="hidden sm:inline">More Filters</span>
+                      {activeFilterCount > 0 && (
+                        <Badge variant="secondary" className="h-5 w-5 p-0 flex items-center justify-center text-xs bg-primary/10 text-primary">
+                          {activeFilterCount}
+                        </Badge>
+                      )}
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent className="overflow-y-auto">
+                    <SheetHeader>
+                      <SheetTitle>Filter Products</SheetTitle>
+                    </SheetHeader>
+                    <div className="mt-6 space-y-6">
+                      {/* Custom Price Range */}
+                      <div className="space-y-3">
+                        <Label className="text-sm font-medium">Custom Price Range</Label>
+                        <div className="flex items-center gap-2">
+                          <div className="relative flex-1">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">₹</span>
+                            <Input
+                              type="number"
+                              placeholder="Min"
+                              value={customMinPrice}
+                              onChange={(e) => setCustomMinPrice(e.target.value)}
+                              className="pl-7 rounded-xl"
+                            />
+                          </div>
+                          <span className="text-muted-foreground">to</span>
+                          <div className="relative flex-1">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">₹</span>
+                            <Input
+                              type="number"
+                              placeholder="Max"
+                              value={customMaxPrice}
+                              onChange={(e) => setCustomMaxPrice(e.target.value)}
+                              className="pl-7 rounded-xl"
+                            />
+                          </div>
+                        </div>
+                        <Button onClick={handleCustomPriceApply} className="w-full rounded-xl" size="sm">
+                          Apply Price Range
+                        </Button>
+                      </div>
 
-              {/* Advanced Filters Button */}
-              <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
-                <SheetTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-9 gap-2" disabled={isOffline}>
-                    <SlidersHorizontal className="h-4 w-4" />
-                    <span className="hidden sm:inline">More Filters</span>
-                    {activeFilterCount > 0 && (
-                      <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
-                        {activeFilterCount}
-                      </Badge>
+                      <Separator />
+
+                      {/* Advanced Filters */}
+                      <AdvancedFilters
+                        selectedMaterials={selectedMaterials}
+                        onMaterialsChange={setSelectedMaterials}
+                        minRating={minRating}
+                        onRatingChange={setMinRating}
+                        customizableOnly={customizableOnly}
+                        onCustomizableChange={setCustomizableOnly}
+                        verifiedOnly={verifiedOnly}
+                        onVerifiedChange={setVerifiedOnly}
+                      />
+
+                      <Separator />
+
+                      {/* Category Selection */}
+                      <div className="space-y-3">
+                        <Label className="text-sm font-medium">Category</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {CRAFT_CATEGORIES.map((cat) => (
+                            <button
+                              key={cat.value}
+                              onClick={() => {
+                                handleCategoryChange(cat.value);
+                              }}
+                              className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm transition-all ${
+                                selectedCategory === cat.value
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                              }`}
+                            >
+                              <span>{cat.emoji}</span>
+                              <span className="truncate">{cat.label.split('&')[0].trim()}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      {/* Apply and Clear Buttons */}
+                      <div className="space-y-2">
+                        <Button 
+                          onClick={handleApplyAdvancedFilters}
+                          className="w-full rounded-xl"
+                        >
+                          Apply Filters
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => {
+                            clearAllFilters();
+                            setIsFilterOpen(false);
+                          }}
+                          className="w-full rounded-xl"
+                        >
+                          Clear All Filters
+                        </Button>
+                      </div>
+                    </div>
+                  </SheetContent>
+                </Sheet>
+
+                {/* Mobile Cart & Wishlist */}
+                <div className="flex gap-2 sm:hidden">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setIsCartOpen(true)}
+                    className="h-10 gap-1.5 rounded-xl"
+                  >
+                    <ShoppingCart className="h-4 w-4" />
+                    {cart.length > 0 && (
+                      <span className="text-xs">{cart.length}</span>
                     )}
                   </Button>
-                </SheetTrigger>
-                <SheetContent>
-                  <SheetHeader>
-                    <SheetTitle>Filter Products</SheetTitle>
-                  </SheetHeader>
-                  <div className="mt-6 space-y-6">
-                    {/* Custom Price Range */}
-                    <div className="space-y-3">
-                      <Label className="text-sm font-medium">Custom Price Range</Label>
-                      <div className="flex items-center gap-2">
-                        <div className="relative flex-1">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">₹</span>
-                          <Input
-                            type="number"
-                            placeholder="Min"
-                            value={customMinPrice}
-                            onChange={(e) => setCustomMinPrice(e.target.value)}
-                            className="pl-7"
-                          />
-                        </div>
-                        <span className="text-muted-foreground">to</span>
-                        <div className="relative flex-1">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">₹</span>
-                          <Input
-                            type="number"
-                            placeholder="Max"
-                            value={customMaxPrice}
-                            onChange={(e) => setCustomMaxPrice(e.target.value)}
-                            className="pl-7"
-                          />
-                        </div>
-                      </div>
-                      <Button onClick={handleCustomPriceApply} className="w-full" size="sm">
-                        Apply Price Range
-                      </Button>
-                    </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setView('wishlist')}
+                    className="h-10 gap-1.5 rounded-xl"
+                  >
+                    <Heart className="h-4 w-4" />
+                    {wishlistCount > 0 && (
+                      <span className="text-xs">{wishlistCount}</span>
+                    )}
+                  </Button>
+                </div>
 
-                    <Separator />
-
-                    {/* Advanced Filters */}
-                    <AdvancedFilters
-                      selectedMaterials={selectedMaterials}
-                      onMaterialsChange={setSelectedMaterials}
-                      minRating={minRating}
-                      onRatingChange={setMinRating}
-                      customizableOnly={customizableOnly}
-                      onCustomizableChange={setCustomizableOnly}
-                      verifiedOnly={verifiedOnly}
-                      onVerifiedChange={setVerifiedOnly}
-                    />
-
-                    <Separator />
-
-                    {/* Category Selection */}
-                    <div className="space-y-3">
-                      <Label className="text-sm font-medium">Category</Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {CRAFT_CATEGORIES.map((cat) => (
-                          <button
-                            key={cat.value}
-                            onClick={() => {
-                              handleCategoryChange(cat.value);
-                            }}
-                            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
-                              selectedCategory === cat.value
-                                ? 'bg-primary text-primary-foreground'
-                                : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                            }`}
-                          >
-                            <span>{cat.emoji}</span>
-                            <span className="truncate">{cat.label.split('&')[0].trim()}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <Separator />
-
-                    {/* Apply and Clear Buttons */}
-                    <div className="space-y-2">
-                      <Button 
-                        onClick={handleApplyAdvancedFilters}
-                        className="w-full"
-                      >
-                        Apply Filters
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        onClick={() => {
-                          clearAllFilters();
-                          setIsFilterOpen(false);
-                        }}
-                        className="w-full"
-                      >
-                        Clear All Filters
-                      </Button>
-                    </div>
-                  </div>
-                </SheetContent>
-              </Sheet>
-
-              {/* Wishlist Button - Mobile */}
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setView('wishlist')}
-                className="h-9 gap-1.5 sm:hidden"
-              >
-                <Heart className="h-4 w-4" />
-                {wishlistCount > 0 && (
-                  <span className="text-xs">{wishlistCount}</span>
+                {/* Clear Filters - Show when filters are active */}
+                {(activeFilterCount > 0 || searchQuery) && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={clearAllFilters}
+                    className="h-10 text-muted-foreground hover:text-foreground gap-1 rounded-xl"
+                  >
+                    <X className="h-4 w-4" />
+                    Clear
+                  </Button>
                 )}
-              </Button>
-
-              {/* Clear Filters - Show when filters are active */}
-              {(activeFilterCount > 0 || searchQuery) && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={clearAllFilters}
-                  className="h-9 text-muted-foreground hover:text-foreground gap-1"
-                >
-                  <X className="h-4 w-4" />
-                  Clear
-                </Button>
-              )}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Active Filters Display */}
-        {(selectedCategory !== 'all' || minPrice !== undefined || maxPrice !== undefined || searchQuery) && (
-          <div className="flex flex-wrap items-center gap-2 mb-4">
-            <span className="text-sm text-muted-foreground">Active filters:</span>
-            {searchQuery && (
-              <Badge variant="secondary" className="gap-1">
-                Search: "{searchQuery}"
-                <button onClick={() => { setSearchQuery(''); executeSearch(); }}>
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            )}
-            {selectedCategory !== 'all' && (
-              <Badge variant="secondary" className="gap-1">
-                {CRAFT_CATEGORIES.find(c => c.value === selectedCategory)?.emoji} {CRAFT_CATEGORIES.find(c => c.value === selectedCategory)?.label}
-                <button onClick={() => handleCategoryChange('all')}>
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            )}
-            {(minPrice !== undefined || maxPrice !== undefined) && (
-              <Badge variant="secondary" className="gap-1">
-                {minPrice !== undefined && maxPrice !== undefined
-                  ? `₹${minPrice} - ₹${maxPrice}`
-                  : minPrice !== undefined
-                  ? `₹${minPrice}+`
-                  : `Under ₹${maxPrice}`}
-                <button onClick={() => handlePriceRangeChange('all')}>
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            )}
+          {/* Active Filters Display */}
+          {(selectedCategory !== 'all' || minPrice !== undefined || maxPrice !== undefined || searchQuery) && (
+            <div className="flex flex-wrap items-center gap-2 mb-5">
+              <span className="text-sm text-muted-foreground font-medium">Active filters:</span>
+              {searchQuery && (
+                <Badge variant="secondary" className="gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary border-0">
+                  Search: "{searchQuery}"
+                  <button onClick={() => { setSearchQuery(''); executeSearch(); }} className="hover:bg-primary/20 rounded-full p-0.5">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {selectedCategory !== 'all' && (
+                <Badge variant="secondary" className="gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary border-0">
+                  {CRAFT_CATEGORIES.find(c => c.value === selectedCategory)?.emoji} {CRAFT_CATEGORIES.find(c => c.value === selectedCategory)?.label}
+                  <button onClick={() => handleCategoryChange('all')} className="hover:bg-primary/20 rounded-full p-0.5">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {(minPrice !== undefined || maxPrice !== undefined) && (
+                <Badge variant="secondary" className="gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary border-0">
+                  {minPrice !== undefined && maxPrice !== undefined
+                    ? `₹${minPrice} - ₹${maxPrice}`
+                    : minPrice !== undefined
+                    ? `₹${minPrice}+`
+                    : `Under ₹${maxPrice}`}
+                  <button onClick={() => handlePriceRangeChange('all')} className="hover:bg-primary/20 rounded-full p-0.5">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+            </div>
+          )}
+
+          {/* Recently Viewed Section */}
+          <RecentlyViewedSection
+            products={recentProducts}
+            onClear={clearRecentlyViewed}
+            onProductClick={handleRecentProductClick}
+            wishlistProductIds={wishlistProductIds}
+          />
+
+          {/* Results Count */}
+          <div className="flex items-center justify-between mb-5">
+            <p className="text-sm text-muted-foreground font-medium">
+              {isLoading ? 'Searching...' : `${displayProducts.length} products found`}
+            </p>
           </div>
-        )}
 
-        {/* Recently Viewed Section */}
-        <RecentlyViewedSection
-          products={recentProducts}
-          onClear={clearRecentlyViewed}
-          onProductClick={handleRecentProductClick}
-          wishlistProductIds={wishlistProductIds}
-        />
-
-        {/* Results Count */}
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-sm text-muted-foreground">
-            {isLoading ? 'Searching...' : `${displayProducts.length} products found`}
-          </p>
+          {/* Products Grid with Pull-to-Refresh */}
+          <ProductGrid 
+            products={displayProducts} 
+            isLoading={isLoading && !isOffline}
+            onRefresh={handleRefresh}
+            enablePullToRefresh={!isOffline}
+            wishlistProductIds={wishlistProductIds}
+            onToggleWishlist={handleToggleWishlist}
+            comparisonProductIds={comparisonProductIds}
+            onToggleComparison={toggleComparison}
+            canAddToComparison={canAddToComparison}
+            onProductView={handleProductView}
+          />
         </div>
-
-        {/* Products Grid with Pull-to-Refresh */}
-        <ProductGrid 
-          products={displayProducts} 
-          isLoading={isLoading && !isOffline}
-          onRefresh={handleRefresh}
-          enablePullToRefresh={!isOffline}
-          wishlistProductIds={wishlistProductIds}
-          onToggleWishlist={handleToggleWishlist}
-          comparisonProductIds={comparisonProductIds}
-          onToggleComparison={toggleComparison}
-          canAddToComparison={canAddToComparison}
-          onProductView={handleProductView}
-        />
 
         {/* Shopping Cart Drawer */}
         <ShoppingCartDrawer 

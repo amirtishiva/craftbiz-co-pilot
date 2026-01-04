@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Loader2, Upload, User, Info } from "lucide-react";
+import { Loader2, Upload, User, Info, Camera, MapPin, Phone, Briefcase } from "lucide-react";
 import { validateImage } from "@/lib/validation";
 import { useUserRoles } from "@/hooks/useUserRoles";
 
@@ -150,66 +150,77 @@ export const ProfileSettings = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading profile...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="container max-w-4xl mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Profile Settings</h1>
-        <p className="text-muted-foreground mt-2">
-          {isSeller 
-            ? "Manage your personal account information. For marketplace-visible shop settings, go to Shop Settings."
-            : "Manage your profile and account information"
-          }
-        </p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20">
+      <div className="container max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-6 sm:space-y-8">
+        {/* Header */}
+        <div className="space-y-2">
+          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+            Profile Settings
+          </h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
+            {isSeller 
+              ? "Manage your personal account information. For marketplace-visible shop settings, go to Shop Settings."
+              : "Manage your profile and account information"
+            }
+          </p>
+        </div>
 
-      {isSeller && (
-        <Card className="bg-muted/50 border-dashed">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-3">
-              <Info className="h-5 w-5 text-primary mt-0.5" />
-              <div className="text-sm">
-                <p className="font-medium">Seller Tip</p>
-                <p className="text-muted-foreground">
-                  To update your shop name, location, and contact info that buyers see in the marketplace, 
-                  use the <span className="font-medium">Shop Settings</span> tab in your seller dashboard.
-                </p>
+        {isSeller && (
+          <Card className="bg-gradient-to-r from-primary/5 to-accent/5 border-primary/20 shadow-sm">
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Info className="h-4 w-4 text-primary" />
+                </div>
+                <div className="text-sm">
+                  <p className="font-semibold text-foreground">Seller Tip</p>
+                  <p className="text-muted-foreground mt-0.5">
+                    To update your shop name, location, and contact info that buyers see in the marketplace, 
+                    use the <span className="font-medium text-foreground">Shop Settings</span> tab in your seller dashboard.
+                  </p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+        )}
 
-      <form onSubmit={handleSubmit}>
-        <Card>
-          <CardHeader>
-            <CardTitle>Profile Picture</CardTitle>
-            <CardDescription>
-              {isSeller 
-                ? "Your personal profile picture (also used as shop photo if not set separately)"
-                : "Upload your profile picture"
-              }
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-6">
-              <div className="relative h-24 w-24 rounded-full overflow-hidden bg-muted flex items-center justify-center">
-                {previewUrl ? (
-                  <img src={previewUrl} alt="Avatar" className="h-full w-full object-cover" />
-                ) : (
-                  <User className="h-12 w-12 text-muted-foreground" />
-                )}
-              </div>
-              <div className="flex-1">
-                <Label htmlFor="avatar" className="cursor-pointer">
-                  <div className="flex items-center gap-2 text-sm text-primary hover:underline">
-                    <Upload className="h-4 w-4" />
-                    Choose file
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Avatar Section */}
+          <Card className="overflow-hidden border-border/50 shadow-sm">
+            <CardHeader className="bg-gradient-to-r from-muted/50 to-muted/30 border-b border-border/50">
+              <CardTitle className="text-lg">Profile Picture</CardTitle>
+              <CardDescription>
+                {isSeller 
+                  ? "Your personal profile picture (also used as shop photo if not set separately)"
+                  : "Upload your profile picture"
+                }
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="flex flex-col sm:flex-row items-center gap-6">
+                <div className="relative group">
+                  <div className="h-28 w-28 sm:h-32 sm:w-32 rounded-2xl overflow-hidden bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center ring-4 ring-background shadow-lg">
+                    {previewUrl ? (
+                      <img src={previewUrl} alt="Avatar" className="h-full w-full object-cover" />
+                    ) : (
+                      <User className="h-14 w-14 text-muted-foreground" />
+                    )}
                   </div>
+                  <Label 
+                    htmlFor="avatar" 
+                    className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-2xl"
+                  >
+                    <Camera className="h-8 w-8 text-white" />
+                  </Label>
                   <Input
                     id="avatar"
                     type="file"
@@ -217,112 +228,140 @@ export const ProfileSettings = () => {
                     onChange={handleAvatarChange}
                     className="hidden"
                   />
-                </Label>
-                <p className="text-xs text-muted-foreground mt-1">
-                  JPG, PNG or WEBP. Max 20MB.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>{isSeller ? "Personal Details" : "Account Details"}</CardTitle>
-            <CardDescription>
-              {isSeller 
-                ? "Your personal information (not shown to buyers)"
-                : "Your account information"
-              }
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="business_name">
-                  {isSeller ? "Display Name" : "Name"}
-                </Label>
-                <Input
-                  id="business_name"
-                  value={profile.business_name || ""}
-                  onChange={(e) => setProfile({ ...profile, business_name: e.target.value })}
-                  placeholder={isSeller ? "Your name" : "Your name"}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="business_type">
-                  {isSeller ? "Primary Craft" : "Interests"}
-                </Label>
-                <Input
-                  id="business_type"
-                  value={profile.business_type || ""}
-                  onChange={(e) => setProfile({ ...profile, business_type: e.target.value })}
-                  placeholder={isSeller ? "e.g., Pottery, Jewelry" : "e.g., Handmade goods, Art"}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={profile.phone || ""}
-                  onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                  placeholder="+91 00000 00000"
-                />
-                {isSeller && (
-                  <p className="text-xs text-muted-foreground">
-                    For account recovery. Update Shop Settings for buyer contact.
+                </div>
+                <div className="text-center sm:text-left">
+                  <Label htmlFor="avatar" className="cursor-pointer">
+                    <Button type="button" variant="outline" size="sm" className="rounded-xl" asChild>
+                      <span>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Upload Photo
+                      </span>
+                    </Button>
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    JPG, PNG or WEBP. Max 20MB.
                   </p>
-                )}
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="location">Location</Label>
-                <Input
-                  id="location"
-                  value={profile.location || ""}
-                  onChange={(e) => setProfile({ ...profile, location: e.target.value })}
-                  placeholder="City, State"
-                />
-                {isSeller && (
-                  <p className="text-xs text-muted-foreground">
-                    Update Shop Settings to change marketplace location.
-                  </p>
-                )}
-              </div>
-            </div>
+            </CardContent>
+          </Card>
 
-            <div className="space-y-2">
-              <Label htmlFor="bio">{isSeller ? "Personal Bio" : "Bio"}</Label>
-              <Textarea
-                id="bio"
-                value={profile.bio || ""}
-                onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
-                placeholder={isSeller 
-                  ? "A bit about yourself (your artisan story is in Shop Settings)"
-                  : "Tell us about yourself..."
+          {/* Details Section */}
+          <Card className="overflow-hidden border-border/50 shadow-sm">
+            <CardHeader className="bg-gradient-to-r from-muted/50 to-muted/30 border-b border-border/50">
+              <CardTitle className="text-lg">{isSeller ? "Personal Details" : "Account Details"}</CardTitle>
+              <CardDescription>
+                {isSeller 
+                  ? "Your personal information (not shown to buyers)"
+                  : "Your account information"
                 }
-                className="min-h-[100px]"
-              />
-            </div>
-          </CardContent>
-        </Card>
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-2">
+                  <Label htmlFor="business_name" className="flex items-center gap-2 text-sm font-medium">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    {isSeller ? "Display Name" : "Name"}
+                  </Label>
+                  <Input
+                    id="business_name"
+                    value={profile.business_name || ""}
+                    onChange={(e) => setProfile({ ...profile, business_name: e.target.value })}
+                    placeholder={isSeller ? "Your name" : "Your name"}
+                    className="h-11 rounded-xl bg-background/50"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="business_type" className="flex items-center gap-2 text-sm font-medium">
+                    <Briefcase className="h-4 w-4 text-muted-foreground" />
+                    {isSeller ? "Primary Craft" : "Interests"}
+                  </Label>
+                  <Input
+                    id="business_type"
+                    value={profile.business_type || ""}
+                    onChange={(e) => setProfile({ ...profile, business_type: e.target.value })}
+                    placeholder={isSeller ? "e.g., Pottery, Jewelry" : "e.g., Handmade goods, Art"}
+                    className="h-11 rounded-xl bg-background/50"
+                  />
+                </div>
+              </div>
 
-        <div className="flex justify-end mt-6">
-          <Button type="submit" disabled={saving || uploading}>
-            {saving || uploading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              "Save Changes"
-            )}
-          </Button>
-        </div>
-      </form>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-2">
+                  <Label htmlFor="phone" className="flex items-center gap-2 text-sm font-medium">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    Phone
+                  </Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    value={profile.phone || ""}
+                    onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                    placeholder="+91 00000 00000"
+                    className="h-11 rounded-xl bg-background/50"
+                  />
+                  {isSeller && (
+                    <p className="text-xs text-muted-foreground">
+                      For account recovery. Update Shop Settings for buyer contact.
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="location" className="flex items-center gap-2 text-sm font-medium">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                    Location
+                  </Label>
+                  <Input
+                    id="location"
+                    value={profile.location || ""}
+                    onChange={(e) => setProfile({ ...profile, location: e.target.value })}
+                    placeholder="City, State"
+                    className="h-11 rounded-xl bg-background/50"
+                  />
+                  {isSeller && (
+                    <p className="text-xs text-muted-foreground">
+                      Update Shop Settings to change marketplace location.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="bio" className="text-sm font-medium">{isSeller ? "Personal Bio" : "Bio"}</Label>
+                <Textarea
+                  id="bio"
+                  value={profile.bio || ""}
+                  onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
+                  placeholder={isSeller 
+                    ? "A bit about yourself (your artisan story is in Shop Settings)"
+                    : "Tell us about yourself..."
+                  }
+                  className="min-h-[120px] rounded-xl bg-background/50 resize-none"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Save Button */}
+          <div className="flex justify-end">
+            <Button 
+              type="submit" 
+              disabled={saving || uploading}
+              className="h-11 px-8 rounded-xl shadow-sm"
+            >
+              {saving || uploading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };
