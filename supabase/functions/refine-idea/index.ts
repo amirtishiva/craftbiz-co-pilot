@@ -4,7 +4,7 @@ import { z, ZodError } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 const IdeaSchema = z.object({
@@ -20,9 +20,9 @@ serve(async (req) => {
     const body = await req.json();
     const { ideaText } = IdeaSchema.parse(body);
 
-    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-    if (!GEMINI_API_KEY) {
-      throw new Error('Gemini API key is not configured');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      throw new Error('Lovable API key is not configured');
     }
 
     const systemPrompt = `You are an expert AI business content writer.
@@ -44,31 +44,28 @@ Example Output:
 
     const userPrompt = `Now refine this business idea:\n\n"${ideaText}"`;
 
-    console.log('Refining idea with Gemini AI:', ideaText);
+    console.log('Refining idea with Lovable AI:', ideaText);
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
       },
       body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: `${systemPrompt}\n\n${userPrompt}` }
-            ]
-          }
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
         ],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 1024,
-        }
+        temperature: 0.7,
+        max_tokens: 1024,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Gemini API error:', response.status, errorText);
+      console.error('Lovable AI error:', response.status, errorText);
       
       if (response.status === 429) {
         throw new Error('Rate limit exceeded. Please try again later.');
@@ -78,12 +75,12 @@ Example Output:
     }
 
     const data = await response.json();
-    const refinedIdea = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+    const refinedIdea = data.choices?.[0]?.message?.content?.trim() || '';
 
     console.log('Refined idea:', refinedIdea);
 
     if (!refinedIdea) {
-      console.error('Empty refined idea returned from Gemini');
+      console.error('Empty refined idea returned');
       throw new Error('Failed to generate refined idea');
     }
 
@@ -96,7 +93,6 @@ Example Output:
   } catch (error: unknown) {
     console.error('Error in refine-idea function:', error);
     
-    // Handle Zod validation errors
     if (error instanceof ZodError) {
       const firstError = error.errors?.[0];
       const message = firstError?.message || 'Invalid input data';
